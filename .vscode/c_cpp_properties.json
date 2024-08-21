@@ -1,0 +1,26 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/iitgn-robotics-2/franka_ros1_ws/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/iitgn-robotics-2/franka_ros1_ws/src/franka_ros/franka_control/include/**",
+        "/home/iitgn-robotics-2/franka_ros1_ws/src/franka_ros/franka_example_controllers/include/**",
+        "/home/iitgn-robotics-2/franka_ros1_ws/src/franka_ros/franka_gazebo/include/**",
+        "/home/iitgn-robotics-2/franka_ros1_ws/src/franka_ros/franka_gripper/include/**",
+        "/home/iitgn-robotics-2/franka_ros1_ws/src/franka_ros/franka_hw/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

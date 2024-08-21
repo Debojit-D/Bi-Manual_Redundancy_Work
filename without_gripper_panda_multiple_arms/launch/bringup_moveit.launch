@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Run the main MoveIt executable with trajectory execution -->
+    <include file="$(find without_gripper_panda_multiple_arms_moveit_config)/launch/move_group.launch">
+        <arg name="allow_trajectory_execution" value="true" />
+        <arg name="moveit_controller_manager" value="ros_control" />
+        <arg name="fake_execution_type" value="interpolate" />
+        <arg name="info" value="true" />
+        <arg name="debug" value="false" />
+        <arg name="pipeline" value="ompl" />
+        <arg name="load_robot_description" value="true" />
+    </include>
+
+    <!-- Start the simulated robot in an empty Gazebo world -->
+    <include file="$(find without_gripper_panda_multiple_arms)/launch/panda_multiple_arms_empty_world.launch" />
+
+    <!-- Start the controllers and robot state publisher-->
+    <include file="$(find without_gripper_panda_multiple_arms)/launch/control_utils.launch"/>
+
+    <!-- Start moveit_rviz with the motion planning plugin -->
+    <include file="$(find without_gripper_panda_multiple_arms_moveit_config)/launch/moveit_rviz.launch">
+        <arg name="rviz_config" value="$(find without_gripper_panda_multiple_arms_moveit_config)/launch/moveit.rviz" />
+    </include>
+
+    <!-- Include the compliant box model -->
+    <node name="spawn_compliant_box" pkg="gazebo_ros" type="spawn_model" output="screen"
+            args="-file $(find without_gripper_panda_multiple_arms)/models/compliant_box.sdf -sdf -model compliant_box -x 0.30 -y 0 -z 1" />
+
+    <node pkg="without_gripper_panda_multiple_arms" type="box_object_pose.py" name="box_pose_publisher" output="screen" cwd="node" />
+
+    <!-- Run the delayed start script -->
+    <node
+        pkg="without_gripper_panda_multiple_arms"
+        type="delayed_start.sh"
+        name="delayed_start"
+        output="screen"
+        cwd="node"
+        >
+    </node>
+
+
+</launch>

@@ -1,0 +1,26 @@
+controller_list:
+  - name: fake_left_panda_arm_controller
+    type: $(arg fake_execution_type)
+    joints:
+      - left_arm_joint1
+      - left_arm_joint2
+      - left_arm_joint3
+      - left_arm_joint4
+      - left_arm_joint5
+      - left_arm_joint6
+      - left_arm_joint7
+  - name: fake_right_panda_arm_controller
+    type: $(arg fake_execution_type)
+    joints:
+      - right_arm_joint1
+      - right_arm_joint2
+      - right_arm_joint3
+      - right_arm_joint4
+      - right_arm_joint5
+      - right_arm_joint6
+      - right_arm_joint7
+initial:  # Define initial robot poses per group
+  - group: left_panda_arm
+    pose: left_arm_home
+  - group: right_panda_arm
+    pose: right_arm_home
