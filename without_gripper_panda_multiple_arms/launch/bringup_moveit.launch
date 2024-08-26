@@ -28,6 +28,8 @@
 
     <node pkg="without_gripper_panda_multiple_arms" type="box_object_pose.py" name="box_pose_publisher" output="screen" cwd="node" />
 
+    <node pkg="without_gripper_panda_multiple_arms" type="contact_bases_publisher.py" name="contact_bases_of_box_publisher" output="screen" cwd="node" />
+
     <!-- Run the delayed start script -->
     <node
         pkg="without_gripper_panda_multiple_arms"
