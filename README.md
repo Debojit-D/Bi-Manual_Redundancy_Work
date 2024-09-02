@@ -79,7 +79,3 @@ Provides the pose of the right end effector, including:
 - **Position:** (x, y, z)
 - **Orientation (Quaternion):** (x, y, z, w)
 
-
-### /right_end_effector_pose
-This topic provides the pose of the right end effector, including both the position (x, y, z) and orientation (quaternion) of the right arm's end effector.
-
