@@ -32,6 +32,11 @@ This repository is under development and includes the work currently being carri
     catkin_make
     ```
 
+Given below is the image of how the differet reference frames have been considered.
+
+![Alt text](Frames.jpg)
+
+
 ## Usage
 Provide instructions and examples for using your project. For example:
 ```bash
