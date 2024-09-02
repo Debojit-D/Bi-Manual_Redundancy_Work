@@ -22,8 +22,8 @@ This repository is under development and includes the work currently being carri
 
 3. Clone the following packages and folders:
     ```bash
-    git clone https://github.com/your-username/without_gripper_panda_multiple_arms.git
-    git clone https://github.com/your-username/without_gripper_panda_multiple_arms_moveit_config.git
+    git clone https://github.com/Debojit-D/without_gripper_panda_multiple_arms.git
+    git clone https://github.com/Debojit-D/without_gripper_panda_multiple_arms_moveit_config.git
     ```
 
 4. Navigate back to the workspace root and build the workspace:
