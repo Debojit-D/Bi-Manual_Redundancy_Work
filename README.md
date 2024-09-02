@@ -38,10 +38,9 @@ Given below is the image of how the differet reference frames have been consider
 
 
 ## Usage
-Provide instructions and examples for using your project. For example:
 ```bash
 # Source the workspace
 source devel/setup.bash
 
 # Launch the project
-roslaunch without_gripper_panda_multiple_arms_moveit_config demo.launch
+roslaunch without_gripper_panda_multiple_arms bringup_moveit.launch.
