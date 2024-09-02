@@ -44,3 +44,30 @@ source devel/setup.bash
 
 # Launch the project
 roslaunch without_gripper_panda_multiple_arms bringup_moveit.launch.
+
+
+## Custom ROS Topics
+
+This project includes several custom ROS topics that provide essential information for bi-manual manipulation and redundancy optimization in the simulation environment with two Franka robots.
+
+### /compliant_box_pose
+This topic provides the pose information of the box being grasped by the two Franka robots in the simulation. The data is published as position coordinates (x, y, z) and quaternions (x, y, z, w) representing the orientation of the box.
+
+### /left_contact_frame_basis
+This topic provides the basis information of the left contact point in the simulation. The basis is represented in terms of the rotation matrix components [si, ti, ni] with respect to the world frame.
+
+### /right_contact_frame_basis
+This topic provides the basis information of the right contact point in the simulation. Similar to the left contact frame, it is represented as a rotation matrix [si, ti, ni] with respect to the world frame.
+
+### /left_manipulator_jacobian
+This topic publishes the Jacobian matrix for the left manipulator, which includes the information necessary to understand the relationship between joint velocities and end-effector velocities for the left arm.
+
+### /right_manipulator_jacobian
+This topic publishes the Jacobian matrix for the right manipulator, providing similar information for the right arm, crucial for controlling the end-effector's movements based on joint velocities.
+
+### /left_end_effector_pose
+This topic provides the pose of the left end effector, including both the position (x, y, z) and orientation (quaternion) of the left arm's end effector.
+
+### /right_end_effector_pose
+This topic provides the pose of the right end effector, including both the position (x, y, z) and orientation (quaternion) of the right arm's end effector.
+
