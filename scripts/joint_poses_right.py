@@ -27,8 +27,8 @@ def main():
 
     # Define the joint space target for the right arm
     joint_goal = right_arm_group.get_current_joint_values()
-    joint_goal[0] = 0.0   # Right Arm Joint 1
-    joint_goal[1] = -1.5  # Right Arm Joint 2
+    joint_goal[0] = -2   # Right Arm Joint 1
+    joint_goal[1] = 1.0  # Right Arm Joint 2
     joint_goal[2] = 0.0   # Right Arm Joint 3
     joint_goal[3] = -1.5  # Right Arm Joint 4
     joint_goal[4] = 1.0   # Right Arm Joint 5

@@ -50,7 +50,7 @@ def main():
     left_pose_target = geometry_msgs.msg.Pose()
     left_pose_target.position.x = 0.2999
     left_pose_target.position.y = 0.2000
-    left_pose_target.position.z = 0.0998
+    left_pose_target.position.z = 1.0998
 
     left_roll = 1.54  # Example value
     left_pitch = 0.0  # Example value
@@ -66,10 +66,10 @@ def main():
     right_pose_target = geometry_msgs.msg.Pose()
     right_pose_target.position.x = 0.2999
     right_pose_target.position.y = 0.2000
-    right_pose_target.position.z = 0.0998
+    right_pose_target.position.z = 1.0998
 
-    right_roll = -1.54   # Example value
-    right_pitch = 0.0  # Example value
+    right_roll = 0.0   # Example value
+    right_pitch = -1.54  # Example value
     right_yaw = 0.0    # Example value
 
     right_quat = euler_to_quaternion(right_roll, right_pitch, right_yaw)

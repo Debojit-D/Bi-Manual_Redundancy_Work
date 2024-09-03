@@ -19,9 +19,9 @@ def move_to_cartesian_pose(group, pose_target, arm_name, collision_check=True):
         group.set_planning_pipeline_id("ompl")  # Using OMPL pipeline
 
         # Disable collision checking for this planning group
-        group.set_path_constraints(None)
-        group.allow_replanning(False)
-        rospy.loginfo(f"Collision checking disabled for {arm_name}.")
+        # group.set_path_constraints(None)
+        # group.allow_replanning(False)
+        # rospy.loginfo(f"Collision checking disabled for {arm_name}.")
 
     group.set_pose_target(pose_target)
 
@@ -38,19 +38,18 @@ def move_to_cartesian_pose(group, pose_target, arm_name, collision_check=True):
 
 def main():
     moveit_commander.roscpp_initialize(sys.argv)
-    rospy.init_node('dual_arm_cartesian_move', anonymous=True)
+    rospy.init_node('left_arm_cartesian_move', anonymous=True)
 
-    # Initialize the MoveIt Commander for both arms
+    # Initialize the MoveIt Commander for the left arm
     left_arm_group = moveit_commander.MoveGroupCommander("left_panda_arm")
-    right_arm_group = moveit_commander.MoveGroupCommander("right_panda_arm")
 
-    right_arm_group.set_planning_time(10)
+    left_arm_group.set_planning_time(10)
 
     # Define the Cartesian target pose for the left arm
     left_pose_target = geometry_msgs.msg.Pose()
     left_pose_target.position.x = 0.2999
-    left_pose_target.position.y = 0.2000
-    left_pose_target.position.z = 0.0998
+    left_pose_target.position.y = 0.2500
+    left_pose_target.position.z = 1.0998
 
     left_roll = 1.54  # Example value
     left_pitch = 0.0  # Example value
@@ -62,32 +61,15 @@ def main():
     left_pose_target.orientation.z = left_quat[2]
     left_pose_target.orientation.w = left_quat[3]
 
-    # Define the Cartesian target pose for the right arm
-    right_pose_target = geometry_msgs.msg.Pose()
-    right_pose_target.position.x = 0.2999
-    right_pose_target.position.y = 0.2000
-    right_pose_target.position.z = 0.0998
-
-    right_roll = -1.54   # Example value
-    right_pitch = 0.0  # Example value
-    right_yaw = 0.0    # Example value
-
-    right_quat = euler_to_quaternion(right_roll, right_pitch, right_yaw)
-    right_pose_target.orientation.x = right_quat[0]
-    right_pose_target.orientation.y = right_quat[1]
-    right_pose_target.orientation.z = right_quat[2]
-    right_pose_target.orientation.w = right_quat[3]
-
-    rospy.loginfo("Starting simultaneous Cartesian movement...")
+    rospy.loginfo("Starting Cartesian movement for the left arm...")
 
     # Disable collision checking during planning
     left_arm_success = move_to_cartesian_pose(left_arm_group, left_pose_target, "Left Arm", collision_check=False)
-    right_arm_success = move_to_cartesian_pose(right_arm_group, right_pose_target, "Right Arm", collision_check=False)
     
-    if left_arm_success and right_arm_success:
-        rospy.loginfo("Both arms have reached their Cartesian target poses.")
+    if left_arm_success:
+        rospy.loginfo("Left arm has reached its Cartesian target pose.")
     else:
-        rospy.logerr("One or both arms failed to reach the Cartesian target poses.")
+        rospy.logerr("Left arm failed to reach the Cartesian target pose.")
 
     # Shut down MoveIt cleanly
     moveit_commander.roscpp_shutdown()
