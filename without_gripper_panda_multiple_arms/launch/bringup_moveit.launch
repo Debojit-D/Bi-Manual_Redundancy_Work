@@ -30,6 +30,8 @@
 
     <node pkg="without_gripper_panda_multiple_arms" type="contact_bases_publisher.py" name="contact_bases_of_box_publisher" output="screen" cwd="node" />
 
+    <node pkg="without_gripper_panda_multiple_arms" type="grasp_matrix_and_hand_jacobian_publisher.py" name="grasp_matrix_and_hand_jacobian_publisher" output="screen" cwd="node" />
+    
     <!-- Run the delayed start script -->
     <node
         pkg="without_gripper_panda_multiple_arms"
@@ -39,6 +41,5 @@
         cwd="node"
         >
     </node>
-
 
 </launch>

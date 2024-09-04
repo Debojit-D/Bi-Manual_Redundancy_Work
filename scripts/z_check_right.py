@@ -48,7 +48,7 @@ def main():
     # Define the Cartesian target pose for the right arm
     right_pose_target = geometry_msgs.msg.Pose()
     right_pose_target.position.x = 0.2999
-    right_pose_target.position.y = -0.2500
+    right_pose_target.position.y = -0.1500
     right_pose_target.position.z = 1.0998
 
     right_roll = -1.54   # Example value

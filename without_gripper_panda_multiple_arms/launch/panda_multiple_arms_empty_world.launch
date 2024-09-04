@@ -1,7 +1,9 @@
 <?xml version="1.0"?>
 <launch>
+
     <!-- Launch empty Gazebo world -->
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <arg name="world_name" value="$(find gazebo_ros_link_attacher)/worlds/test_attacher.world"/>
         <arg name="use_sim_time" value="true" />
         <arg name="gui" value="true" />
         <arg name="paused" value="false" />

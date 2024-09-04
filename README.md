@@ -46,36 +46,42 @@ source devel/setup.bash
 roslaunch without_gripper_panda_multiple_arms bringup_moveit.launch.
 ```
 
-## Custom ROS Topics
+### Custom ROS Topics
 
 This project includes several custom ROS topics that provide essential information for bi-manual manipulation and redundancy optimization in the simulation environment with two Franka robots.
 
-### `/compliant_box_pose`
+#### `/compliant_box_pose`
 Publishes the pose information of the box being grasped by the two Franka robots in the simulation. The data is provided as:
 - **Position:** (x, y, z)
 - **Orientation (Quaternion):** (x, y, z, w)
 
-### `/left_contact_frame_basis`
+#### `/left_contact_frame_basis`
 Provides the basis information of the left contact point in the simulation. The basis is represented as:
 - **Rotation Matrix:** [si, ti, ni] relative to the world frame.
 
-### `/right_contact_frame_basis`
+#### `/right_contact_frame_basis`
 Provides the basis information of the right contact point in the simulation. Similar to the left contact frame, it is represented as:
 - **Rotation Matrix:** [si, ti, ni] relative to the world frame.
 
-### `/left_manipulator_jacobian`
+#### `/left_manipulator_jacobian`
 Publishes the Jacobian matrix for the left manipulator. This includes information necessary for understanding the relationship between joint velocities and the end-effector velocities for the left arm.
 
-### `/right_manipulator_jacobian`
+#### `/right_manipulator_jacobian`
 Publishes the Jacobian matrix for the right manipulator, providing similar information as the left, crucial for controlling the end-effector's movements based on joint velocities.
 
-### `/left_end_effector_pose`
+#### `/left_end_effector_pose`
 Provides the pose of the left end effector, including:
 - **Position:** (x, y, z)
 - **Orientation (Quaternion):** (x, y, z, w)
 
-### `/right_end_effector_pose`
+#### `/right_end_effector_pose`
 Provides the pose of the right end effector, including:
 - **Position:** (x, y, z)
 - **Orientation (Quaternion):** (x, y, z, w)
+
+#### `/hand_jacobian`
+Publishes the Jacobian matrix for the hand. This matrix is essential for understanding the relationship between the joint velocities of the hand and the velocities of the hand's end-effector.
+
+#### `/grasp_matrix`
+Publishes the grasp matrix, which is crucial for understanding the grasp quality and the relationship between the forces applied by the fingers and the resultant forces and torques on the object being grasped.
 
