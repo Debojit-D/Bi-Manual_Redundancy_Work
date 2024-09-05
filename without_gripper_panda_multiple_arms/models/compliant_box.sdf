@@ -32,14 +32,14 @@
         <surface>
           <contact>
             <ode>
-              <kp>10000.0</kp> <!-- Spring stiffness -->
-              <kd>1.0</kd>     <!-- Damping coefficient -->
+              <kp>30000.0</kp> <!-- Moderate Spring stiffness to stabilize the attachment -->
+              <kd>150.0</kd>   <!-- Increased Damping coefficient to reduce oscillations -->
             </ode>
           </contact>
           <bounce/>
           <friction>
             <ode>
-              <mu>1.0</mu>      <!-- Friction coefficient -->
+              <mu>1.0</mu>      <!-- Increased friction coefficient for stable interaction -->
               <mu2>1.0</mu2>
             </ode>
           </friction>
@@ -48,11 +48,11 @@
 
       <!-- Inertial: The mass and inertia of the box -->
       <inertial>
-        <mass>0.5</mass> <!-- Adjust mass as needed -->
+        <mass>3.0</mass> <!-- Further increase mass to enhance stability during interactions -->
         <inertia>
-          <ixx>0.0001</ixx>
-          <iyy>0.0001</iyy>
-          <izz>0.0001</izz>
+          <ixx>0.04</ixx> <!-- Increased inertia values for better rotational stability -->
+          <iyy>0.05</iyy>
+          <izz>0.04</izz>
         </inertia>
       </inertial>
     </link>

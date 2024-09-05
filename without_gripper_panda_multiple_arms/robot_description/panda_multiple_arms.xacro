@@ -43,10 +43,10 @@
     </joint>
 
     <!-- right arm without gripper -->
-    <xacro:franka_arm arm_id="$(arg arm_id_1)" connected_to="base" xyz="0 -0.25 1" gazebo="true" safety_distance="0.03" joint_limits="${xacro.load_yaml('$(find franka_description)/robots/panda/joint_limits.yaml')}"/>
+    <xacro:franka_arm arm_id="$(arg arm_id_1)" connected_to="base" xyz="0 -0.20 1" gazebo="true" safety_distance="0.03" joint_limits="${xacro.load_yaml('$(find franka_description)/robots/panda/joint_limits.yaml')}"/>
 
     <!-- left arm without gripper -->
-    <xacro:franka_arm arm_id="$(arg arm_id_2)" connected_to="base" xyz="0 0.25 1" gazebo="true" safety_distance="0.03" joint_limits="${xacro.load_yaml('$(find franka_description)/robots/panda/joint_limits.yaml')}"/>
+    <xacro:franka_arm arm_id="$(arg arm_id_2)" connected_to="base" xyz="0 0.20 1" gazebo="true" safety_distance="0.03" joint_limits="${xacro.load_yaml('$(find franka_description)/robots/panda/joint_limits.yaml')}"/>
 
     <!-- right arm joints control interface -->
     <xacro:gazebo-joint joint="$(arg arm_id_1)_joint1" transmission="hardware_interface/PositionJointInterface" />

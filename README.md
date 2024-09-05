@@ -85,3 +85,14 @@ Publishes the Jacobian matrix for the hand. This matrix is essential for underst
 #### `/grasp_matrix`
 Publishes the grasp matrix, which is crucial for understanding the grasp quality and the relationship between the forces applied by the fingers and the resultant forces and torques on the object being grasped.
 
+rosservice call /link_attacher_node/attach "model_name_1: 'panda_multiple_arms'
+link_name_1: 'right_arm_link7'
+model_name_2: 'compliant_box'
+link_name_2: 'box_link'"
+
+rosservice call /link_attacher_node/attach "model_name_1: 'panda_multiple_arms'
+link_name_1: 'left_arm_link7'
+model_name_2: 'compliant_box'
+link_name_2: 'box_link'"
+
+For detach use dettach instead of attach 

@@ -5,6 +5,7 @@ import rospy
 import moveit_commander
 import geometry_msgs.msg
 import tf.transformations as tf
+from controller_manager_msgs.srv import SwitchController
 
 def euler_to_quaternion(roll, pitch, yaw):
     """Convert Euler angles to quaternion."""
@@ -17,11 +18,6 @@ def move_to_cartesian_pose(group, pose_target, arm_name, collision_check=True):
     if not collision_check:
         group.set_planner_id("RRTConnectkConfigDefault")  # Example planner, you can customize this
         group.set_planning_pipeline_id("ompl")  # Using OMPL pipeline
-
-        # Disable collision checking for this planning group
-        # group.set_path_constraints(None)
-        # group.allow_replanning(False)
-        # rospy.loginfo(f"Collision checking disabled for {arm_name}.")
 
     group.set_pose_target(pose_target)
 
@@ -45,10 +41,10 @@ def main():
 
     left_arm_group.set_planning_time(10)
 
-    # Define the Cartesian target pose for the left arm
+    # Define the Cartesian target pose for the left arm (first step)
     left_pose_target = geometry_msgs.msg.Pose()
     left_pose_target.position.x = 0.2999
-    left_pose_target.position.y = 0.1510
+    left_pose_target.position.y = 0.2210  # First step target
     left_pose_target.position.z = 1.0998
 
     left_roll = 1.54  # Example value
@@ -61,15 +57,24 @@ def main():
     left_pose_target.orientation.z = left_quat[2]
     left_pose_target.orientation.w = left_quat[3]
 
-    rospy.loginfo("Starting Cartesian movement for the left arm...")
+    rospy.loginfo("Starting Cartesian movement for the left arm to the first position...")
 
-    # Disable collision checking during planning
+    # Step 1: Move the left arm to the first target position (y = 0.2010)
+    move_to_cartesian_pose(left_arm_group, left_pose_target, "Left Arm", collision_check=False)
+
+    # Update the position for the second step (y = 0.1510)
+    left_pose_target.position.y = 0.1510
+
+    rospy.loginfo("Moving to the final target position...")
+
+    # Step 2: Move the left arm to the final target position (y = 0.1510)
     left_arm_success = move_to_cartesian_pose(left_arm_group, left_pose_target, "Left Arm", collision_check=False)
     
     if left_arm_success:
-        rospy.loginfo("Left arm has reached its Cartesian target pose.")
+        rospy.loginfo("Left arm has reached its final Cartesian target pose.")
+
     else:
-        rospy.logerr("Left arm failed to reach the Cartesian target pose.")
+        rospy.logerr("Left arm failed to reach the final Cartesian target pose.")
 
     # Shut down MoveIt cleanly
     moveit_commander.roscpp_shutdown()

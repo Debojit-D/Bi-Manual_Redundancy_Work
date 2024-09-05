@@ -6,6 +6,6 @@
 
   <!-- Load the controllers -->
   <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
-    output="screen" args="left_panda_arm_controller right_panda_arm_controller right_arm_position_controller left_arm_position_controller "/>
+    output="screen" args="right_arm_trajectory_controller left_arm_trajectory_controller "/>
 
 </launch>

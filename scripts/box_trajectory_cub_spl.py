@@ -159,13 +159,13 @@ def move_box_to_target():
 
     # Hardcoded positions and orientations (modifiable)
     initial_pos_list = [initial_pos.x, initial_pos.y, initial_pos.z]
-    point_1 = [0.3, -0.5, 1.6]  # Intermediate point 1
-    target_position = [0.1660, -0.7158, 1.1]  # Target position
+    point_1 = [0.3, 0.0, 1.6]  # Intermediate point 1
+    target_position = [0.2960, -0.3158, 1.1]  # Target position
 
     # Quaternions for the corresponding positions (modifiable orientations)
     initial_orient_list = [initial_orient.x, initial_orient.y, initial_orient.z, initial_orient.w]
     orient_1 = [0, 0, 0, 1]  # Intermediate orientation
-    target_orientation = [0, 0, -0.7157, 0.7157]  # Target orientation
+    target_orientation = [0, 0, -0.5157, 0.7157]  # Target orientation
 
     # All points and orientations in sequence (initial -> point 1 -> target)
     points = [initial_pos_list, point_1, target_position]

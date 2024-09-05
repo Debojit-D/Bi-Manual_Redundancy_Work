@@ -24,7 +24,7 @@
 
     <!-- Include the compliant box model -->
     <node name="spawn_compliant_box" pkg="gazebo_ros" type="spawn_model" output="screen"
-            args="-file $(find without_gripper_panda_multiple_arms)/models/compliant_box.sdf -sdf -model compliant_box -x 0.30 -y 0 -z 1" />
+            args="-file $(find without_gripper_panda_multiple_arms)/models/compliant_box.sdf -sdf -model compliant_box -x 0.30 -y 0 -z 0.5" />
 
     <node pkg="without_gripper_panda_multiple_arms" type="box_object_pose.py" name="box_pose_publisher" output="screen" cwd="node" />
 

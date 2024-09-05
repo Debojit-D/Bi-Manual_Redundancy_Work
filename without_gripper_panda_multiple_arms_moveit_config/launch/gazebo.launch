@@ -5,7 +5,7 @@
   <arg name="paused" default="false" doc="Start Gazebo paused"/>
   <arg name="world_name" default="worlds/empty.world" doc="Gazebo world file"/>
   <arg name="world_pose" default="-x 0 -y 0 -z 0 -R 0 -P 0 -Y 0" doc="Pose to spawn the robot at"/>
-  <arg name="initial_joint_positions" default=" -J left_arm_joint1 0 -J left_arm_joint2 -0.785 -J left_arm_joint3 0 -J left_arm_joint4 -2.356 -J left_arm_joint5 0 -J left_arm_joint6 1.571 -J left_arm_joint7 0.785 -J right_arm_joint1 0 -J right_arm_joint2 -0.785 -J right_arm_joint3 0 -J right_arm_joint4 -2.356 -J right_arm_joint5 0 -J right_arm_joint6 1.571 -J right_arm_joint7 0.785" doc="Initial joint configuration of the robot"/>
+  <arg name="initial_joint_positions" default=" -J left_arm_joint1 0 -J left_arm_joint2 -0.76 -J left_arm_joint3 -0.012 -J left_arm_joint4 -2.32 -J left_arm_joint5 0.015 -J left_arm_joint6 1.54 -J left_arm_joint7 -0.75 -J right_arm_joint1 -0.003 -J right_arm_joint2 -0.7478 -J right_arm_joint3 -0.012 -J right_arm_joint4 -2.32 -J right_arm_joint5 0 -J right_arm_joint6 1.54 -J right_arm_joint7 -0.75" doc="Initial joint configuration of the robot"/>
 
   <!-- Start Gazebo paused to allow the controllers to pickup the initial pose -->
   <include file="$(find gazebo_ros)/launch/empty_world.launch" pass_all_args="true">
@@ -13,7 +13,7 @@
   </include>
 
   <!-- Set the robot urdf on the parameter server -->
-  <param name="robot_description" textfile="$(find without_gripper_panda_multiple_arms_moveit_config)/config/gazebo_panda_multiple_arms.urdf" />
+  <param name="robot_description" command="xacro  '$(find without_gripper_panda_multiple_arms)/robot_description/panda_multiple_arms.xacro'" />
 
   <!-- Unpause the simulation after loading the robot model -->
   <arg name="unpause" value="$(eval '' if arg('paused') else '-unpause')" />
