@@ -134,7 +134,11 @@ class ManipulatorStatePublisher:
         return np.array(jacobian)
 
     def run(self):
-        rospy.spin()
+        rate = rospy.Rate(100)  # Set the rate to 100 Hz
+        while not rospy.is_shutdown():
+        # Call the joint_states_callback function at 100 Hz
+            self.joint_states_callback(None)  # You can pass None since you're manually calling it
+            rate.sleep()
 
 if __name__ == '__main__':
     try:

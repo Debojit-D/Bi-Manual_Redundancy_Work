@@ -30,7 +30,7 @@ def slerp_quaternion(start_quat, end_quat, t, t_final):
     tau = t / t_final
     return tf.quaternion_slerp(start_quat, end_quat, tau)
 
-def generate_position_spline_trajectory(points, total_time=5.0, time_step=0.01):
+def generate_position_spline_trajectory(points, total_time=15.0, time_step=0.001):
     """Generate a smooth position trajectory using cubic spline interpolation."""
     num_points = len(points)
     t_points = np.linspace(0, total_time, num_points)
@@ -159,17 +159,17 @@ def move_box_to_target():
 
     # Hardcoded positions and orientations (modifiable)
     initial_pos_list = [initial_pos.x, initial_pos.y, initial_pos.z]
-    point_1 = [0.3, 0.0, 1.6]  # Intermediate point 1
-    target_position = [0.2960, -0.3158, 1.1]  # Target position
+    point_1 = [initial_pos.x, initial_pos.y, 1.6]  # Intermediate point 1
+    #target_position = [0.2960, -0.3158, 1.1]  # Target position
 
     # Quaternions for the corresponding positions (modifiable orientations)
     initial_orient_list = [initial_orient.x, initial_orient.y, initial_orient.z, initial_orient.w]
-    orient_1 = [0, 0, 0, 1]  # Intermediate orientation
-    target_orientation = [0, 0, -0.5157, 0.7157]  # Target orientation
+    orient_1 = [initial_orient.x, initial_orient.y, initial_orient.z, initial_orient.w]  # Intermediate orientation
+    #target_orientation = [0, 0, -0.5157, 0.7157]  # Target orientation
 
     # All points and orientations in sequence (initial -> point 1 -> target)
-    points = [initial_pos_list, point_1, target_position]
-    orientations = [initial_orient_list, orient_1, target_orientation]
+    points = [initial_pos_list, point_1]#, target_position]
+    orientations = [initial_orient_list, orient_1]#, target_orientation]
 
     # Generate a smooth position trajectory using cubic spline interpolation
     position_trajectory, t_values = generate_position_spline_trajectory(points)

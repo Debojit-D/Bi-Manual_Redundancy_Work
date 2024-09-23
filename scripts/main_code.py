@@ -15,54 +15,26 @@ box_pose = None
 trajectory_data = None
 
 def save_joint_angles_to_csv(file_name, joint_angles):
-    """
-    Append the joint angles to a CSV file.
-    
-    Args:
-        file_name (str): The name of the CSV file to write to.
-        joint_angles (list or array): The list of joint angles (14 elements).
-    """
+
     with open(file_name, mode='a', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(joint_angles)  # Write the joint angles as a new row
 
 def grad_manipulability(A, W, delta=1e-6):
-    """
-    Computes the gradient of the manipulability measure W with respect to the joint angles.
-    
-    Parameters:
-    A (numpy array): The Jacobian or grasp matrix involved in the manipulability calculation.
-    W (float): The manipulability measure (e.g., sqrt(det(AA^T))).
-    delta (float): Small perturbation for finite differences (default is 1e-6).
-    
-    Returns:
-    numpy array: Gradient of the manipulability w.r.t joint angles (phi).
-    """
-    
-    # Number of joints (or degrees of freedom)
     num_joints = A.shape[1]
-    
-    # Initialize gradient vector for each joint
     grad_W = np.zeros(num_joints)
-    
-    # Compute the current value of W before perturbing any joints
     W_current = W
     
     # Loop over each joint and compute finite difference gradient
     for i in range(num_joints):
-        # Perturb the ith joint by a small delta
         A_perturbed = A.copy()
-        A_perturbed[:, i] += delta  # Add delta to column i (representing ith joint)
-        
-        # Recompute manipulability for the perturbed joint angles
+        A_perturbed[:, i] += delta 
+    
         W_perturbed = np.sqrt(np.linalg.det(A_perturbed @ A_perturbed.T))
-        
-        # Compute the finite difference approximation of the gradient
         grad_W[i] = (W_perturbed - W_current) / delta
     
     return grad_W
 
-# Function to compute matrix A from the G matrix and Hand Jacobian
 def compute_A(G_matrix, Hand_Jacobian):
     if G_matrix is None or Hand_Jacobian is None:
         rospy.logwarn("G_matrix or Hand_Jacobian not received yet!")
@@ -74,21 +46,8 @@ def compute_A(G_matrix, Hand_Jacobian):
     return A
 
 # Function to compute gradient of manipulability w.r.t. joint angles
-def compute_phi_dot_opt(A, optimization_type, gain=0.00000001):
-    """
-    Computes the gradient of the manipulability measure with respect to joint angles.
+def compute_phi_dot_opt(A, optimization_type, gain=0.1):
     
-    Parameters:
-    A (numpy array): The Jacobian matrix or a related matrix involved in manipulability.
-    optimization_type (str): Type of manipulability optimization ("velocity_manipulability", 
-                             "force_manipulability", "directional_force_manipulability").
-    gain (float): Gain to scale the gradient contribution (default is 1e-8).
-    
-    Returns:
-    numpy array: Gradient of manipulability (phi_dot_opt), scaled by the gain.
-    """
-    
-    # Compute manipulability measure W based on the selected optimization type
     if optimization_type == "velocity_manipulability":
         W = velocity_manipulability(A)
     elif optimization_type == "force_manipulability":
@@ -98,27 +57,20 @@ def compute_phi_dot_opt(A, optimization_type, gain=0.00000001):
     else:
         raise ValueError("Invalid optimization type")
 
-    # Compute the gradient of W w.r.t joint angles (phi)
-    # Here we assume a 'grad_manipulability' function that calculates this gradient
     grad_W = grad_manipulability(A, W)
 
-    # Apply the gain scaling to the gradient
     phi_dot_opt = gain * grad_W
     
     return phi_dot_opt
 
 # Function to compute the third term: (I - A_pinv * A) * phi_dot_opt
 def compute_null_space_component(A):
-    # Compute the pseudo-inverse of A
     A_pinv = np.linalg.pinv(A)
 
-    # Identity matrix of appropriate size
     I = np.eye(A.shape[1])
 
-    # Null-space projection matrix (I - A_pinv * A)
     null_space_matrix = I - np.dot(A_pinv, A)
 
-    # Compute the null-space component
     null_space_component = null_space_matrix
 
     return null_space_component

@@ -29,8 +29,12 @@ def box_pose_publisher():
     # Subscriber to the /gazebo/model_states topic
     rospy.Subscriber('/gazebo/model_states', ModelStates, box_pose_callback)
 
+    # Set rate to 100 Hz
+    rate = rospy.Rate(100)
+
     # Keep the node running
-    rospy.spin()
+    while not rospy.is_shutdown():
+        rate.sleep()  # Sleep to maintain the 100 Hz rate
 
 if __name__ == '__main__':
     try:

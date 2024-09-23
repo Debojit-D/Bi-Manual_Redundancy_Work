@@ -117,8 +117,9 @@ def ros_node_setup():
     # Subscribe to the object pose topic
     rospy.Subscriber("/compliant_box_pose", Pose, object_pose_callback)
 
-    # Keep the node alive
-    rospy.spin()
+    rate = rospy.Rate(100)  # Set rate to 100 Hz
+    while not rospy.is_shutdown():
+        rate.sleep()  # Sleep to maintain 100 Hz rate
 
 if __name__ == '__main__':
     try:

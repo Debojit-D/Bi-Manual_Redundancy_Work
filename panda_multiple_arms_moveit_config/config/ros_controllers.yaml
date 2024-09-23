@@ -50,7 +50,7 @@ left_arm_trajectory_controller:
     state_publish_rate:  25
     action_monitor_rate: 10
 
-#notice that the grippers joint2 mimics joint1
+# #notice that the grippers joint2 mimics joint1
 #this is why it is not listed under the hand controllers
 right_hand_controller:
     type: "effort_controllers/JointTrajectoryController"

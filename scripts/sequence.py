@@ -7,7 +7,13 @@ file_names = [
     "z_attach_left.py",
     "z_attach_right.py",
     "services.py",
-    "box_trajectory_cub_spl.py",
+    #"main_code_static_jh_debug.py",
+    
+    # "bad_main_code.py"
+    #"main_code_static.py",
+    #"main_code copy.py"
+    #"traj_direct copy 3.py"
+    #"box_trajectory_cub_spl.py"
 ]
 
 # Directory where the files are located
