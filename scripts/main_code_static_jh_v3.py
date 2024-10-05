@@ -28,18 +28,38 @@ def save_joint_angles_to_csv(file_name, joint_angles):
         writer = csv.writer(file)
         writer.writerow(joint_angles)  # Write the joint angles as a new row
 
-def grad_manipulability(phi, W, delta=1e-6):
+def grad_manipulability(phi, W_current, delta=1e-6):
+    """
+    Computes the gradient of the manipulability measure W with respect to the joint angles phi.
+    
+    Parameters:
+    phi (numpy array): Current joint angles.
+    W_current (float): Current manipulability measure.
+    delta (float): Small perturbation for finite differences.
+    
+    Returns:
+    numpy array: Gradient of the manipulability w.r.t joint angles phi.
+    """
     num_joints = len(phi)
     grad_W = np.zeros(num_joints)
-    W_current = W
-
+    
     for i in range(num_joints):
+        # Perturb joint angle phi_i by delta
         phi_perturbed = phi.copy()
         phi_perturbed[i] += delta
-        A_perturbed = compute_A_from_phi(phi_perturbed)  # You need to implement this function
-        W_perturbed = np.sqrt(np.linalg.det(A_perturbed @ A_perturbed.T))
+        
+        # Recompute A for the perturbed joint angles
+        A_perturbed = compute_A_from_phi(phi_perturbed)
+        if A_perturbed is None:
+            rospy.logwarn("A_perturbed is None. Skipping gradient computation for joint {}".format(i))
+            continue
+        
+        # Compute manipulability for the perturbed joint angles
+        W_perturbed = velocity_manipulability(A_perturbed)
+        
+        # Compute the finite difference approximation of the gradient
         grad_W[i] = (W_perturbed - W_current) / delta
-
+    
     return grad_W
 
 
