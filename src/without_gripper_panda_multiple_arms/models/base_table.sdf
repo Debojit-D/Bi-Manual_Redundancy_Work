@@ -1,0 +1,52 @@
+<sdf version="1.6">
+  <model name="base_table">
+    <static>true</static>  <!-- Make it static so that it doesn’t move -->
+    
+    <!-- Define the base link -->
+    <link name="base">
+      <!-- Visual properties -->
+      <visual name="visual">
+        <pose>0 0 0.5 0 0 0</pose>  <!-- Set the visual position and orientation -->
+        <geometry>
+          <box>
+            <size>1 2 1</size>  <!-- Box dimensions: 1m x 2m x 1m -->
+          </box>
+        </geometry>
+        <material>
+          <ambient>1.0 1.0 1.0 1.0</ambient>
+          <diffuse>1.0 1.0 1.0 1.0</diffuse>
+        </material>
+      </visual>
+
+      <!-- Collision properties -->
+      <collision name="collision">
+        <pose>0 0 0.5 0 0 0</pose>  <!-- Set the collision position and orientation -->
+        <geometry>
+          <box>
+            <size>1 2 1</size>  <!-- Same box dimensions for collision -->
+          </box>
+        </geometry>
+      </collision>
+
+      <!-- Inertial properties -->
+      <inertial>
+        <mass>10.0</mass>
+        <inertia>
+          <ixx>0.001</ixx>
+          <iyy>0.001</iyy>
+          <izz>0.001</izz>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyz>0.0</iyz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <!-- Define the fixed joint to the world -->
+    <joint name="base_to_world" type="fixed">
+      <parent>world</parent>
+      <child>base</child>
+      <pose>0 0 0 0 0 0</pose>
+    </joint>
+  </model>
+</sdf>

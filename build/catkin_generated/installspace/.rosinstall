@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/iitgn-robotics/franka_dual_arm_ws/install/setup.sh

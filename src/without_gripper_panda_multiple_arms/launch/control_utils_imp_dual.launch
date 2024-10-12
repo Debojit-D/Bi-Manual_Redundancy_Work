@@ -1,0 +1,22 @@
+<launch>
+  <!-- Robot state publisher -->
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="50.0" />
+    <param name="tf_prefix" type="string" value="" />
+  </node>
+
+  <!-- Joint state controller -->
+  <rosparam file="$(find without_gripper_panda_multiple_arms)/config/joint_state_controller.yaml" command="load" />
+
+  <!-- Load the dual-arm hardware simulation YAML -->
+  <rosparam file="$(find without_gripper_panda_multiple_arms)/config/franka_hw_sim_dual.yaml" subst_value="true" />
+
+  <!-- Load the dual-arm controllers YAML -->
+  <rosparam file="$(find without_gripper_panda_multiple_arms)/config/sim_controllers_dual.yaml" subst_value="true" />
+
+  <!-- Spawning controllers -->
+  <node name="cartesian_impedance_right_arm_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="right_arm_cartesian_impedance_controller" />
+  <node name="cartesian_impedance_left_arm_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="left_arm_cartesian_impedance_controller" />
+
+  <node name="joint_state_controller_spawner" pkg="controller_manager" type="spawner" args="joint_state_controller" respawn="false" output="screen" />
+</launch>

@@ -1,0 +1,8 @@
+prefix=/home/iitgn-robotics/franka_dual_arm_ws/install
+
+Name: panda_multiple_arms
+Description: Description of panda_multiple_arms
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

@@ -1,0 +1,7 @@
+\subsubsection parameters ROS parameters
+
+Reads and maintains the following parameters on the ROS server
+
+- \b "~grasp_force" : \b [double] Grasping force to be applied on an object. [N] min: 1.0, default: 40.0, max: 60.0
+- \b "~move_speed" : \b [double] Speed of the follower gripper when opening [m/s] min: 0.01, default: 0.3, max: 0.4
+

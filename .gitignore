@@ -1,2 +1,7 @@
+<<<<<<< HEAD
 franka_ros/
 gazebo_ros_link_attacher
+=======
+src/franka_ros/
+src/gazebo_ros_link_attacher/
+>>>>>>> Update from New PC

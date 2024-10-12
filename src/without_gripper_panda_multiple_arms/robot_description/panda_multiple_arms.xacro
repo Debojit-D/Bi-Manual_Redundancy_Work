@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<robot name="panda_multiple_arms" xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <!-- add arms names prefixes -->
+    <xacro:arg name="arm_id_1" default="right_arm" />
+    <xacro:arg name="arm_id_2" default="left_arm" />
+
+    <!-- load arm/hand models and utils (which adds the robot inertia tags to be Gazebo-simulation ready) -->
+    <xacro:include filename="$(find franka_description)/robots/common/utils.xacro" />
+    <xacro:include filename="$(find franka_description)/robots/common/franka_arm.xacro" />
+
+    <link name="world"/>
+
+    <!-- box shaped table as base for the 2 Pandas -->
+    <link name="base">
+        <visual>
+            <origin xyz="0 0 0.5" rpy="0 0 0" />
+            <geometry>
+                <box size="1 2 1" />
+            </geometry>
+            <material name="White">
+                <color rgba="1.0 1.0 1.0 1.0" />
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0.5" rpy="0 0 0" />
+            <geometry>
+                <box size="1 2 1" />
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+            <mass value="10.0"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.001" iyy="0.0" iyz="0.0" izz="0.001"/>
+        </inertial>
+        
+    </link>
+
+    <joint name="base_to_world" type="fixed">
+        <parent link="world"/>
+        <child link="base"/>
+        <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+    </joint>
+
+    <!-- right arm without gripper -->
+    <xacro:franka_arm arm_id="$(arg arm_id_1)" connected_to="base" xyz="0 -0.20 1" gazebo="true" safety_distance="0.03" joint_limits="${xacro.load_yaml('$(find franka_description)/robots/panda/joint_limits.yaml')}"/>
+
+    <!-- left arm without gripper -->
+    <xacro:franka_arm arm_id="$(arg arm_id_2)" connected_to="base" xyz="0 0.20 1" gazebo="true" safety_distance="0.03" joint_limits="${xacro.load_yaml('$(find franka_description)/robots/panda/joint_limits.yaml')}"/>
+
+    <!-- right arm joints control interface -->
+    <xacro:gazebo-joint joint="$(arg arm_id_1)_joint1" transmission="hardware_interface/PositionJointInterface" />
+    <xacro:gazebo-joint joint="$(arg arm_id_1)_joint2" transmission="hardware_interface/PositionJointInterface" />
+    <xacro:gazebo-joint joint="$(arg arm_id_1)_joint3" transmission="hardware_interface/PositionJointInterface" />
+    <xacro:gazebo-joint joint="$(arg arm_id_1)_joint4" transmission="hardware_interface/PositionJointInterface" />
+    <xacro:gazebo-joint joint="$(arg arm_id_1)_joint5" transmission="hardware_interface/PositionJointInterface" />
+    <xacro:gazebo-joint joint="$(arg arm_id_1)_joint6" transmission="hardware_interface/PositionJointInterface" />
+    <xacro:gazebo-joint joint="$(arg arm_id_1)_joint7" transmission="hardware_interface/PositionJointInterface" />
+
+    <!-- left arm joints control interface -->
+    <xacro:gazebo-joint joint="$(arg arm_id_2)_joint1" transmission="hardware_interface/PositionJointInterface" />
+    <xacro:gazebo-joint joint="$(arg arm_id_2)_joint2" transmission="hardware_interface/PositionJointInterface" />
+    <xacro:gazebo-joint joint="$(arg arm_id_2)_joint3" transmission="hardware_interface/PositionJointInterface" />
+    <xacro:gazebo-joint joint="$(arg arm_id_2)_joint4" transmission="hardware_interface/PositionJointInterface" />
+    <xacro:gazebo-joint joint="$(arg arm_id_2)_joint5" transmission="hardware_interface/PositionJointInterface" />
+    <xacro:gazebo-joint joint="$(arg arm_id_2)_joint6" transmission="hardware_interface/PositionJointInterface" />
+    <xacro:gazebo-joint joint="$(arg arm_id_2)_joint7" transmission="hardware_interface/PositionJointInterface" />
+
+    <!-- load ros_control plugin -->
+    <gazebo>
+        <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so"/>
+    </gazebo>
+
+</robot>

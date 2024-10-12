@@ -1,0 +1,8 @@
+prefix=/home/iitgn-robotics/franka_dual_arm_ws/install
+
+Name: without_gripper_panda_multiple_arms_moveit_config
+Description: Description of without_gripper_panda_multiple_arms_moveit_config
+Version: 0.3.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

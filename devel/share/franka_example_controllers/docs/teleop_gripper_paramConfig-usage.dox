@@ -1,0 +1,8 @@
+\subsubsection usage Usage
+\verbatim
+<node name="teleop_gripper_param" pkg="franka_example_controllers" type="teleop_gripper_param">
+  <param name="grasp_force" type="double" value="40.0" />
+  <param name="move_speed" type="double" value="0.3" />
+</node>
+\endverbatim
+

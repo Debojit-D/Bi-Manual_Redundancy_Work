@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<launch>
+
+    <!-- Launch empty Gazebo world -->
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <arg name="world_name" value="$(find gazebo_ros_link_attacher)/worlds/test_attacher.world"/>
+        <arg name="use_sim_time" value="true" />
+        <arg name="gui" value="true" />
+        <arg name="paused" value="false" />
+        <arg name="debug" value="false" />
+    </include>
+
+    <!-- Find my robot Description-->
+    <param name="robot_description" command="$(find xacro)/xacro  '$(find without_gripper_panda_multiple_arms)/robot_description/panda_multiple_arms.xacro'" />
+
+    <!-- Spawn The robot over the robot_description param-->
+    <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen" args="-urdf -param robot_description -model panda_multiple_arms" />
+</launch>

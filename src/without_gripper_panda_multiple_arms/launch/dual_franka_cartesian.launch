@@ -1,0 +1,48 @@
+<launch>
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch" >
+    <arg name="paused" value="true"/>
+    <arg name="use_sim_time" value="true"/>
+  </include>
+
+  <node name="spawn_table" pkg="gazebo_ros" type="spawn_model" output="screen"
+      args="-file $(find without_gripper_panda_multiple_arms)/models/base_table.sdf -sdf -model base_table"/>
+
+
+  <group ns="panda_1">
+    <include file="$(find franka_gazebo)/launch/panda.launch">
+      <arg name="arm_id" value="panda_1" />
+      <arg name="use_gripper" default="false" />
+      <arg name="y" value="-0.20" />
+      <arg name="z" value="1" />
+      <arg name="controller" value="joint_impedance_example_controller" />
+      <arg name="rviz" value="false" />
+      <arg name="gazebo" value="false" />
+      <arg name="paused" value="true" />
+    </include>
+  </group>
+
+  <group ns="panda_2">
+    <include file="$(find franka_gazebo)/launch/panda.launch">
+      <arg name="arm_id" value="panda_2" />
+      <arg name="use_gripper" default="false" />
+      <arg name="y" value="0.20" />
+      <arg name="z" value="1" />
+      <arg name="controller" value="joint_impedance_example_controller" />
+      <arg name="rviz" value="false" />
+      <arg name="gazebo" value="false" />
+      <arg name="paused" value="false" />
+    </include>
+  </group>
+
+   <!-- Include the compliant box model -->
+  <node name="spawn_compliant_box" pkg="gazebo_ros" type="spawn_model" output="screen"
+        args="-file $(find without_gripper_panda_multiple_arms)/models/compliant_box.sdf -sdf -model compliant_box -x 0.30 -y 0 -z 0.5"/>
+  
+  <node pkg="without_gripper_panda_multiple_arms" type="box_object_pose.py" name="box_pose_publisher" output="screen" cwd="node" />
+
+  <node pkg="without_gripper_panda_multiple_arms" type="contact_bases_publisher.py" name="contact_bases_of_box_publisher" output="screen" cwd="node" />
+
+  <node pkg="without_gripper_panda_multiple_arms" type="grasp_matrix_and_hand_jacobian_publisher.py" name="grasp_matrix_and_hand_jacobian_publisher" output="screen" cwd="node" />
+
+</launch>

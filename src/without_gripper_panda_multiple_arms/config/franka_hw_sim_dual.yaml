@@ -1,0 +1,69 @@
+# For the left arm
+left_panda:
+  arm_id: left_panda
+  singularity_warning_threshold: 0.0001
+  tau_ext_lowpass_filter: 1.0
+
+  franka_gripper:
+    type: franka_gazebo/FrankaGripperSim
+    arm_id: left_panda
+    finger1: { p: 100, i: 0, d: 1.0 }
+    finger2: { p: 100, i: 0, d: 1.0 }
+
+  # Include FrankaModelInterface for the left arm
+  franka_hw:
+    type: franka_hw/FrankaModelInterface
+    arm_id: left_panda
+
+# For the right arm
+right_panda:
+  arm_id: right_panda
+  singularity_warning_threshold: 0.0001
+  tau_ext_lowpass_filter: 1.0
+
+  franka_gripper:
+    type: franka_gazebo/FrankaGripperSim
+    arm_id: right_panda
+    finger1: { p: 100, i: 0, d: 1.0 }
+    finger2: { p: 100, i: 0, d: 1.0 }
+
+  # Include FrankaModelInterface for the right arm
+  franka_hw:
+    type: franka_hw/FrankaModelInterface
+    arm_id: right_panda
+
+# Motion generator gains for both arms
+motion_generators:
+  position:
+    left_panda_joint1: { p: 600, d: 30, i: 0 }
+    left_panda_joint2: { p: 600, d: 30, i: 0 }
+    left_panda_joint3: { p: 600, d: 30, i: 0 }
+    left_panda_joint4: { p: 600, d: 30, i: 0 }
+    left_panda_joint5: { p: 250, d: 10, i: 0 }
+    left_panda_joint6: { p: 150, d: 10, i: 0 }
+    left_panda_joint7: { p: 50, d: 5, i: 0 }
+
+    right_panda_joint1: { p: 600, d: 30, i: 0 }
+    right_panda_joint2: { p: 600, d: 30, i: 0 }
+    right_panda_joint3: { p: 600, d: 30, i: 0 }
+    right_panda_joint4: { p: 600, d: 30, i: 0 }
+    right_panda_joint5: { p: 250, d: 10, i: 0 }
+    right_panda_joint6: { p: 150, d: 10, i: 0 }
+    right_panda_joint7: { p: 50, d: 5, i: 0 }
+
+  velocity:
+    left_panda_joint1: { p: 30, d: 0, i: 0 }
+    left_panda_joint2: { p: 30, d: 0, i: 0 }
+    left_panda_joint3: { p: 30, d: 0, i: 0 }
+    left_panda_joint4: { p: 30, d: 0, i: 0 }
+    left_panda_joint5: { p: 10, d: 0, i: 0 }
+    left_panda_joint6: { p: 10, d: 0, i: 0 }
+    left_panda_joint7: { p: 5, d: 0, i: 0 }
+
+    right_panda_joint1: { p: 30, d: 0, i: 0 }
+    right_panda_joint2: { p: 30, d: 0, i: 0 }
+    right_panda_joint3: { p: 30, d: 0, i: 0 }
+    right_panda_joint4: { p: 30, d: 0, i: 0 }
+    right_panda_joint5: { p: 10, d: 0, i: 0 }
+    right_panda_joint6: { p: 10, d: 0, i: 0 }
+    right_panda_joint7: { p: 5, d: 0, i: 0 }

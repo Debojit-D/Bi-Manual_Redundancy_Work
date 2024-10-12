@@ -1,0 +1,39 @@
+\subsubsection parameters ROS parameters
+
+Reads and maintains the following parameters on the ROS server
+
+- \b "~leader_damping_scaling" : \b [double] Factor to be multiplied with initial leader d_gains min: 0.0, default: 1.0, max: 8.0
+- \b "~follower_stiffness_scaling" : \b [double] Factor to be multiplied with initial p-gains of follower arm, damping will also be adapted min: 0.1, default: 1.0, max: 1.3
+- \b "~force_feedback_idle" : \b [double] Applied feedback force when leader arm is idle min: 0.0, default: 0.5, max: 1.0
+- \b "~force_feedback_guiding" : \b [double] Applied feedback force when leader arm is guided min: 0.0, default: 0.98, max: 1.0
+- \b "~leader_contact_force_threshold" : \b [double] Force threshold at leader endeffector to determine whether the arm is in contact. min: 0.1, default: 4.0, max: 10.0
+- \b "~follower_contact_force_threshold" : \b [double] Force threshold at follower endeffector to determine whether the arm is in contact. min: 0.1, default: 5.0, max: 10.0
+- \b "~dq_l_1" : \b [double] Description min: 0.1, default: 0.8, max: 2.17
+- \b "~dq_l_2" : \b [double] Description min: 0.1, default: 0.8, max: 2.17
+- \b "~dq_l_3" : \b [double] Description min: 0.1, default: 0.8, max: 2.17
+- \b "~dq_l_4" : \b [double] Description min: 0.1, default: 0.8, max: 2.17
+- \b "~dq_l_5" : \b [double] Description min: 0.1, default: 2.5, max: 2.6
+- \b "~dq_l_6" : \b [double] Description min: 0.1, default: 2.5, max: 2.6
+- \b "~dq_l_7" : \b [double] Description min: 0.1, default: 2.5, max: 2.6
+- \b "~dq_u_1" : \b [double] Description min: 0.1, default: 2.0, max: 2.17
+- \b "~dq_u_2" : \b [double] Description min: 0.1, default: 2.0, max: 2.17
+- \b "~dq_u_3" : \b [double] Description min: 0.1, default: 2.0, max: 2.17
+- \b "~dq_u_4" : \b [double] Description min: 0.1, default: 2.0, max: 2.17
+- \b "~dq_u_5" : \b [double] Description min: 0.1, default: 2.5, max: 2.6
+- \b "~dq_u_6" : \b [double] Description min: 0.1, default: 2.5, max: 2.6
+- \b "~dq_u_7" : \b [double] Description min: 0.1, default: 2.5, max: 2.6
+- \b "~ddq_l_1" : \b [double] Description min: 0.1, default: 0.8, max: 15.0
+- \b "~ddq_l_2" : \b [double] Description min: 0.1, default: 0.8, max: 7.5
+- \b "~ddq_l_3" : \b [double] Description min: 0.1, default: 0.8, max: 10.0
+- \b "~ddq_l_4" : \b [double] Description min: 0.1, default: 0.8, max: 12.5
+- \b "~ddq_l_5" : \b [double] Description min: 0.1, default: 10.0, max: 15.0
+- \b "~ddq_l_6" : \b [double] Description min: 0.1, default: 10.0, max: 20.0
+- \b "~ddq_l_7" : \b [double] Description min: 0.1, default: 10.0, max: 20.0
+- \b "~ddq_u_1" : \b [double] Description min: 0.1, default: 6.0, max: 15.0
+- \b "~ddq_u_2" : \b [double] Description min: 0.1, default: 6.0, max: 7.5
+- \b "~ddq_u_3" : \b [double] Description min: 0.1, default: 6.0, max: 10.0
+- \b "~ddq_u_4" : \b [double] Description min: 0.1, default: 6.0, max: 12.5
+- \b "~ddq_u_5" : \b [double] Description min: 0.1, default: 15.0, max: 15.0
+- \b "~ddq_u_6" : \b [double] Description min: 0.1, default: 20.0, max: 20.0
+- \b "~ddq_u_7" : \b [double] Description min: 0.1, default: 20.0, max: 20.0
+

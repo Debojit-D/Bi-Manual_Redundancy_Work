@@ -1,0 +1,3 @@
+#!/bin/bash
+sleep 8
+rosrun without_gripper_panda_multiple_arms manipulator_jacobian_and_end_effector_pos_publisher.py

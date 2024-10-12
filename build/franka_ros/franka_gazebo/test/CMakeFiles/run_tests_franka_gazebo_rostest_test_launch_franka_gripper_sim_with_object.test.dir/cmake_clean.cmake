@@ -1,0 +1,8 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/run_tests_franka_gazebo_rostest_test_launch_franka_gripper_sim_with_object.test"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang )
+  include(CMakeFiles/run_tests_franka_gazebo_rostest_test_launch_franka_gripper_sim_with_object.test.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

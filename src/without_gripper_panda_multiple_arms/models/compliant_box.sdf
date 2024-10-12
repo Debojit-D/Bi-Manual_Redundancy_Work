@@ -1,0 +1,63 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name="compliant_box">
+    <pose>0 0 0.6 0 0 0</pose> <!-- Adjust the pose as needed -->
+    
+    <!-- Link: The main body of the box -->
+    <link name="box_link">
+      <pose>0 0 0 0 0 0</pose>
+      
+      <!-- Visual: How the box appears in the simulation -->
+      <visual name="box_visual">
+        <geometry>
+          <box>
+            <size>0.2 0.3 0.2</size> <!-- Size of the box -->
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.2 0.2 0.2 1</ambient>
+          <diffuse>0.5 0.5 0.5 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+
+      <!-- Collision: The physical properties of the box -->
+      <collision name="box_collision">
+        <geometry>
+          <box>
+            <size>0.2 0.3 0.2</size>
+          </box>
+        </geometry>
+        <surface>
+          <contact>
+            <ode>
+              <kp>30000.0</kp> <!-- Moderate Spring stiffness to stabilize the attachment -->
+              <kd>150.0</kd>   <!-- Increased Damping coefficient to reduce oscillations -->
+            </ode>
+          </contact>
+          <bounce/>
+          <friction>
+            <ode>
+              <mu>1.0</mu>      <!-- Increased friction coefficient for stable interaction -->
+              <mu2>1.0</mu2>
+            </ode>
+          </friction>
+        </surface>
+      </collision>
+
+      <!-- Inertial: The mass and inertia of the box -->
+      <inertial>
+        <mass>3.0</mass> <!-- Further increase mass to enhance stability during interactions -->
+        <inertia>
+          <ixx>0.04</ixx> <!-- Increased inertia values for better rotational stability -->
+          <iyy>0.05</iyy>
+          <izz>0.04</izz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <!-- Enable model to be moved in simulation -->
+    <!-- <allow_auto_disable>false</allow_auto_disable> -->
+  </model>
+</sdf>

@@ -1,0 +1,8 @@
+prefix=/home/iitgn-robotics/franka_dual_arm_ws/install
+
+Name: franka_hw
+Description: Description of franka_hw
+Version: 0.10.1
+Cflags: -I${prefix}/include -I/opt/ros/noetic/include
+Libs: -L${prefix}/lib -lfranka_hw -lfranka_control_services /opt/ros/noetic/lib/x86_64-linux-gnu/libfranka.so.0.9.2
+Requires: actionlib_msgs actionlib controller_interface combined_robot_hw hardware_interface joint_limits_interface roscpp std_srvs pluginlib urdf franka_msgs

@@ -1,0 +1,11 @@
+\subsubsection parameters ROS parameters
+
+Reads and maintains the following parameters on the ROS server
+
+- \b "~left_translational_stiffness" : \b [double] Cartesian translational stiffness min: 0.0, default: 200.0, max: 400.0
+- \b "~left_rotational_stiffness" : \b [double] Cartesian rotational stiffness min: 0.0, default: 10.0, max: 30.0
+- \b "~left_nullspace_stiffness" : \b [double] Stiffness of the joint space nullspace controller (the desired configuration is the one at startup) min: 0.0, default: 0.0, max: 100.0
+- \b "~right_translational_stiffness" : \b [double] Cartesian translational stiffness min: 0.0, default: 200.0, max: 400.0
+- \b "~right_rotational_stiffness" : \b [double] Cartesian rotational stiffness min: 0.0, default: 10.0, max: 30.0
+- \b "~right_nullspace_stiffness" : \b [double] Stiffness of the joint space nullspace controller (the desired configuration is the one at startup) min: 0.0, default: 0.0, max: 100.0
+

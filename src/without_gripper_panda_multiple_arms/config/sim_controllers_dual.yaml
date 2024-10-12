@@ -1,0 +1,75 @@
+# For the left arm Cartesian Impedance controller
+left_arm_cartesian_impedance_controller:
+  type: franka_example_controllers/CartesianImpedanceExampleController
+  arm_id: left_panda
+  joint_names:
+    - left_panda_joint1
+    - left_panda_joint2
+    - left_panda_joint3
+    - left_panda_joint4
+    - left_panda_joint5
+    - left_panda_joint6
+    - left_panda_joint7
+
+# For the right arm Cartesian Impedance controller
+right_arm_cartesian_impedance_controller:
+  type: franka_example_controllers/CartesianImpedanceExampleController
+  arm_id: right_panda
+  joint_names:
+    - right_panda_joint1
+    - right_panda_joint2
+    - right_panda_joint3
+    - right_panda_joint4
+    - right_panda_joint5
+    - right_panda_joint6
+    - right_panda_joint7
+
+# Force Example Controller for the left arm
+force_example_controller_left:
+  type: franka_example_controllers/ForceExampleController
+  arm_id: left_panda
+  joint_names:
+    - left_panda_joint1
+    - left_panda_joint2
+    - left_panda_joint3
+    - left_panda_joint4
+    - left_panda_joint5
+    - left_panda_joint6
+    - left_panda_joint7
+
+# Force Example Controller for the right arm
+force_example_controller_right:
+  type: franka_example_controllers/ForceExampleController
+  arm_id: right_panda
+  joint_names:
+    - right_panda_joint1
+    - right_panda_joint2
+    - right_panda_joint3
+    - right_panda_joint4
+    - right_panda_joint5
+    - right_panda_joint6
+    - right_panda_joint7
+
+# Joint position trajectory controller for the left arm
+left_arm_joint_position_controller:
+  type: position_controllers/JointTrajectoryController
+  joints:
+    - left_panda_joint1
+    - left_panda_joint2
+    - left_panda_joint3
+    - left_panda_joint4
+    - left_panda_joint5
+    - left_panda_joint6
+    - left_panda_joint7
+
+# Joint position trajectory controller for the right arm
+right_arm_joint_position_controller:
+  type: position_controllers/JointTrajectoryController
+  joints:
+    - right_panda_joint1
+    - right_panda_joint2
+    - right_panda_joint3
+    - right_panda_joint4
+    - right_panda_joint5
+    - right_panda_joint6
+    - right_panda_joint7

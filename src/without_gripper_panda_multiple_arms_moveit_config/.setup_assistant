@@ -1,0 +1,11 @@
+moveit_setup_assistant_config:
+  URDF:
+    package: without_gripper_panda_multiple_arms
+    relative_path: robot_description/panda_multiple_arms.xacro
+    xacro_args: ""
+  SRDF:
+    relative_path: config/panda_multiple_arms.srdf
+  CONFIG:
+    author_name: Debojit Das
+    author_email: personal@debojit.in
+    generated_timestamp: 1725464249

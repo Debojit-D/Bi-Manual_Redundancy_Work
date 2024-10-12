@@ -1,0 +1,8 @@
+prefix=/home/iitgn-robotics/franka_dual_arm_ws/devel
+
+Name: without_gripper_panda_multiple_arms
+Description: Description of without_gripper_panda_multiple_arms
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

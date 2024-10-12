@@ -1,0 +1,40 @@
+\subsubsection usage Usage
+\verbatim
+<node name="teleop_param" pkg="franka_example_controllers" type="teleop_param">
+  <param name="leader_damping_scaling" type="double" value="1.0" />
+  <param name="follower_stiffness_scaling" type="double" value="1.0" />
+  <param name="force_feedback_idle" type="double" value="0.5" />
+  <param name="force_feedback_guiding" type="double" value="0.98" />
+  <param name="leader_contact_force_threshold" type="double" value="4.0" />
+  <param name="follower_contact_force_threshold" type="double" value="5.0" />
+  <param name="dq_l_1" type="double" value="0.8" />
+  <param name="dq_l_2" type="double" value="0.8" />
+  <param name="dq_l_3" type="double" value="0.8" />
+  <param name="dq_l_4" type="double" value="0.8" />
+  <param name="dq_l_5" type="double" value="2.5" />
+  <param name="dq_l_6" type="double" value="2.5" />
+  <param name="dq_l_7" type="double" value="2.5" />
+  <param name="dq_u_1" type="double" value="2.0" />
+  <param name="dq_u_2" type="double" value="2.0" />
+  <param name="dq_u_3" type="double" value="2.0" />
+  <param name="dq_u_4" type="double" value="2.0" />
+  <param name="dq_u_5" type="double" value="2.5" />
+  <param name="dq_u_6" type="double" value="2.5" />
+  <param name="dq_u_7" type="double" value="2.5" />
+  <param name="ddq_l_1" type="double" value="0.8" />
+  <param name="ddq_l_2" type="double" value="0.8" />
+  <param name="ddq_l_3" type="double" value="0.8" />
+  <param name="ddq_l_4" type="double" value="0.8" />
+  <param name="ddq_l_5" type="double" value="10.0" />
+  <param name="ddq_l_6" type="double" value="10.0" />
+  <param name="ddq_l_7" type="double" value="10.0" />
+  <param name="ddq_u_1" type="double" value="6.0" />
+  <param name="ddq_u_2" type="double" value="6.0" />
+  <param name="ddq_u_3" type="double" value="6.0" />
+  <param name="ddq_u_4" type="double" value="6.0" />
+  <param name="ddq_u_5" type="double" value="15.0" />
+  <param name="ddq_u_6" type="double" value="20.0" />
+  <param name="ddq_u_7" type="double" value="20.0" />
+</node>
+\endverbatim
+

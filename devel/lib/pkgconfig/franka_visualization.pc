@@ -1,0 +1,8 @@
+prefix=/home/iitgn-robotics/franka_dual_arm_ws/devel
+
+Name: franka_visualization
+Description: Description of franka_visualization
+Version: 0.10.1
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: sensor_msgs roscpp
