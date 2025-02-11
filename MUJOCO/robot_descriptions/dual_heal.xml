@@ -1,0 +1,179 @@
+<mujoco model="dual_heal">
+   <option gravity="0 0 -9.81" />
+   <compiler angle="radian" 
+   inertiafromgeom="false" 
+   discardvisual="false" 
+   meshdir="meshes/" />
+
+   <statistic center="0.3 0 0.4" extent="1.5"/>
+
+   <asset>
+      <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+      <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+         markrgb="0.8 0.8 0.8" width="300" height="300"/>
+      <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+      <mesh name="base_link" file="base_link.STL" />
+      <mesh name="link_1" file="link_1.STL" />
+      <mesh name="link_2" file="link_2.STL" />
+      <mesh name="link_3" file="link_3.STL" />
+      <mesh name="link_4" file="link_4.STL" />
+      <mesh name="link_5" file="link_5.STL" />
+      <mesh name="end_effector" file="end_effector.STL" />
+      <material name="red_material" rgba="1 0 0 1" />
+   </asset>
+
+   <worldbody>
+      <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+      <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+      <camera name="scene_3d_view" pos="1 1 1" zaxis="-0 -1 -1"/>
+
+      <!-- World Frame Visualization -->
+      <!-- <site name="world_frame" pos="0 0 0" size="0.02" type="sphere" rgba="0 0 1 1" />
+      <site name="world_x_axis" pos="0.1 0 0" size="0.005" type="capsule" euler="0 1.57 0" rgba="1 0 0 1" />
+      <site name="world_y_axis" pos="0 0.1 0" size="0.005" type="capsule" euler="1.57 0 0" rgba="0 1 0 1" />
+      <site name="world_z_axis" pos="0 0 0.1" size="0.005" type="capsule" euler="0 0 0" rgba="0 0 1 1" /> -->
+
+      <!-- Left Arm -->
+      <body name="left_base_link" pos="0.2 0 0" euler="0 0 0">
+         <inertial pos="0.0030658 0.0030653 0.0037803" mass="0.8"
+            fullinertia="0.0030658 0.0030653 0.0037803 0 0 0" />
+         <geom type="mesh" mesh="base_link" />
+
+      <body name="left_link1" pos="0 0 0.21" euler="0 0 0">
+            <inertial pos="0.016361 1.9519E-06 0.12777" mass="7.92"
+               fullinertia="0.0031793 0.0029103 0.0025838 0 0 0" />
+            <joint name="left_joint_1" type="hinge" pos="0 0 0" damping = "1.5" axis="0 0 -1" />
+            <geom type="mesh" mesh="link_1" />
+
+
+            <body name="left_link2" pos="-0.001 0.09 0.15" euler="1.57 0 0">
+               <inertial pos="0.0012292 0.14834 0.025157" mass="1.24"
+                  fullinertia="0.0025136 0.00042107 0.0028273 0 0 0" />
+               <joint name="left_joint_2" type="hinge" pos="0 0 0" damping = "1.5" axis="0 0 1" />
+               <geom type="mesh" mesh="link_2" />
+
+               <body name="left_link3" pos="0 0.3 0" quat="1 0 0 0">
+                  <inertial pos="0.039052 0.00030808 0.069869" mass="5.57"
+                     fullinertia="0.001558 0.001838 0.0021061 0 0 0" />
+                  <joint name="left_joint_3" type="hinge" pos="0 0 0" damping = "1.5" axis="0 0 -1" />
+                  <geom type="mesh" mesh="link_3" />
+
+                  <body name="left_link4" pos="0 0.162 0.086" euler="-1.57 0 0">
+                     <inertial pos="-5.1777E-05 -0.054169 0.11594" mass="1.9"
+                        fullinertia="0.0005038 0.00043228 0.00056302 0 0 0" />
+                     <joint name="left_joint_4" type="hinge" pos="0 0 0" damping = "1.5" axis="0 0 -1" />
+                     <geom type="mesh" mesh="link_4" />
+
+                     <body name="left_link5" pos="0 0.03059 0.1601" euler="0.5236 0 3.1416">
+                        <inertial pos="-0.056159 2.097E-05 0.071992" mass="1.78"
+                           fullinertia="0.00047105 0.00039055 0.0004004 0 0 0" />
+                        <joint name="left_joint_5" type="hinge" pos="0 0 0" damping = "1.5" axis="0 0 -1" />
+                        <geom type="mesh" mesh="link_5" />
+
+                        <body name="left_end_effector" pos="0 -0.08 0.065" euler="1.58 0 0">
+                           <inertial pos="-0.056159 2.097E-05 0.071992" mass="0.00001"
+                           fullinertia = "0.000001 0.0000001 0.000001 0 0 0" />
+                           <joint name="left_joint_6" type="hinge" pos="0 0 0" damping = "1.5" axis="0 0 -1" />
+                           <geom type="mesh" mesh="end_effector" friction="1 0.5 0.5" solref="0.02 1" solimp="0.9 0.95 0.001"/>
+
+                           <!-- Fixed hemispherical contact point attached to the end effector -->
+                           <geom name="left_capsule" type="capsule" size="0.02 0.01" pos="0 0 0.010" rgba="0.5 0.5 0.5 1" contype="1" conaffinity="1" condim="6" friction="1.0 0.5 0.5" solref="0.02 1" solimp="0.9 0.95 0.001"/>
+                        </body>
+                           
+                     </body>
+                  </body>
+               </body>
+            </body>
+         </body>
+      </body>
+
+      <!-- Right Arm -->
+      <body name="right_base_link" pos="-0.2 0 0" euler="0 0 0">
+         <inertial pos="0.0030658 0.0030653 0.0037803" mass="0.8"
+            fullinertia="0.0030658 0.0030653 0.0037803 0 0 0" />
+         <geom type="mesh" mesh="base_link" />
+
+         <body name="right_link1" pos="0 0 0.21" euler="0 0 0">
+            <inertial pos="0.016361 1.9519E-06 0.12777" mass="7.92"
+               fullinertia="0.0031793 0.0029103 0.0025838 0 0 0" />
+            <joint name="right_joint_1" type="hinge" pos="0 0 0" damping = "1.5" axis="0 0 -1" />
+            <geom type="mesh" mesh="link_1" />
+
+
+            <body name="right_link2" pos="-0.001 0.09 0.15" euler="1.57 0 0">
+               <inertial pos="0.0012292 0.14834 0.025157" mass="1.24"
+                  fullinertia="0.0025136 0.00042107 0.0028273 0 0 0" />
+               <joint name="right_joint_2" type="hinge" pos="0 0 0" damping = "1.5" axis="0 0 1" />
+               <geom type="mesh" mesh="link_2" />
+
+               <body name="right_link3" pos="0 0.3 0" quat="1 0 0 0">
+                  <inertial pos="0.039052 0.00030808 0.069869" mass="5.57"
+                     fullinertia="0.001558 0.001838 0.0021061 0 0 0" />
+                  <joint name="right_joint_3" type="hinge" pos="0 0 0" damping = "1.5" axis="0 0 -1" />
+                  <geom type="mesh" mesh="link_3" />
+
+                  <body name="right_link4" pos="0 0.162 0.086" euler="-1.57 0 0">
+                     <inertial pos="-5.1777E-05 -0.054169 0.11594" mass="1.9"
+                        fullinertia="0.0005038 0.00043228 0.00056302 0 0 0" />
+                     <joint name="right_joint_4" type="hinge" pos="0 0 0" damping = "1.5" axis="0 0 -1" />
+                     <geom type="mesh" mesh="link_4" />
+
+                     <body name="right_link5" pos="0 0.03059 0.1601" euler="0.5236 0 3.1416">
+                        <inertial pos="-0.056159 2.097E-05 0.071992" mass="1.78"
+                           fullinertia="0.00047105 0.00039055 0.0004004 0 0 0" />
+                        <joint name="right_joint_5" type="hinge" pos="0 0 0" damping = "1.5" axis="0 0 -1" />
+                        <geom type="mesh" mesh="link_5" />
+
+                        <body name="right_end_effector" pos="0 -0.08 0.065" euler="1.58 0 0">
+                           <inertial pos="-0.056159 2.097E-05 0.071992" mass="0.00001"
+                           fullinertia = "0.000001 0.0000001 0.000001 0 0 0" />
+                           <joint name="right_joint_6" type="hinge" pos="0 0 0" damping = "1.5" axis="0 0 -1" />
+                           <geom type="mesh" mesh="end_effector" friction="1 0.5 0.5" solref="0.02 1" solimp="0.9 0.95 0.001"/>
+
+                           <!-- Fixed hemispherical contact point attached to the end effector -->
+                           <geom name="right_capsule" type="capsule" size="0.02 0.01" pos="0 0 0.010" rgba="0.5 0.5 0.5 1" contype="1" conaffinity="1"  condim="6" friction="1.0 0.5 0.5" solref="0.02 1" solimp="0.9 0.95 0.001"/>
+
+
+                        </body>
+                     </body>
+                  </body>
+               </body>
+            </body>
+         </body>
+      </body>
+
+   <!-- Large box for robots to pick up -->
+      <body name="box" pos="0.005 0.36 0.1">
+         <joint name="box_joint" type="free" />
+         <geom type="box" size="0.105 0.1 0.1" rgba="0.5 0.5 0.5 1" contype="1" conaffinity="1" condim="6" friction="1 0.5 0.5" solref="0.02 1" solimp="0.9 0.95 0.001"/>
+         <inertial pos="0 0 0" mass="0.1" fullinertia="0.0001 0.0001 0.0001 0 0 0" />
+
+         <!-- Left Face Site -->
+         <site name="right_face_site" pos="-0.105 0 0" size="0.01" type="sphere" rgba="1 0 0 1" />
+
+         <!-- Right Face Site -->
+         <site name="left_face_site" pos="0.105 0 0" size="0.01" type="sphere" euler="0 0 3.14159" rgba="0 1 0 1" />
+      </body>
+
+
+
+
+   </worldbody>
+
+   <!-- Actuators for Left Arm -->
+   <actuator>
+      <motor name="left_turret" joint="left_joint_1" />
+      <motor name="left_shoulder" joint="left_joint_2" />
+      <motor name="left_elbow" joint="left_joint_3" />
+      <motor name="left_wrist_1" joint="left_joint_4" />
+      <motor name="left_wrist_2" joint="left_joint_5" />
+      <motor name="left_wrist_3" joint="left_joint_6" />
+
+      <motor name="right_turret" joint="right_joint_1" />
+      <motor name="right_shoulder" joint="right_joint_2" />
+      <motor name="right_elbow" joint="right_joint_3" />
+      <motor name="right_wrist_1" joint="right_joint_4" />
+      <motor name="right_wrist_2" joint="right_joint_5" />
+      <motor name="right_wrist_3" joint="right_joint_6" />
+   </actuator>
+</mujoco>

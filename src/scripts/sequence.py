@@ -18,7 +18,7 @@ file_names = [
 ]
 
 # Directory where the files are located
-script_directory = "/home/iitgn-robotics/franka_dual_arm_ws/src/scripts/"
+script_directory = "/home/iitgn-robotics-2/Debojit_WS/Bimanual-/src/scripts/"
 
 # Loop through the file names and run each file sequentially
 for file_name in file_names:

@@ -1,7 +1,26 @@
-<<<<<<< HEAD
-franka_ros/
-gazebo_ros_link_attacher
-=======
-src/franka_ros/
-src/gazebo_ros_link_attacher/
->>>>>>> Update from New PC
+# Ignore catkin workspace build artifacts
+build/
+devel/
+logs/
+
+# Ignore CMake temporary files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# Ignore VSCode settings
+.vscode/
+src/.vscode/
+
+# Ignore Catkin tools directory
+.catkin_tools/
+
+# Ignore compiled Python files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore ROS logs and bag files
+rosbag/
+*.bag
+*.log

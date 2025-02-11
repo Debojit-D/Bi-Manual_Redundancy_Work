@@ -68,7 +68,7 @@ def main():
     right_arm_group.set_planning_time(10)
 
     # Step 1: Rotate the base by -30 degrees
-    base_rotation_angle = -60  # -30 degrees
+    base_rotation_angle = -30  # -30 degrees
     rospy.loginfo("Rotating the robot base by -30 degrees...")
     move_robot_base(robot_group, base_rotation_angle)
 
