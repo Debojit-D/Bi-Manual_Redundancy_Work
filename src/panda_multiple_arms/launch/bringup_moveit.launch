@@ -26,5 +26,9 @@
     <node name="spawn_table_delay" pkg="gazebo_assets" type="delay.sh"
       output="screen" launch-prefix="bash"/>
 
+    <!-- Spawn the Table in Gazebo -->
+    <node name="table_pose_publisher" pkg="panda_multiple_arms" type="delayed_start.sh"
+      output="screen" launch-prefix="bash"/>
+
 
 </launch>

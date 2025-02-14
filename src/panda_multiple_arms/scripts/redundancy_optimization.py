@@ -87,7 +87,7 @@ def compute_A(G_matrix, Hand_Jacobian):
     A = np.dot(G_inv_transpose, Hand_Jacobian)
     return A
 
-def compute_phi_dot_opt(A, optimization_type, gain=45000):
+def compute_phi_dot_opt(A, optimization_type, gain=30000):
     """Compute optimal joint velocities for optimization."""
     if optimization_type == "velocity_manipulability":
         W = velocity_manipulability(A)
@@ -159,8 +159,28 @@ def hand_jacobian_callback(msg):
         Hand_Jacobian = None
 
 def joint_state_callback(msg):
+    """
+    Callback function for joint states.
+    Matches joint names to the expected MoveIt! order and skips irrelevant joints.
+    """
     global current_joint_states
-    current_joint_states = np.array(msg.position)  # Assuming 14 joint states (2 arms with 7 DOF each)
+
+    # Expected joint order in MoveIt!
+    expected_joint_names = [
+        "left_arm_joint1", "left_arm_joint2", "left_arm_joint3",
+        "left_arm_joint4", "left_arm_joint5", "left_arm_joint6", "left_arm_joint7",
+        "right_arm_joint1", "right_arm_joint2", "right_arm_joint3",
+        "right_arm_joint4", "right_arm_joint5", "right_arm_joint6", "right_arm_joint7"
+    ]
+
+    # Dictionary to map joint names to positions
+    joint_map = {name: pos for name, pos in zip(msg.name, msg.position)}
+
+    # Extract only the expected joints and match order
+    current_joint_states = np.array([joint_map[joint] for joint in expected_joint_names if joint in joint_map])
+
+    if len(current_joint_states) != 14:  # Ensure correct number of joints
+        rospy.logwarn(f"Incorrect number of joints! Expected 14, got {len(current_joint_states)}")
 
 def compliant_box_pose_callback(msg):
     global box_pose
@@ -179,7 +199,7 @@ def compute_error_in_euler(q_d, q_fwd_kinematics):
     error = np.concatenate([position_error, orientation_error])
     return error
 
-def compute_next_phi(A, J_h, current_index, positions, orientations, q_dot_d, delta_t=0.01, Kp=1.2):
+def compute_next_phi(A, J_h, current_index, positions, orientations, q_dot_d, delta_t=0.01, K_p=1.3):
     """Compute the next joint state."""
     global current_joint_states
     if current_joint_states is None or not isinstance(J_h, np.ndarray) or J_h.shape != (12, 14):
@@ -203,9 +223,8 @@ def compute_next_phi(A, J_h, current_index, positions, orientations, q_dot_d, de
         return None
     A_pinv = np.linalg.pinv(A)
     error = compute_error_in_euler(q_d, q_forward_kinematics())
-    K_p_matrix = np.diag([Kp, Kp, Kp, Kp, Kp, Kp])
-    second_term = np.dot(A_pinv, ((q_dot_d) + K_p_matrix @ error)) * delta_t
-    phi_next = phi_t + second_term + third_term
+    second_term = np.dot(A_pinv, ((q_dot_d) + K_p * error)) * delta_t
+    phi_next = phi_t + second_term*0 + third_term
     return phi_next
 
 def command_joint_states(joint_states):
@@ -234,16 +253,13 @@ def move_robot_and_save_joints(csv_file_name="joint_angles.csv"):
     """Move the robot along the trajectory and save joint angles."""
     global left_arm_pub, right_arm_pub
     current_index = 0
-    q_d_full_pos, q_d_full_ort, q_ddot_full = read_trajectory_and_compute_q_dot_d("box_trajectory.csv", delta_t)
+    table_trajectory_path = "/home/iitgn-robotics-1/Debojit_WS/Bi-Manual_Redundancy_Work/src/panda_multiple_arms/scripts/table_trajectory.csv"
+    q_d_full_pos, q_d_full_ort, q_ddot_full = read_trajectory_and_compute_q_dot_d(table_trajectory_path, delta_t)
 
     with open(csv_file_name, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([f'Left_Arm_Joint_{i+1}' for i in range(7)] + 
-                        [f'Right_Arm_Joint_{i+1}' for i in range(7)] + 
-                        ['Velocity_Manipulability', 'Error_Position_X', 'Error_Position_Y', 'Error_Position_Z',
-                         'Error_Orientation_Roll', 'Error_Orientation_Pitch', 'Error_Orientation_Yaw',
-                         'Box_Position_X', 'Box_Position_Y', 'Box_Position_Z', 
-                         'Box_Orientation_X', 'Box_Orientation_Y', 'Box_Orientation_Z', 'Box_Orientation_W'])
+        writer.writerow([f'Left_Arm_Joint_{i+1}' for i in range(7)] + [f'Right_Arm_Joint_{i+1}' for i in range(7)])
+
         while not rospy.is_shutdown() and current_index < len(q_d_full_pos):
             A = compute_A(G_matrix, Hand_Jacobian)
             if A is not None and Hand_Jacobian is not None:
@@ -253,26 +269,7 @@ def move_robot_and_save_joints(csv_file_name="joint_angles.csv"):
                 next_joint_states = compute_next_phi(A, Hand_Jacobian, current_index, q_d_pos, q_d_ort, q_dot_d)
                 if next_joint_states is not None:
                     command_joint_states(next_joint_states)
-                    
-                    # Log manipulability, joint states, and error
-                    velocity_manip = velocity_manipulability(A)
-                    q_d = np.concatenate([q_d_pos, q_d_ort])
-                    error = compute_error_in_euler(q_d, q_forward_kinematics())
-                    
-                     # Get the current box pose
-                    if box_pose is not None:
-                        box_position = box_pose[:3]
-                        box_orientation = box_pose[3:]
-                    else:
-                        box_position = [0, 0, 0]  # Default values if box pose not available
-                        box_orientation = [0, 0, 0, 1]  # Default quaternion
-                    
-                    # Write joint states, velocity manipulability, error, and box pose to CSV
-                    writer.writerow(list(next_joint_states) + 
-                                    [velocity_manip] + 
-                                    list(error[:3]) +  # Position error
-                                    list(error[3:]) +  # Orientation error
-                                    list(box_position) + list(box_orientation))  # Box pose (6-DoF)
+                    writer.writerow(next_joint_states)
                 current_index += 1
                 rospy.loginfo(f"Current Index: {current_index}")
             rospy.sleep(delta_t)
@@ -286,7 +283,7 @@ def main():
     rospy.Subscriber('/joint_states', JointState, joint_state_callback)
     rospy.Subscriber('/grasp_matrix', Float64MultiArray, grasp_matrix_callback)
     rospy.Subscriber('/hand_jacobian', Float64MultiArray, hand_jacobian_callback)
-    rospy.Subscriber('/compliant_box_pose', Pose, compliant_box_pose_callback)
+    rospy.Subscriber('/table_pose', Pose, compliant_box_pose_callback)
 
     rospy.loginfo("Waiting for data from topics...")
     move_robot_and_save_joints()

@@ -3,9 +3,10 @@ import os
 
 # List of file names to run
 file_names = [
-    "moving_left_robot.py",
-    "moving_right_robot.py",
-    "attach_left.py"
+    "going_home_async.py",
+    "z_attach_left.py",
+    "z_attach_right.py",
+    "services2.py",
     #"2_reset.py",
     #"main_code_static_jh_debug.py",
     
@@ -17,7 +18,7 @@ file_names = [
 ]
 
 # Directory where the files are located
-script_directory = "/home/iitgn-robotics-1/Debojit_WS/Bi-Manual_Redundancy_Work/src/panda_multiple_arms/scripts/"
+script_directory = "/home/iitgn-robotics-2/Debojit_WS/Bimanual-/src/scripts/"
 
 # Loop through the file names and run each file sequentially
 for file_name in file_names:
