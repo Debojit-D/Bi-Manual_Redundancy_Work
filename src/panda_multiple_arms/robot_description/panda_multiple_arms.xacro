@@ -15,23 +15,23 @@
     <!-- box shaped table as base for the 2 Pandas -->
     <link name="base">
         <visual>
-            <origin xyz="0 0 0.5" rpy="0 0 0" />
+            <origin xyz="0 0 0.0" rpy="0 0 0" />
             <geometry>
-                <box size="1 2 1" />
+                <box size="0 0 0" />
             </geometry>
             <material name="White">
                 <color rgba="1.0 1.0 1.0 1.0" />
             </material>
         </visual>
         <collision>
-            <origin xyz="0 0 0.5" rpy="0 0 0" />
+            <origin xyz="0 0 0.0" rpy="0 0 0" />
             <geometry>
-                <box size="1 2 1" />
+                <box size="0 0 0" />
             </geometry>
         </collision>
         <inertial>
             <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
-            <mass value="10.0"/>
+            <mass value="0.01"/>
             <inertia ixx="0.001" ixy="0.0" ixz="0.001" iyy="0.0" iyz="0.0" izz="0.001"/>
         </inertial>
         
@@ -46,11 +46,11 @@
     </joint>
     
     <!-- right arm with gripper -->
-    <xacro:franka_arm arm_id="$(arg arm_id_1)" connected_to="base" xyz="0 -0.25 1" gazebo="true" safety_distance="0.03" joint_limits="${xacro.load_yaml('$(find franka_description)/robots/panda/joint_limits.yaml')}"/>
+    <xacro:franka_arm arm_id="$(arg arm_id_1)" connected_to="base" xyz="0 -0.25 0" gazebo="true" safety_distance="0.03" joint_limits="${xacro.load_yaml('$(find franka_description)/robots/panda/joint_limits.yaml')}"/>
     <xacro:franka_hand arm_id="$(arg arm_id_1)" rpy="0 0 ${-pi/4}" connected_to="$(arg arm_id_1)_link8" gazebo="true" safety_distance="0.03" />
 
     <!-- left arm with gripper -->
-    <xacro:franka_arm arm_id="$(arg arm_id_2)" connected_to="base" xyz="0 0.25 1" gazebo="true" safety_distance="0.03" joint_limits="${xacro.load_yaml('$(find franka_description)/robots/panda/joint_limits.yaml')}"/>
+    <xacro:franka_arm arm_id="$(arg arm_id_2)" connected_to="base" xyz="0 0.25 0" gazebo="true" safety_distance="0.03" joint_limits="${xacro.load_yaml('$(find franka_description)/robots/panda/joint_limits.yaml')}"/>
     <xacro:franka_hand arm_id="$(arg arm_id_2)" rpy="0 0 ${-pi/4}" connected_to="$(arg arm_id_2)_link8" gazebo="true" safety_distance="0.03" />
 
     <!-- right arm joints control interface -->

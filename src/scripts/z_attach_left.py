@@ -59,10 +59,10 @@ def main():
     rospy.init_node('left_arm_cartesian_move', anonymous=True)
 
     # Initialize the MoveIt Commander for the left arm
-    left_arm_group = moveit_commander.MoveGroupCommander("left_panda_arm")
+    left_arm_group = moveit_commander.MoveGroupCommander("left_arm")
 
     # Define the base group to move the robot's base joint
-    robot_group = moveit_commander.MoveGroupCommander("left_panda_arm")  # Adjust if necessary
+    robot_group = moveit_commander.MoveGroupCommander("left_arm")  # Adjust if necessary
 
     left_arm_group.set_planning_time(10)
 

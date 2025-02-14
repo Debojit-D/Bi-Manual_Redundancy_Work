@@ -22,4 +22,9 @@
         <arg name="rviz_config" value="$(find panda_multiple_arms_moveit_config)/launch/moveit.rviz" />
     </include>
 
+    <!-- Spawn the Table in Gazebo -->
+    <node name="spawn_table_delay" pkg="gazebo_assets" type="delay.sh"
+      output="screen" launch-prefix="bash"/>
+
+
 </launch>

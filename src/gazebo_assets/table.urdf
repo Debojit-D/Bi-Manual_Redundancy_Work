@@ -1,29 +1,28 @@
-<?xml version="1.0"?>
 <robot name="table">
   <link name="table_link">
     
-    <!-- Table Visual (Appearance in Gazebo) -->
+    <!-- Table Visual (Center of Mass at the Geometric Center) -->
     <visual>
-      <origin xyz="5 5 0.4" rpy="0 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>  <!-- Keep everything centered -->
       <geometry>
-        <mesh filename="package://gazebo_assets/table.stl" scale="1 1 1"/>
+        <mesh filename="package://gazebo_assets/meshes/table.stl" scale="0.0005 0.0005 0.0005"/>
       </geometry>
       <material name="brown">
         <color rgba="0.545 0.271 0.075 1"/>
       </material>
     </visual>
 
-    <!-- Table Collision (Physics interaction) -->
+    <!-- Table Collision -->
     <collision>
-      <origin xyz="0 0 0.4" rpy="0 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>  <!-- Keep collision model at the same location -->
       <geometry>
-        <mesh filename="package://gazebo_assets/table.stl" scale="1 1 1"/>
+        <mesh filename="package://gazebo_assets/meshes/table.stl" scale="0.0005 0.0005 0.0005"/>
       </geometry>
     </collision>
 
-    <!-- Table Inertia (Physics properties) -->
+    <!-- Inertia (Center of Mass at the Geometric Center) -->
     <inertial>
-      <origin xyz="0 0 0.4" rpy="0 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>  <!-- CoM is at the geometric center -->
       <mass value="10.0"/>
       <inertia ixx="1.0" ixy="0.0" ixz="0.0"
                iyy="1.0" iyz="0.0"

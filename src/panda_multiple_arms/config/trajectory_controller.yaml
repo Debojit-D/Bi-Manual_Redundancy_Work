@@ -52,12 +52,16 @@ right_hand_controller:
     type: "effort_controllers/JointTrajectoryController"
     joints:
         - right_arm_finger_joint1
+        - right_arm_finger_joint2  # Add second finger joint
     gains:
         right_arm_finger_joint1:  {p: 50.0, d: 1.0, i: 0.01, i_clamp: 1.0}
+        right_arm_finger_joint2:  {p: 50.0, d: 1.0, i: 0.01, i_clamp: 1.0}  # Add second finger gains
 
 left_hand_controller:
     type: "effort_controllers/JointTrajectoryController"
     joints:
         - left_arm_finger_joint1
+        - left_arm_finger_joint2  # Add second finger joint
     gains:
         left_arm_finger_joint1:  {p: 50.0, d: 1.0, i: 0.01, i_clamp: 1.0}
+        left_arm_finger_joint2:  {p: 50.0, d: 1.0, i: 0.01, i_clamp: 1.0}  # Add second finger gains
