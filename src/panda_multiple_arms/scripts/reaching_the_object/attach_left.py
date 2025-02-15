@@ -98,6 +98,31 @@ def main():
     detach_link(robot_name, arm_link, table_name, table_link)
     
     attach_link(robot_name, arm_link, table_name, table_link)
+    
+    # Define robot and table names
+    robot_name = "panda_multiple_arms"
+    arm_link = "right_arm_link7"
+    table_name = "table"
+    table_link = "table_link"
+    
+    attach_link(robot_name, arm_link, table_name, table_link)
+    
+    detach_link(robot_name, arm_link, table_name, table_link)
+    
+    attach_link(robot_name, arm_link, table_name, table_link)
+    
+    
+    # Define robot and table names
+    robot_name = "panda_multiple_arms"
+    arm_link = "left_arm_link7"
+    table_name = "table"
+    table_link = "table_link"
+    
+    attach_link(robot_name, arm_link, table_name, table_link)
+    
+    detach_link(robot_name, arm_link, table_name, table_link)
+    
+    attach_link(robot_name, arm_link, table_name, table_link)
 
     #rospy.sleep(5)  # Wait before detaching for testing
 

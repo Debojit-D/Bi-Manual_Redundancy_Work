@@ -145,8 +145,8 @@ def move_table_to_target():
         return
 
     initial_pos_list = [initial_pos.x, initial_pos.y, initial_pos.z]
-    mid_point = [initial_pos.x + 0.15, initial_pos.y, initial_pos.z + 0.3]
-    target_position = [initial_pos.x + 0.35, initial_pos.y, initial_pos.z]
+    mid_point = [initial_pos.x, initial_pos.y, initial_pos.z + 0.3]
+    target_position = [initial_pos.x, initial_pos.y, initial_pos.z]
 
     initial_orient_list = [initial_orient.x, initial_orient.y, initial_orient.z, initial_orient.w]
     mid_orient = [initial_orient.x, initial_orient.y, initial_orient.z, initial_orient.w]
@@ -156,7 +156,7 @@ def move_table_to_target():
     orientations = [initial_orient_list, mid_orient, target_orientation]
 
     total_time = 10.0
-    time_step = 0.01
+    time_step = 0.001
 
     position_trajectory, t_values = generate_position_spline_trajectory(points, total_time, time_step)
     orientation_trajectory = generate_orientation_trajectory(orientations, t_values, total_time)

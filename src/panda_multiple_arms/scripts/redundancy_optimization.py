@@ -87,7 +87,7 @@ def compute_A(G_matrix, Hand_Jacobian):
     A = np.dot(G_inv_transpose, Hand_Jacobian)
     return A
 
-def compute_phi_dot_opt(A, optimization_type, gain=30000):
+def compute_phi_dot_opt(A, optimization_type, gain=200000):
     """Compute optimal joint velocities for optimization."""
     if optimization_type == "velocity_manipulability":
         W = velocity_manipulability(A)
@@ -199,7 +199,7 @@ def compute_error_in_euler(q_d, q_fwd_kinematics):
     error = np.concatenate([position_error, orientation_error])
     return error
 
-def compute_next_phi(A, J_h, current_index, positions, orientations, q_dot_d, delta_t=0.01, K_p=1.3):
+def compute_next_phi(A, J_h, current_index, positions, orientations, q_dot_d, delta_t=0.01, K_p=1.4):
     """Compute the next joint state."""
     global current_joint_states
     if current_joint_states is None or not isinstance(J_h, np.ndarray) or J_h.shape != (12, 14):
@@ -224,7 +224,7 @@ def compute_next_phi(A, J_h, current_index, positions, orientations, q_dot_d, de
     A_pinv = np.linalg.pinv(A)
     error = compute_error_in_euler(q_d, q_forward_kinematics())
     second_term = np.dot(A_pinv, ((q_dot_d) + K_p * error)) * delta_t
-    phi_next = phi_t + second_term*0 + third_term
+    phi_next = phi_t + second_term + third_term
     return phi_next
 
 def command_joint_states(joint_states):

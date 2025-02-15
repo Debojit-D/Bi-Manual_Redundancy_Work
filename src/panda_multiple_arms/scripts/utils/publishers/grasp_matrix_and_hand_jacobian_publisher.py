@@ -21,8 +21,8 @@ ti_r = None
 ni_r = None
 
 # Hardcoded position vectors for simplicity
-bi_l = np.array([0, 0.25, 0.0])  # Example position vector for the left contact point
-bi_r = np.array([0, -0.25, 0.0])  # Example position vector for the right contact point
+bi_l = np.array([0, 0.45, 0.0])  # Example position vector for the left contact point
+bi_r = np.array([0, -0.45, 0.0])  # Example position vector for the right contact point
 
 def left_contact_basis_callback(msg):
     global si_l, ti_l, ni_l
@@ -48,11 +48,6 @@ def object_pose_callback(msg):
     quaternion = [msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w]
     rotation_matrix_4x4 = tf_trans.quaternion_matrix(quaternion)
     object_orientation = rotation_matrix_4x4[:3, :3]
-
-def calculate_rotation_matrix_from_object_orientation():
-    """Returns the rotation matrix from the object's orientation."""
-    global object_orientation
-    return object_orientation if object_orientation is not None else np.eye(3)  # Return identity matrix if orientation is not available
 
 def calculate_rotation_matrix_from_object_orientation():
     """Returns the rotation matrix from the object's orientation."""

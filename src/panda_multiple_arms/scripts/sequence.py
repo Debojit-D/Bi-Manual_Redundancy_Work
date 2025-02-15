@@ -5,7 +5,7 @@ import os
 file_names = [
     "moving_left_robot.py",
     "moving_right_robot.py",
-    #"attach_left.py"
+    "attach_left.py"
     #"2_reset.py",
     #"main_code_static_jh_debug.py",
     
