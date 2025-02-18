@@ -117,7 +117,7 @@
 
   <worldbody>
     <light name="top" pos="0 0 2" mode="trackcom"/>
-    <body name="franka1" pos="0 0 0" quat="0.7071 0 0 -0.7071">
+    <body name="franka1" pos="-0.2 0 0" quat="0.7071 0 0 -0.7071">
         <body name="link0_l" childclass="panda">
             <inertial mass="0.629769" pos="-0.041018 -0.00014 0.049974"
             fullinertia="0.00315 0.00388 0.004285 8.2904e-7 0.00015 8.2299e-6"/>
@@ -216,6 +216,7 @@
                                             <geom mesh="hand_3" material="white" class="visual"/>
                                             <geom mesh="hand_4" material="off_white" class="visual"/>
                                             <geom mesh="hand_c" class="collision"/>
+                                            <site pos="0 0 0.09" name="attachment_site_left"/>
                                             <body name="left_finger_l" pos="0 0 0.0584">
                                                 <inertial mass="0.015" pos="0 0 0" diaginertia="2.375e-6 2.375e-6 7.5e-7"/>
                                                 <joint name="finger_joint1_l" class="finger"/>
@@ -250,7 +251,7 @@
             </body>
         </body>
     </body>
-    <body name="franka2" pos="0.5 0 0" quat="0.7071 0 0 -0.7071">
+    <body name="franka2" pos="0.2 0 0" quat="0.7071 0 0 -0.7071">
         <body name="link0_r" childclass="panda">
             <inertial mass="0.629769" pos="-0.041018 -0.00014 0.049974"
             fullinertia="0.00315 0.00388 0.004285 8.2904e-7 0.00015 8.2299e-6"/>
@@ -349,6 +350,7 @@
                                             <geom mesh="hand_3" material="white" class="visual"/>
                                             <geom mesh="hand_4" material="off_white" class="visual"/>
                                             <geom mesh="hand_c" class="collision"/>
+                                            <site pos="0 0 0.09" name="attachment_site_right"/>
                                             <body name="left_finger_r" pos="0 0 0.0584">
                                                 <inertial mass="0.015" pos="0 0 0" diaginertia="2.375e-6 2.375e-6 7.5e-7"/>
                                                 <joint name="finger_joint1_r" class="finger"/>
@@ -383,16 +385,17 @@
             </body>
         </body>
     </body>
+  
   </worldbody>
 
   <tendon>
     <fixed name="split1">
-      <joint joint="finger_joint1_l" coef="0.5"/>
-      <joint joint="finger_joint2_l" coef="0.5"/>
+      <joint joint="finger_joint1_l" coef="2.5"/>
+      <joint joint="finger_joint2_l" coef="2.5"/>
     </fixed>
     <fixed name="split2">
-      <joint joint="finger_joint1_r" coef="0.5"/>
-      <joint joint="finger_joint2_r" coef="0.5"/>
+      <joint joint="finger_joint1_r" coef="2.5"/>
+      <joint joint="finger_joint2_r" coef="2.5"/>
     </fixed>
   </tendon>
 
@@ -414,7 +417,7 @@
     <general class="panda" name="actuator7_l" joint="joint7_l" gainprm="2000" biasprm="0 -2000 -200" forcerange="-12 12"/>
     <!-- Remap original ctrlrange (0, 0.04) to (0, 255): 0.04 * 100 / 255 = 0.01568627451 -->
     <general class="panda" name="actuator8_l" tendon="split1" forcerange="-100 100" ctrlrange="0 255"
-      gainprm="0.01568627451 0 0" biasprm="0 -100 -10"/>
+      gainprm="0.01568627451 0 0" biasprm="0 -50 -10"/>
     
     <general class="panda" name="actuator1_r" joint="joint1_r" gainprm="4500" biasprm="0 -4500 -450"/>
     <general class="panda" name="actuator2_r" joint="joint2_r" gainprm="4500" biasprm="0 -4500 -450"
@@ -428,12 +431,14 @@
     <general class="panda" name="actuator7_r" joint="joint7_r" gainprm="2000" biasprm="0 -2000 -200" forcerange="-12 12"/>
     <!-- Remap original ctrlrange (0, 0.04) to (0, 255): 0.04 * 100 / 255 = 0.01568627451 -->
     <general class="panda" name="actuator8_r" tendon="split2" forcerange="-100 100" ctrlrange="0 255"
-      gainprm="0.01568627451 0 0" biasprm="0 -100 -10"/>
+      gainprm="0.01568627451 0 0" biasprm="0 -50 -10"/>
       
   </actuator>
 
   <keyframe>
-    <key name="home1" qpos="0 0 0 -1.57079 0 1.57079 -0.7853 0.04 0.04  1.2 0 0 -1.57079 0 1.57079 -0.7853 0.04 0.04" 
+    <key name="home1" qpos="0 0 0 -1.57079 0 1.57079 -0.7853 0.04 0.04  
+                            0 0 0 -1.57079 0 1.57079 -0.7853 0.04 0.04
+                            0 -0.4 0.0 1 0 0 0" 
             ctrl="0 0 0 -1.57079 0 1.57079 -0.7853 255  0 0 0 -1.57079 0 1.57079 -0.7853 255"/>
   </keyframe>
 
