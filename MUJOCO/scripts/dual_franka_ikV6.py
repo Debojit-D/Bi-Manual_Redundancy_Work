@@ -107,6 +107,14 @@ if __name__ == "__main__":
 
     site_left_id, site_right_id = model.site("attachment_site_left").id, model.site("attachment_site_right").id
     site_ref_left, site_ref_right = model.site("site_left").id, model.site("site_right").id
+    
+
+    rotation_matrix_ref_left = data.site_xmat[site_ref_left].reshape(3, 3)
+    rotation_matrix_ref_right = data.site_xmat[site_ref_right].reshape(3, 3)
+
+
+    print("Rotation Matrix (site_left):\n", rotation_matrix_ref_left)
+    print("Rotation Matrix (site_right):\n", rotation_matrix_ref_right)
 
     left_waypoints, right_waypoints, lifted_left_pos, lifted_right_pos = define_waypoints(data, site_ref_left, site_ref_right, target_quaternion_left, target_quaternion_right)
     
@@ -179,20 +187,20 @@ if __name__ == "__main__":
         # Reset gripper to open state
         data.ctrl[7], data.ctrl[15] = 0, 0
         
-        # Final IK step to lift the object
-        for i in range(max_iters):
-                vel = mink.solve_ik(configuration, tasks, rate.dt, solver, 5e-3)
-                configuration.integrate_inplace(vel, rate.dt)
-                data.ctrl[0:7], data.ctrl[8:15] = configuration.q[0:7], configuration.q[9:16]
-                data.ctrl[7], data.ctrl[15] = 0, 0
-                mujoco.mj_step(model, data)
-                viewer.sync()
-                rate.sleep()
+        # # Final IK step to lift the object
+        # for i in range(max_iters):
+        #         vel = mink.solve_ik(configuration, tasks, rate.dt, solver, 5e-3)
+        #         configuration.integrate_inplace(vel, rate.dt)
+        #         data.ctrl[0:7], data.ctrl[8:15] = configuration.q[0:7], configuration.q[9:16]
+        #         data.ctrl[7], data.ctrl[15] = 0, 0
+        #         mujoco.mj_step(model, data)
+        #         viewer.sync()
+        #         rate.sleep()
 
         # Keep viewer open after execution
         while viewer.is_running():
-            data.ctrl[0]=0.1
-            data.ctrl[7], data.ctrl[15] = 0, 0
+            data.ctrl[0]=-1.57
+            data.ctrl[7], data.ctrl[15] = 255, 255
             mujoco.mj_step(model, data)
             viewer.sync()
             rate.sleep()

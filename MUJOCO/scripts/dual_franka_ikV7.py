@@ -5,11 +5,51 @@ import os
 import numpy as np
 from loop_rate_limiters import RateLimiter
 from scipy.spatial.transform import Rotation as R
+import trajecotory_generation
+import redundnacy_optimization
+from scipy.spatial.transform import Rotation as R
 
 MODEL_PATH = os.path.join(
     os.path.dirname(__file__),
     "../robot_descriptions/franka_emika_panda/dual_panda_scene.xml"
 )
+
+def generate_trajecotory_for_the_object(model,data):
+    table_joint_name = "table_joint"  # Example name; adjust to match your model
+    jnt_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, table_joint_name)
+    if jnt_id < 0:
+        raise ValueError(f"Joint '{table_joint_name}' not found in model!")
+    jnt_adr = model.jnt_qposadr[jnt_id]
+
+    # MuJoCo expects: qpos for free joint = [x, y, z, qw, qx, qy, qz]
+    initial_pos_mj = data.qpos[jnt_adr : jnt_adr + 3]
+    initial_quat_mj = data.qpos[jnt_adr + 3 : jnt_adr + 7]  # [qw, qx, qy, qz]
+
+    # Convert MuJoCo's [qw,qx,qy,qz] to the more common [x,y,z,w] if your
+    # generate_smooth_quintic_trajectory expects [x, y, z, w]. 
+    # If your function expects the scalar-last format, let's reorder:
+    qw, qx, qy, qz = initial_quat_mj
+    initial_quat = np.array([qx, qy, qz, qw])  # (x, y, z, w)
+
+    # Define final position (move +0.2m in the z direction)
+    final_pos = np.array(initial_pos_mj)
+    final_pos[2] += 0.2
+
+    # Keep orientation the same for demonstration
+    final_quat = np.array([qx, qy, qz, qw])  # no change
+
+    # Generate the trajectory
+    pos_traj, quat_traj, lin_vel, lin_acc, ang_vel, t_vals = \
+        trajecotory_generation.generate_smooth_quintic_trajectory(
+            initial_position=initial_pos_mj,  # same as above
+            final_position=final_pos,
+            initial_quat=initial_quat,
+            final_quat=final_quat,
+            total_time=2.0,
+            time_step=0.001
+        )
+        
+    return pos_traj, quat_traj, lin_vel, ang_vel
 
 def initialize_model():
     model = mujoco.MjModel.from_xml_path(MODEL_PATH)
@@ -101,6 +141,8 @@ if __name__ == "__main__":
     
     model, data, configuration = initialize_model()
     
+    desired_object_pose, desired_object_orientation, desired_object_linear_velocity, desired_object_angular_velocity = generate_trajecotory_for_the_object(model,data)
+    
     target_quaternion_left, target_quaternion_right = initialize_mocap_targets(model, data)
     
     left_ee_task, right_ee_task, posture_task, solver, tasks, pos_threshold, ori_threshold, max_iters, rate = ik_task_constraints(model)
@@ -159,7 +201,8 @@ if __name__ == "__main__":
             print(f"Waypoint {wp_index + 1} reached.\n")
 
         print("All waypoints reached. Closing gripper...")
-        # Close the gripper
+        
+       # Close the gripper
         data.ctrl[7], data.ctrl[15] = 0, 0
         for _ in range(100):
             data.ctrl[7], data.ctrl[15] = 0, 0
@@ -167,34 +210,71 @@ if __name__ == "__main__":
             viewer.sync()
             rate.sleep()
         print("Gripper closed.")
-        
-        # Move robot to lifted positions
-        data.mocap_pos[model.body("target_left").mocapid] = lifted_left_pos
-        data.mocap_pos[model.body("target_right").mocapid] = lifted_right_pos
 
-        T_wt_left, T_wt_right = mink.SE3.from_mocap_name(model, data, "target_left"), mink.SE3.from_mocap_name(model, data, "target_right")
-        left_ee_task.set_target(T_wt_left)
-        right_ee_task.set_target(T_wt_right)
-        
-        # Reset gripper to open state
-        data.ctrl[7], data.ctrl[15] = 0, 0
-        
-        # Final IK step to lift the object
-        for i in range(max_iters):
-                vel = mink.solve_ik(configuration, tasks, rate.dt, solver, 5e-3)
-                configuration.integrate_inplace(vel, rate.dt)
-                data.ctrl[0:7], data.ctrl[8:15] = configuration.q[0:7], configuration.q[9:16]
-                data.ctrl[7], data.ctrl[15] = 0, 0
-                mujoco.mj_step(model, data)
-                viewer.sync()
-                rate.sleep()
+        # Initialize previous joint states correctly, skipping index 7 and 15
+        previous_joint_states = np.zeros(14)
+        previous_joint_states[:7] = data.qpos[0:7]   # Left arm joints (0-6)
+        previous_joint_states[7:14] = data.qpos[9:16]  # Right arm joints (8-14), skipping gripper control index
 
-        # Keep viewer open after execution
-        while viewer.is_running():
-            data.ctrl[7], data.ctrl[15] = 0, 0
-            data.ctrl[0]=-0.5
+        for i in range(len(desired_object_pose)):
+            # Extract current object pose (position & quaternion)
+            current_table_position = data.qpos[model.jnt_qposadr[model.jnt("table_joint").id]:
+                                            model.jnt_qposadr[model.jnt("table_joint").id] + 3]
+
+            current_table_quat = data.qpos[model.jnt_qposadr[model.jnt("table_joint").id] + 3:
+                                        model.jnt_qposadr[model.jnt("table_joint").id] + 7]
+
+            # Convert current quaternion to Euler angles
+            rot_mat_current = np.zeros((3, 3), dtype=np.float64)
+            mujoco.mju_quat2Mat(rot_mat_current.ravel(), current_table_quat)
+            current_table_euler = R.from_matrix(rot_mat_current).as_euler('xyz', degrees=False)
+
+            # Extract current linear & angular velocity
+            current_table_linear_velocity = data.qvel[model.jnt_dofadr[model.jnt("table_joint").id]:
+                                                    model.jnt_dofadr[model.jnt("table_joint").id] + 3]
+            
+            current_table_angular_velocity = data.qvel[model.jnt_dofadr[model.jnt("table_joint").id] + 3:
+                                                    model.jnt_dofadr[model.jnt("table_joint").id] + 6]
+
+            # Prepare full object state vectors
+            object_current_position = np.concatenate((current_table_position, current_table_euler))
+            object_current_velocity = np.concatenate((current_table_linear_velocity, current_table_angular_velocity))
+
+            # Convert desired quaternion to Euler angles
+            desired_table_quat = desired_object_orientation[i]
+            rot_mat_desired = np.zeros((3, 3), dtype=np.float64)
+            mujoco.mju_quat2Mat(rot_mat_desired.ravel(), desired_table_quat)
+            desired_table_euler = R.from_matrix(rot_mat_desired).as_euler('xyz', degrees=False)
+
+            # Prepare desired full state vectors
+            object_desired_position = np.concatenate((desired_object_pose[i], desired_table_euler))
+            object_desired_velocity = np.concatenate((desired_object_linear_velocity[i], desired_object_angular_velocity[i]))
+
+            # Compute new joint states using redundancy optimization
+            joint_vector_left_arm, joint_vector_right_arm = redundnacy_optimization.compute_next_phi(
+                model, data,
+                current_joint_states=previous_joint_states,
+                object_desired_position=object_desired_position,
+                object_current_position=object_current_position,
+                object_desired_velocity=object_desired_velocity,
+                object_current_velocity=object_current_velocity,
+                delta_t=0.01,
+                K_p=1.0
+            )
+
+            # Apply computed joint states to the robot
+            data.ctrl[0:7] = joint_vector_left_arm  # Left arm
+            data.ctrl[8:15] = joint_vector_right_arm  # Right arm
+
+            # Update previous joint states
+            previous_joint_states[:7] = joint_vector_left_arm
+            previous_joint_states[7:14] = joint_vector_right_arm
+
+            # Step the simulation
             mujoco.mj_step(model, data)
             viewer.sync()
             rate.sleep()
+
+
 
 
