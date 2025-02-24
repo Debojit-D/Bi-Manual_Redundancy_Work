@@ -17,7 +17,7 @@ def grasp_matrix_calculator(model, data):
     # Extract rotation matrices
     R_left = data.site_xmat[site_left_id].reshape(3, 3)   # Rotation of left contact site
     R_right = data.site_xmat[site_right_id].reshape(3, 3)  # Rotation of right contact site
-    R_table = data.xmat[table_body_id].reshape(3, 3)  # Rotation of vention_table body
+    R_table = data.xmat[table_body_id].reshape(3, 3)       # Rotation of vention_table body
 
     # Rotate the entire contact frame using the table's rotation matrix
     R_left_rotated = R_table @ R_left
@@ -28,28 +28,33 @@ def grasp_matrix_calculator(model, data):
     s_right, t_right, n_right = R_right_rotated[:, 0], R_right_rotated[:, 1], R_right_rotated[:, 2]
 
     # Define contact positions relative to the table frame
-    p_left = data.site_xpos[site_left_id] - data.xpos[table_body_id]  # Contact position w.r.t table
+    p_left = data.site_xpos[site_left_id] - data.xpos[table_body_id]   # Contact position w.r.t table
     p_right = data.site_xpos[site_right_id] - data.xpos[table_body_id]  # Contact position w.r.t table
 
-    # Compute the grasp sub-matrices
+    # Rotate the contact positions into the table's frame
+    p_left_rotated = np.dot(R_table, p_left)
+    p_right_rotated = np.dot(R_table, p_right)
+
+    # Compute the grasp sub-matrices for the left contact
     G_left = np.zeros((6, 6))
     G_left[0:3, 0] = s_left
     G_left[0:3, 1] = t_left
     G_left[0:3, 2] = n_left
-    G_left[3:, 0] = np.cross(p_left, s_left)
-    G_left[3:, 1] = np.cross(p_left, t_left)
-    G_left[3:, 2] = np.cross(p_left, n_left)
+    G_left[3:, 0] = np.cross(p_left_rotated, s_left)
+    G_left[3:, 1] = np.cross(p_left_rotated, t_left)
+    G_left[3:, 2] = np.cross(p_left_rotated, n_left)
     G_left[3:, 3] = s_left
     G_left[3:, 4] = t_left
     G_left[3:, 5] = n_left
 
+    # Compute the grasp sub-matrices for the right contact
     G_right = np.zeros((6, 6))
     G_right[0:3, 0] = s_right
     G_right[0:3, 1] = t_right
     G_right[0:3, 2] = n_right
-    G_right[3:, 0] = np.cross(p_right, s_right)
-    G_right[3:, 1] = np.cross(p_right, t_right)
-    G_right[3:, 2] = np.cross(p_right, n_right)
+    G_right[3:, 0] = np.cross(p_right_rotated, s_right)
+    G_right[3:, 1] = np.cross(p_right_rotated, t_right)
+    G_right[3:, 2] = np.cross(p_right_rotated, n_right)
     G_right[3:, 3] = s_right
     G_right[3:, 4] = t_right
     G_right[3:, 5] = n_right
@@ -58,6 +63,7 @@ def grasp_matrix_calculator(model, data):
     G_full = np.hstack((G_left, G_right))
 
     return G_full
+
 
 def hand_jacobian_calculator(model, data):
     """

@@ -225,7 +225,7 @@ def compute_next_phi(A, J_h, current_index, positions, orientations, q_dot_d, de
         return None
     A_pinv = np.linalg.pinv(A)
     error = compute_error_in_euler(q_d, q_forward_kinematics())
-    second_term = np.dot(A_pinv, ((q_dot_d*0) + K_p * error)) * delta_t
+    second_term = np.dot(A_pinv, ((q_dot_d) + K_p * error)) * delta_t
     phi_next = phi_t + second_term + third_term
     return phi_next
 

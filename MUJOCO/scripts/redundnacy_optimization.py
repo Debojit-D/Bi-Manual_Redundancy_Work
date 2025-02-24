@@ -6,6 +6,7 @@ def velocity_manipulability(A):
     """Compute velocity manipulability."""
     try:
         AA_T = np.dot(A, A.T)
+        print(np.sqrt(np.linalg.det(AA_T)))
         return np.sqrt(np.linalg.det(AA_T))
     except np.linalg.LinAlgError:
         return np.nan  # Return NaN if the matrix is not positive definite
@@ -38,7 +39,7 @@ def compute_null_space_component(J_h):
     except np.linalg.LinAlgError as e:
         return None
     
-def compute_phi_dot_opt(A, optimization_type, gain=300000):
+def compute_phi_dot_opt(A, optimization_type, gain=100000):
     """Compute optimal joint velocities for optimization."""
     
     if optimization_type == "velocity_manipulability":
@@ -78,12 +79,13 @@ def compute_next_phi(
     object_desired_velocity,       
     object_current_velocity,    
     delta_t=0.01, 
-    K_p=1.0
+    K_p=0.01
     ):
     
     # Compute grasp matrix and hand Jacobian
     G = grasp_matrix_and_hand_jacobian_cal.grasp_matrix_calculator(model, data)
     J_h = grasp_matrix_and_hand_jacobian_cal.hand_jacobian_calculator(model, data)
+    
 
     # Compute A matrix
     G_inv_transpose = np.linalg.pinv(G).T

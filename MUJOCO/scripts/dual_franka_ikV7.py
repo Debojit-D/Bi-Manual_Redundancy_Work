@@ -45,7 +45,7 @@ def generate_trajecotory_for_the_object(model,data):
             final_position=final_pos,
             initial_quat=initial_quat,
             final_quat=final_quat,
-            total_time=2.0,
+            total_time=20.0,
             time_step=0.001
         )
         

@@ -72,7 +72,6 @@
                                      mass="0.001" diaginertia="0.000326122 0.000191249 0.000189678" />
                            <joint name="left_joint_6" pos="0 0 0" axis="0 0 -1" range="-3.14159 3.14159" frictionloss="0.1" actuatorfrcrange="-10000 10000" />
                            <geom type="mesh" rgba="0.75294 0.75294 0.75294 1" mesh="end_effector" />
-                           <geom name="left_capsule" type="capsule" size="0.02 0.01" pos="0 0 0.010" rgba="0.5 0.5 0.5 1" contype="1" conaffinity="1" condim="6" friction="1.0 0.5 0.5" solref="0.02 1" solimp="0.9 0.95 0.001"/>
                         </body>
                      </body>
                   </body>
@@ -126,7 +125,6 @@
                                      mass="0.001" diaginertia="0.000326122 0.000191249 0.000189678" />
                            <joint name="right_joint_6" pos="0 0 0" axis="0 0 -1" range="-3.14159 3.14159" frictionloss="0.1" actuatorfrcrange="-10000 10000" />
                            <geom type="mesh" rgba="0.75294 0.75294 0.75294 1" mesh="end_effector" />
-                           <geom name="right_capsule" type="capsule" size="0.02 0.01" pos="0 0 0.010" rgba="0.5 0.5 0.5 1" contype="1" conaffinity="1"  condim="6" friction="1.0 0.5 0.5" solref="0.02 1" solimp="0.9 0.95 0.001"/>
                         </body>
                      </body>
                   </body>
@@ -153,7 +151,6 @@
 
    </worldbody>
 
-   <!-- Actuators for Left Arm -->
    <actuator>
       <motor name="left_turret" joint="left_joint_1" />
       <motor name="left_shoulder" joint="left_joint_2" />
@@ -169,4 +166,5 @@
       <motor name="right_wrist_2" joint="right_joint_5" />
       <motor name="right_wrist_3" joint="right_joint_6" />
    </actuator>
+
 </mujoco>
