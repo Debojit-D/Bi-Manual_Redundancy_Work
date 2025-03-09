@@ -99,6 +99,8 @@ def quaternion_error(q_current, q_target):
 
 if __name__ == "__main__":
     
+    
+    
     model, data, configuration = initialize_model()
     
     target_quaternion_left, target_quaternion_right = initialize_mocap_targets(model, data)
@@ -120,10 +122,24 @@ if __name__ == "__main__":
     
     with mujoco.viewer.launch_passive(model=model, data=data, show_left_ui=False, show_right_ui=False) as viewer:
         mujoco.mjv_defaultFreeCamera(model, viewer.cam)
+        
+        viewer.cam.lookat[:] = [0.1, 0.0, 0.1]
+        viewer.cam.azimuth = 70              # Adjust rotation angle
+        viewer.cam.elevation = -20               # Adjust tilt angle
+        viewer.cam.distance = 2.5                # Adjust zoom level
+
+        # Lock the camera (prevents movement)
+        #viewer.cam.trackbodyid = -1
+        
         mujoco.mj_resetDataKeyframe(model, data, model.key("home1").id)
         configuration.update(data.qpos)
         posture_task.set_target_from_configuration(configuration)
         mujoco.mj_forward(model, data)
+        
+        for _ in range(200):
+            mujoco.mj_step(model, data)
+            viewer.sync()
+            rate.sleep()
 
         for wp_index in range(len(left_waypoints)):
             print(f"\nPlanning to waypoint {wp_index + 1}:")
