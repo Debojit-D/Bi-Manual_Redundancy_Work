@@ -10,18 +10,24 @@ def grasp_matrix_calculator(model, data):
     # Get site IDs for the contacts
     site_left_id = model.site("site_left").id
     site_right_id = model.site("site_right").id
+    site_top_middle_id = model.site("site_top_middle").id
 
     # Get body ID for the vention_table (instead of a site)
-    table_body_id = model.body("vention_table").id  
+    table_body_id = site_top_middle_id
 
     # Extract rotation matrices
     R_left = data.site_xmat[site_left_id].reshape(3, 3)   # Rotation of left contact site
     R_right = data.site_xmat[site_right_id].reshape(3, 3)  # Rotation of right contact site
-    R_table = data.xmat[table_body_id].reshape(3, 3)       # Rotation of vention_table body
-
+    R_table = data.site_xmat[site_top_middle_id].reshape(3, 3)  # Rotation of site_top_middle
+    #print("R_left",R_left)
+    #print("R_right",R_right)
     # Rotate the entire contact frame using the table's rotation matrix
-    R_left_rotated = R_table @ R_left
-    R_right_rotated = R_table @ R_right
+    # R_left_rotated = R_table @ R_left
+    # R_right_rotated = R_table @ R_right
+    #print("R_left_Roatated",R_left_rotated)
+
+    R_left_rotated = R_left
+    R_right_rotated = R_right
 
     # Extract the rotated contact frame axes
     s_left, t_left, n_left = R_left_rotated[:, 0], R_left_rotated[:, 1], R_left_rotated[:, 2]
@@ -30,6 +36,9 @@ def grasp_matrix_calculator(model, data):
     # Define contact positions relative to the table frame
     p_left = data.site_xpos[site_left_id] - data.xpos[table_body_id]   # Contact position w.r.t table
     p_right = data.site_xpos[site_right_id] - data.xpos[table_body_id]  # Contact position w.r.t table
+
+    print("p_left",p_left)
+    print("p_right",p_right)
 
     # Rotate the contact positions into the table's frame
     p_left_rotated = np.dot(R_table, p_left)
@@ -74,9 +83,10 @@ def hand_jacobian_calculator(model, data):
     # Get site IDs for attachment sites (where manipulators attach)
     site_left_id = model.site("attachment_site_left").id
     site_right_id = model.site("attachment_site_right").id
+    site_top_middle_id = model.site("site_top_middle").id
 
     # Get table body ID
-    table_body_id = model.body("vention_table").id
+    table_body_id = site_top_middle_id
 
     # Extract rotation matrices
     R_left = data.site_xmat[site_left_id].reshape(3, 3)  # Rotation of left attachment site
@@ -84,8 +94,11 @@ def hand_jacobian_calculator(model, data):
     R_table = data.xmat[table_body_id].reshape(3, 3)  # Rotation of vention_table body
 
     # **Fix: Ensure rotation is relative to the robot base, not the table**
-    R_left_rotated = R_left @ R_table.T
-    R_right_rotated = R_right @ R_table.T
+    R_left_rotated = R_left @ R_table
+    R_right_rotated = R_right @ R_table
+
+    # R_left_rotated = R_left 
+    # R_right_rotated = R_right 
 
     # Extract transformed contact frame basis (Wpki)
     Wpki_left = R_left_rotated  # Wpki for left

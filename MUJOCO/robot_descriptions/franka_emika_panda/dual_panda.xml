@@ -117,7 +117,7 @@
 
   <worldbody>
     <light name="top" pos="0 0 2" mode="trackcom"/>
-    <body name="franka1" pos="-0.2 0 0" quat="0.7071 0 0 -0.7071">
+    <body name="franka1" pos="0 -0.2 0" quat="1 0 0 0">
         <body name="link0_l" childclass="panda">
             <inertial mass="0.629769" pos="-0.041018 -0.00014 0.049974"
             fullinertia="0.00315 0.00388 0.004285 8.2904e-7 0.00015 8.2299e-6"/>
@@ -251,7 +251,7 @@
             </body>
         </body>
     </body>
-    <body name="franka2" pos="0.2 0 0" quat="0.7071 0 0 -0.7071">
+    <body name="franka2" pos="0.0 0.2 0" quat="1 0 0 0">
         <body name="link0_r" childclass="panda">
             <inertial mass="0.629769" pos="-0.041018 -0.00014 0.049974"
             fullinertia="0.00315 0.00388 0.004285 8.2904e-7 0.00015 8.2299e-6"/>
@@ -438,7 +438,7 @@
   <keyframe>
     <key name="home1" qpos="0 0 0 -1.57079 0 1.57079 -0.7853 0.04 0.04  
                             0 0 0 -1.57079 0 1.57079 -0.7853 0.04 0.04
-                            0 -0.4 0.0 1 0 0 0" 
+                            0.0 0.0 0.0 1 0 0 0" 
             ctrl="0 0 0 -1.57079 0 1.57079 -0.7853 255  0 0 0 -1.57079 0 1.57079 -0.7853 255"/>
   </keyframe>
 

@@ -11,7 +11,7 @@ from scipy.spatial.transform import Rotation as R
 
 MODEL_PATH = os.path.join(
     os.path.dirname(__file__),
-    "../robot_descriptions/franka_emika_panda/dual_panda_scene.xml"
+    "/home/barat/Debojit_WS/Bi-Manual_Redundancy_Work/MUJOCO/robot_descriptions/franka_emika_panda/dual_panda_scene.xml"
 )
 
 def generate_trajecotory_for_the_object(model,data):
@@ -74,19 +74,19 @@ def ik_task_constraints(model):
 def define_waypoints(data, site_ref_left, site_ref_right, target_quaternion_left, target_quaternion_right):
     # Define waypoints
     target_position_left_1 = np.copy(data.site_xpos[site_ref_left])
-    target_position_left_1[0] -= 0.05
+    target_position_left_1[1] -= 0.05
     target_quaternion_left_1 = target_quaternion_left.copy()
 
     target_position_right_1 = np.copy(data.site_xpos[site_ref_right])
-    target_position_right_1[0] += 0.05
+    target_position_right_1[1] += 0.05
     target_quaternion_right_1 = target_quaternion_right.copy()
 
     target_position_left_2 = target_position_left_1.copy()
-    target_position_left_2[0] += 0.07
+    target_position_left_2[1] += 0.07
     target_quaternion_left_2 = target_quaternion_left_1.copy()
 
     target_position_right_2 = target_position_right_1.copy()
-    target_position_right_2[0] -= 0.07
+    target_position_right_2[1] -= 0.07
     target_quaternion_right_2 = target_quaternion_right_1.copy()
 
     lifted_left_pos = target_position_left_2.copy()

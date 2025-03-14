@@ -6,7 +6,7 @@ def velocity_manipulability(A):
     """Compute velocity manipulability."""
     try:
         AA_T = np.dot(A, A.T)
-        print(np.sqrt(np.linalg.det(AA_T)))
+        #print(np.sqrt(np.linalg.det(AA_T)))
         return np.sqrt(np.linalg.det(AA_T))
     except np.linalg.LinAlgError:
         return np.nan  # Return NaN if the matrix is not positive definite
@@ -24,7 +24,7 @@ def directional_force_manipulability(A, F):
     """Compute directional force manipulability."""
     AA_T = np.dot(A, A.T)
     F_diag = np.diag(F)
-    print(AA_T)
+    #print(AA_T)
     first_term = AA_T / np.trace(AA_T)
     second_term = F_diag / np.trace(F_diag)
     return np.sqrt(np.trace(np.dot((first_term-second_term), (first_term-second_term).T)))
@@ -108,7 +108,7 @@ def compute_next_phi(
     third_term = (null_space_matrix @ optimization_term)
 
     # Compute next joint state
-    next_joint_angles = first_term + second_term*0 + third_term
+    next_joint_angles = first_term + second_term*0 + third_term*0
     
     #print(third_term)
 
