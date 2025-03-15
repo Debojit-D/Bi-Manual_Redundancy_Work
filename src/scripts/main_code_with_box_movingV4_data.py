@@ -87,10 +87,11 @@ def compute_A(G_matrix, Hand_Jacobian):
     A = np.dot(G_inv_transpose, Hand_Jacobian)
     return A
 
-def compute_phi_dot_opt(A, optimization_type, gain=45000):
+def compute_phi_dot_opt(A, optimization_type, gain=10000):
     """Compute optimal joint velocities for optimization."""
     if optimization_type == "velocity_manipulability":
         W = velocity_manipulability(A)
+        print(W)
     elif optimization_type == "force_manipulability":
         W = force_manipulability(A)
     elif optimization_type == "directional_force_manipulability":
@@ -195,8 +196,8 @@ def compute_next_phi(A, J_h, current_index, positions, orientations, q_dot_d, de
     third_term = np.dot(null_space_matrix, phi_dot_opt)
 
     try:
-        #positions = np.array([0.29999993624392374, 3.4717179166135275e-08, 1.1])
-        #orientations = np.array([2.007355688987178e-08, -5.531757113221283e-09, -8.205284718919182e-08, 0.9999999999999964])
+        positions = np.array([0.29999993624392374, 3.4717179166135275e-08, 1.1])
+        orientations = np.array([2.007355688987178e-08, -5.531757113221283e-09, -8.205284718919182e-08, 0.9999999999999964])
         q_d = np.concatenate([positions, orientations])
     except ValueError as e:
         rospy.logerr(f"Error concatenating: {e}")
@@ -205,7 +206,7 @@ def compute_next_phi(A, J_h, current_index, positions, orientations, q_dot_d, de
     error = compute_error_in_euler(q_d, q_forward_kinematics())
     K_p_matrix = np.diag([Kp, Kp, Kp, Kp, Kp, Kp])
     second_term = np.dot(A_pinv, ((q_dot_d) + K_p_matrix @ error)) * delta_t
-    phi_next = phi_t + second_term + third_term
+    phi_next = phi_t + second_term*0 + third_term
     return phi_next
 
 def command_joint_states(joint_states):
@@ -274,7 +275,7 @@ def move_robot_and_save_joints(csv_file_name="joint_angles.csv"):
                                     list(error[3:]) +  # Orientation error
                                     list(box_position) + list(box_orientation))  # Box pose (6-DoF)
                 current_index += 1
-                rospy.loginfo(f"Current Index: {current_index}")
+                #rospy.loginfo(f"Current Index: {current_index}")
             rospy.sleep(delta_t)
 
 def main():

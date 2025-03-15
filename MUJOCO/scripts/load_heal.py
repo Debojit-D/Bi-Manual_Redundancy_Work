@@ -3,7 +3,7 @@ import mujoco.viewer
 import sys
 
 # Path to your MuJoCo XML file
-XML_PATH = "/home/iitgn-robotics-1/Debojit_WS/Bi-Manual_Redundancy_Work/MUJOCO/robot_descriptions/heal/dual_heal_reconfigured_home.xml"  # Update this with your actual XML file path
+XML_PATH = "/home/barat/Debojit_WS/Bi-Manual_Redundancy_Work/MUJOCO/robot_descriptions/heal/dual_heal_reconfigured_home.xml"  # Update this with your actual XML file path
 
 # Load the model
 try:

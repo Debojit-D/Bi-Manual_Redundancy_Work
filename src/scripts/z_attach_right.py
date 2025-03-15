@@ -68,14 +68,14 @@ def main():
     right_arm_group.set_planning_time(10)
 
     # Step 1: Rotate the base by -30 degrees
-    base_rotation_angle = -30  # -30 degrees
+    base_rotation_angle = -90  # -30 degrees
     rospy.loginfo("Rotating the robot base by -30 degrees...")
     move_robot_base(robot_group, base_rotation_angle)
 
     # Define the Cartesian target pose for the right arm (first step)
     right_pose_target = geometry_msgs.msg.Pose()
     right_pose_target.position.x = 0.2999
-    right_pose_target.position.y = -0.2210  # First step target
+    right_pose_target.position.y = -0.8210  # First step target
     right_pose_target.position.z = 1.0998
 
     right_roll = -1.54  # Example value
@@ -94,7 +94,7 @@ def main():
     move_to_cartesian_pose(right_arm_group, right_pose_target, "Right Arm", collision_check=False)
 
     # Update the position for the second step (y = -0.1510)
-    right_pose_target.position.y = -0.1510
+    right_pose_target.position.y = -0.4510
 
     rospy.loginfo("Moving to the final target position...")
 

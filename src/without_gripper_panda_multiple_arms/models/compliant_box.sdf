@@ -11,7 +11,7 @@
       <visual name="box_visual">
         <geometry>
           <box>
-            <size>0.2 0.3 0.2</size> <!-- Size of the box -->
+            <size>0.533 0.755 0.33</size> <!-- Size of the box -->
           </box>
         </geometry>
         <material>
@@ -26,7 +26,7 @@
       <collision name="box_collision">
         <geometry>
           <box>
-            <size>0.2 0.3 0.2</size>
+            <size>0.533 0.755 0.33</size>
           </box>
         </geometry>
         <surface>

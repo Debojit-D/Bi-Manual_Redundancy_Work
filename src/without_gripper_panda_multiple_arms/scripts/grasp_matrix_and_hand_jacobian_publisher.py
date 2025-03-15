@@ -21,8 +21,8 @@ ti_r = None
 ni_r = None
 
 # Hardcoded position vectors for simplicity
-bi_l = np.array([0, 0.25, 0.0])  # Example position vector for the left contact point
-bi_r = np.array([0, -0.25, 0.0])  # Example position vector for the right contact point
+bi_l = np.array([0, 0.3775, 0.0])  # Example position vector for the left contact point
+bi_r = np.array([0, -0.3775, 0.0])  # Example position vector for the right contact point
 
 def left_contact_basis_callback(msg):
     global si_l, ti_l, ni_l
@@ -136,10 +136,22 @@ def publish_hand_jacobian():
 
     Wpki_left = np.column_stack((si_l, ti_l, ni_l))
     Wpki_right = np.column_stack((si_r, ti_r, ni_r))
-    Rpki_left = np.eye(3)
-    Rpki_right = np.eye(3) 
+    # Rpki_left = np.eye(3)
+    # Rpki_right = np.eye(3) 
 
-    Jh = hand_jacobian_calculator([Wpki_left, Wpki_right], [Rpki_left, Rpki_right], [left_jacobian, right_jacobian])
+    Rpki_left = np.array([
+        [0.0, 1.0, 0.0],
+        [-1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0]
+    ])
+
+    Rpki_right = np.array([
+        [0.0, -1.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0]
+    ])
+
+    Jh = hand_jacobian_calculator([Wpki_left.T, Wpki_right.T], [Rpki_left, Rpki_right], [left_jacobian, right_jacobian])
 
     # rospy.loginfo(f"Hand Jacobian:\n{Jh}")
     hand_jacobian_msg = Float64MultiArray(data=Jh.flatten())

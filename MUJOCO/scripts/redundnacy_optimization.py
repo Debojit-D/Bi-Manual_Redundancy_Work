@@ -1,9 +1,23 @@
 # redundancy_optimization.py
+
+import sys
+import os
+
+# Get the absolute path of the scripts directory
+script_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "scripts"))
+
+# Add the scripts directory to sys.path
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+
 import numpy as np
-import grasp_matrix_and_hand_jacobian_cal
+import grasp_matrix_and_hand_jacobian_cal2
+
+print("Loaded grasp_matrix_and_hand_jacobian_cal from:", grasp_matrix_and_hand_jacobian_cal2.__file__)
 
 def velocity_manipulability(A):
     """Compute velocity manipulability."""
+    #print(A)
     try:
         AA_T = np.dot(A, A.T)
         #print(np.sqrt(np.linalg.det(AA_T)))
@@ -39,7 +53,7 @@ def compute_null_space_component(J_h):
     except np.linalg.LinAlgError as e:
         return None
     
-def compute_phi_dot_opt(A, optimization_type, gain=100000):
+def compute_phi_dot_opt(A, optimization_type, gain=1000000):
     """Compute optimal joint velocities for optimization."""
     
     if optimization_type == "velocity_manipulability":
@@ -83,8 +97,8 @@ def compute_next_phi(
     ):
     
     # Compute grasp matrix and hand Jacobian
-    G = grasp_matrix_and_hand_jacobian_cal.grasp_matrix_calculator(model, data)
-    J_h = grasp_matrix_and_hand_jacobian_cal.hand_jacobian_calculator(model, data)
+    G = grasp_matrix_and_hand_jacobian_cal2.grasp_matrix_calculator(model, data)
+    J_h = grasp_matrix_and_hand_jacobian_cal2.hand_jacobian_calculator(model, data)
     
 
     # Compute A matrix
@@ -101,14 +115,14 @@ def compute_next_phi(
 
     # **Fix: Ensure velocity_error has shape (6,1)**
     velocity_error = (object_desired_velocity + K_p * trajectory_tracking_pos_error).reshape(-1, 1)
-
+    print(velocity_error.shape)
     # Compute first, second, and third terms
     first_term = current_joint_states
     second_term = (A_pinv @ velocity_error).flatten() * delta_t  # Flatten ensures correct shape
     third_term = (null_space_matrix @ optimization_term)
 
     # Compute next joint state
-    next_joint_angles = first_term + second_term*0 + third_term*0
+    next_joint_angles = first_term + second_term*0 + third_term
     
     #print(third_term)
 

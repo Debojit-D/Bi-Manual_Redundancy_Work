@@ -59,22 +59,22 @@ def main():
     rospy.init_node('left_arm_cartesian_move', anonymous=True)
 
     # Initialize the MoveIt Commander for the left arm
-    left_arm_group = moveit_commander.MoveGroupCommander("left_arm")
+    left_arm_group = moveit_commander.MoveGroupCommander("left_panda_arm")
 
     # Define the base group to move the robot's base joint
-    robot_group = moveit_commander.MoveGroupCommander("left_arm")  # Adjust if necessary
+    robot_group = moveit_commander.MoveGroupCommander("left_panda_arm")  # Adjust if necessary
 
     left_arm_group.set_planning_time(10)
 
     # Step 1: Rotate the base by 30 degrees
-    base_rotation_angle = 30  # 30 degrees
+    base_rotation_angle = 90  # 30 degrees
     rospy.loginfo("Rotating the robot base by 30 degrees...")
     move_robot_base(robot_group, base_rotation_angle)
 
     # Define the Cartesian target pose for the left arm (first step)
     left_pose_target = geometry_msgs.msg.Pose()
     left_pose_target.position.x = 0.2999
-    left_pose_target.position.y = 0.2210  # First step target
+    left_pose_target.position.y = 0.8210  # First step target
     left_pose_target.position.z = 1.0998
 
     left_roll = 1.54  # Example value
@@ -93,7 +93,7 @@ def main():
     move_to_cartesian_pose(left_arm_group, left_pose_target, "Left Arm", collision_check=False)
 
     # Update the position for the second step (y = 0.1510)
-    left_pose_target.position.y = 0.1510
+    left_pose_target.position.y = 0.4510
 
     rospy.loginfo("Moving to the final target position...")
 

@@ -187,7 +187,7 @@ def compute_next_phi(A, J_h, current_index, positions, orientations, q_dot_d, de
         return None
 
     phi_t = current_joint_states
-    phi_dot_opt = compute_phi_dot_opt(A, "velocity_manipulability")
+    phi_dot_opt = compute_phi_dot_opt(A, "force_manipulability")
     null_space_matrix = compute_null_space_component(J_h)
     if null_space_matrix is None:
         rospy.logwarn("Null space matrix is None. Skipping iteration.")
@@ -204,7 +204,7 @@ def compute_next_phi(A, J_h, current_index, positions, orientations, q_dot_d, de
     A_pinv = np.linalg.pinv(A)
     error = compute_error_in_euler(q_d, q_forward_kinematics())
     second_term = np.dot(A_pinv, ((q_dot_d) + K_p * error)) * delta_t
-    phi_next = phi_t + second_term + third_term
+    phi_next = phi_t + second_term*0 + third_term
     return phi_next
 
 def command_joint_states(joint_states):

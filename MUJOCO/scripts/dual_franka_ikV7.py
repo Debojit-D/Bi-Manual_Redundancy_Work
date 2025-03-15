@@ -1,3 +1,13 @@
+import sys
+import os
+
+# Get the absolute path of the scripts directory
+script_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "scripts"))
+
+# Add the scripts directory to sys.path
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+
 import mujoco
 import mujoco.viewer
 import mink
@@ -7,7 +17,9 @@ from loop_rate_limiters import RateLimiter
 from scipy.spatial.transform import Rotation as R
 import trajecotory_generation
 import redundnacy_optimization
-from scipy.spatial.transform import Rotation as R
+
+print("Loaded trajecotory_generation from:", trajecotory_generation.__file__)
+print("Loaded redundnacy_optimization from:", redundnacy_optimization.__file__)
 
 MODEL_PATH = os.path.join(
     os.path.dirname(__file__),

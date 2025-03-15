@@ -89,7 +89,7 @@ def compute_A(G_matrix, Hand_Jacobian):
     A = np.dot(G_inv_transpose, Hand_Jacobian)
     return A
 
-def compute_phi_dot_opt(A, optimization_type, gain=45000):
+def compute_phi_dot_opt(A, optimization_type, gain=25000):
     """Compute optimal joint velocities for optimization."""
     if optimization_type == "velocity_manipulability":
         W = velocity_manipulability(A)
@@ -208,7 +208,7 @@ def compute_next_phi(A, J_h, current_index, positions, orientations, q_dot_d, de
     error = compute_error_in_euler(q_d, q_forward_kinematics())
     K_p_matrix = np.diag([Kp, Kp, Kp, Kp, Kp, Kp])
     second_term = np.dot(A_pinv, ((q_dot_d) + K_p_matrix @ error)) * delta_t
-    phi_next = phi_t + second_term + third_term
+    phi_next = phi_t + second_term*0 + third_term
 
     # Check for discontinuities and smooth the trajectory
     if previous_phi is not None and previous_previous_phi is not None:

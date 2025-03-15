@@ -4,9 +4,9 @@ import os
 # List of file names to run
 file_names = [
     "going_home_async.py",
-    "z_attach_left.py",
-    "z_attach_right.py",
-    "services2.py",
+    "z_attach_joint_angles_real_hw_v3.py",
+    # "z_attach_right.py",
+    # "services2.py",
     #"2_reset.py",
     #"main_code_static_jh_debug.py",
     
