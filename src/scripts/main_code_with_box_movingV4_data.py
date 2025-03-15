@@ -231,7 +231,7 @@ def command_joint_states(joint_states):
     left_arm_pub.publish(left_arm_traj)
     right_arm_pub.publish(right_arm_traj)
 
-def move_robot_and_save_joints(csv_file_name="joint_angles.csv"):
+def move_robot_and_save_joints(csv_file_name="/home/barat/Debojit_WS/Bi-Manual_Redundancy_Work/src/data/joint_angles.csv"):
     """Move the robot along the trajectory and save joint angles."""
     global left_arm_pub, right_arm_pub
     current_index = 0
