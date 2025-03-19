@@ -2,7 +2,7 @@
   <include file="dual_panda.xml"/>
   <include file="/home/barat/Debojit_WS/Bi-Manual_Redundancy_Work/MUJOCO/assets/furniture/ventionTable/ventionTable_asset.xml"/>
 
-  <option gravity = "0 0 -9.81" />
+  <option gravity = "0 0 0" />
   <statistic center="0.3 0 0.4" extent="1"/>
 
   <visual>
@@ -23,11 +23,11 @@
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
 
   <body name="target_left" pos="0.1 0 .5" quat="1 0 0 0" mocap="true">
-      <geom type="box" size=".05 .05 .05" contype="0" conaffinity="0" rgba=".6 .3 .3 1"/>
+      <geom type="box" size=".05 .05 .05" contype="0" conaffinity="0" rgba="1 0 0 1"/>
   </body>
 
   <body name="target_right" pos="0.1 0 .5" quat="1 0 0 0" mocap="true">
-      <geom type="box" size=".05 .05 .05" contype="0" conaffinity="0" rgba=".6 .3 .3 1"/>
+      <geom type="box" size=".05 .05 .05" contype="0" conaffinity="0" rgba="0 0 1 1"/>
   </body>
 
   
