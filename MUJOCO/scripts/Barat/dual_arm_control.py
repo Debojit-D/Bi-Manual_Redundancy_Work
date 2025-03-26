@@ -23,9 +23,15 @@ class DualArmCollisionController:
         self.configuration = mink.Configuration(self.model)
         
         # 2. Create a separate Mink configuration to store the initial joint state
-        self.initial_configuration = mink.Configuration(self.model)
-        self.initial_configuration.q = np.copy(self.configuration.q)
+        # self.initial_configuration = mink.Configuration(self.model)
+        # self.initial_configuration.q = np.copy(self.configuration.q)
         
+        self.initial_configuration = mink.Configuration(
+            self.model,
+            q=np.copy(self.configuration.q)
+        )
+
+
         # Setup tasks.
         self.end_effector_task_left = mink.FrameTask(
             frame_name="attachment_site_left",
@@ -95,73 +101,21 @@ class DualArmCollisionController:
     
     
     
-    # def solve_ik_step(self, dt):
-        # for _ in range(self.max_iters):
-        #     # Update end-effector task targets
-        #     T_wt_left = mink.SE3.from_mocap_name(self.model, self.data, "target_left")
-        #     T_wt_right = mink.SE3.from_mocap_name(self.model, self.data, "target_right")
-        #     self.end_effector_task_left.set_target(T_wt_left)
-        #     self.end_effector_task_right.set_target(T_wt_right)
-
-        #     # Set the posture task target from the current configuration
-        #     self.posture_task.set_target_from_configuration(self.configuration)
-
-        #     # Define a regularization weight
-        #     regularization_weight = 1e-2  
-
-        #     # Solve IK with regularization
-        #     vel = mink.solve_ik(
-        #         self.configuration, 
-        #         self.tasks, 
-        #         dt, 
-        #         self.solver, 
-        #         1e-3,  # Solver tolerance
-        #         limits=self.limits
-        #     )
-
-        #     # Apply regularization to prevent stretching
-        #     vel -= regularization_weight * np.clip(self.configuration - self.initial_configuration, -0.1, 0.1)
-
-        #     # Clamp velocity
-        #     max_velocity = 0.2  # Tune this as needed
-        #     vel = np.clip(vel, -max_velocity, max_velocity)
-
-        #     # Integrate joint values
-        #     self.configuration.integrate_inplace(vel, dt)
-
-        #     # Enforce joint limits
-        #     self.configuration = np.clip(self.configuration, self.limits[:, 0] + 0.1, self.limits[:, 1] - 0.1)
-
-        #     # Compute IK error
-        #     err_left = self.end_effector_task_left.compute_error(self.configuration)
-        #     err_right = self.end_effector_task_right.compute_error(self.configuration)
-
-        #     # Debugging output
-        #     print(f"🛑 IK Error Left Pos: {np.linalg.norm(err_left[:3])}, Rot: {np.linalg.norm(err_left[3:])}")
-        #     print(f"🛑 IK Error Right Pos: {np.linalg.norm(err_right[:3])}, Rot: {np.linalg.norm(err_right[3:])}")
-
-        #     # Stop if error is small
-        #     if (np.linalg.norm(err_left[:3]) <= self.pos_threshold and
-        #         np.linalg.norm(err_left[3:]) <= self.ori_threshold and
-        #         np.linalg.norm(err_right[:3]) <= self.pos_threshold and
-        #         np.linalg.norm(err_right[3:]) <= self.ori_threshold):
-        #         break 
-    
     def solve_ik_step(self, dt):
         for _ in range(self.max_iters):
-            # Update end-effector task targets from current mocap targets.
+            # Update end-effector task targets
             T_wt_left = mink.SE3.from_mocap_name(self.model, self.data, "target_left")
             T_wt_right = mink.SE3.from_mocap_name(self.model, self.data, "target_right")
             self.end_effector_task_left.set_target(T_wt_left)
             self.end_effector_task_right.set_target(T_wt_right)
 
-            # Set the posture task target from the current configuration.
+            # Set the posture task target from the current configuration
             self.posture_task.set_target_from_configuration(self.configuration)
 
-            # Define a regularization weight (tune as needed)
+            # Define a regularization weight
             regularization_weight = 1e-2  
 
-            # Solve IK to get joint velocities.
+            # Solve IK with regularization
             vel = mink.solve_ik(
                 self.configuration, 
                 self.tasks, 
@@ -171,63 +125,113 @@ class DualArmCollisionController:
                 limits=self.limits
             )
 
-            # --- Regularization Step ---
-            # Extract joint values from the current and initial configurations.
-            current_joints = self.configuration.q  # should be a NumPy array, e.g. shape (24,)
-            initial_joints = self.initial_configuration.q  # should have the same shape
+            # Apply regularization to prevent stretching
+            # vel -= regularization_weight * np.clip(self.configuration - self.initial_configuration, -0.1, 0.1)
 
-            # Debug prints (optional)
-            print(f"current_joints shape: {current_joints.shape}")
-            print(f"initial_joints shape: {initial_joints.shape}")
-            print(f"Vel shape before regularization: {vel.shape}")
+            # Clamp velocity
+            # max_velocity = 0.2  # Tune this as needed
+            # vel = np.clip(vel, -max_velocity, max_velocity)
 
-            # Ensure vel has the correct shape.
-            if vel.shape[0] > self.model.nv:
-                vel = vel[:self.model.nv]
-            elif vel.shape[0] < self.model.nv:
-                vel = np.pad(vel, (0, self.model.nv - vel.shape[0]), mode='constant')
-
-            # Apply regularization to dampen large changes.
-            vel -= regularization_weight * np.clip(current_joints - initial_joints, -0.1, 0.1)
-
-            # Double-check that vel now has the correct size.
-            if vel.shape[0] != self.model.nv:
-                if vel.shape[0] > self.model.nv:
-                    vel = vel[:self.model.nv]
-                else:
-                    vel = np.pad(vel, (0, self.model.nv - vel.shape[0]), mode='constant')
-            print(f"Vel shape after regularization and trim: {vel.shape}")
-
-            # Integrate the joint velocities.
+            # Integrate joint values
             self.configuration.integrate_inplace(vel, dt)
 
-            # --- Clamping Joint Values ---
-            # Convert self.limits to a NumPy array if needed.
-            if isinstance(self.limits, list):
-                self.limits = np.array(self.limits)
-            # If self.limits is 1D, reshape it.
-            if self.limits.ndim == 1:
-                self.limits = self.limits.reshape(-1, 2)
+            # Enforce joint limits
+            # self.configuration = np.clip(self.configuration, self.limits[:, 0] + 0.1, self.limits[:, 1] - 0.1)
 
-            # Clamp joint values within safe limits.
-            new_q = np.clip(self.configuration.q, self.limits[:, 0] + 0.1, self.limits[:, 1] - 0.1)
-            self.configuration.set_q(new_q)
-
-            # Compute IK error.
+            # Compute IK error
             err_left = self.end_effector_task_left.compute_error(self.configuration)
             err_right = self.end_effector_task_right.compute_error(self.configuration)
 
+            # Debugging output
             print(f"🛑 IK Error Left Pos: {np.linalg.norm(err_left[:3])}, Rot: {np.linalg.norm(err_left[3:])}")
             print(f"🛑 IK Error Right Pos: {np.linalg.norm(err_right[:3])}, Rot: {np.linalg.norm(err_right[3:])}")
 
-            # Break the loop if errors are small.
+            # Stop if error is small
             if (np.linalg.norm(err_left[:3]) <= self.pos_threshold and
                 np.linalg.norm(err_left[3:]) <= self.ori_threshold and
                 np.linalg.norm(err_right[:3]) <= self.pos_threshold and
                 np.linalg.norm(err_right[3:]) <= self.ori_threshold):
-                break
+                break 
+    
+    # def solve_ik_step(self, dt):
+    #     for _ in range(self.max_iters):
+    #         # Update end-effector task targets from current mocap targets.
+    #         T_wt_left = mink.SE3.from_mocap_name(self.model, self.data, "target_left")
+    #         T_wt_right = mink.SE3.from_mocap_name(self.model, self.data, "target_right")
+    #         self.end_effector_task_left.set_target(T_wt_left)
+    #         self.end_effector_task_right.set_target(T_wt_right)
 
+    #         # Set the posture task target from the current configuration.
+    #         self.posture_task.set_target_from_configuration(self.configuration)
 
+    #         # Define a regularization weight (tune as needed)
+    #         regularization_weight = 1e-2  
+
+    #         # Solve IK to get joint velocities.
+    #         vel = mink.solve_ik(
+    #             self.configuration, 
+    #             self.tasks, 
+    #             dt, 
+    #             self.solver, 
+    #             1e-3,  # Solver tolerance
+    #             limits=self.limits
+    #         )
+
+    #         # --- Regularization Step ---
+    #         # Extract joint values from the current and initial configurations.
+    #         current_joints = self.configuration.q  # should be a NumPy array, e.g. shape (24,)
+    #         initial_joints = self.initial_configuration.q  # should have the same shape
+
+    #         # Debug prints (optional)
+    #         print(f"current_joints shape: {current_joints.shape}")
+    #         print(f"initial_joints shape: {initial_joints.shape}")
+    #         print(f"Vel shape before regularization: {vel.shape}")
+
+    #         # Ensure vel has the correct shape.
+    #         if vel.shape[0] > self.model.nv:
+    #             vel = vel[:self.model.nv]
+    #         elif vel.shape[0] < self.model.nv:
+    #             vel = np.pad(vel, (0, self.model.nv - vel.shape[0]), mode='constant')
+
+    #         # Apply regularization to dampen large changes.
+    #         vel -= regularization_weight * np.clip(current_joints - initial_joints, -0.1, 0.1)
+
+    #         # Double-check that vel now has the correct size.
+    #         if vel.shape[0] != self.model.nv:
+    #             if vel.shape[0] > self.model.nv:
+    #                 vel = vel[:self.model.nv]
+    #             else:
+    #                 vel = np.pad(vel, (0, self.model.nv - vel.shape[0]), mode='constant')
+    #         print(f"Vel shape after regularization and trim: {vel.shape}")
+
+    #         # Integrate the joint velocities.
+    #         self.configuration.integrate_inplace(vel, dt)
+
+    #         # --- Clamping Joint Values ---
+    #         # Convert self.limits to a NumPy array if needed.
+    #         if isinstance(self.limits, list):
+    #             self.limits = np.array(self.limits)
+    #         # If self.limits is 1D, reshape it.
+    #         if self.limits.ndim == 1:
+    #             self.limits = self.limits.reshape(-1, 2)
+
+    #         # Clamp joint values within safe limits.
+    #         new_q = np.clip(self.configuration.q, self.limits[:, 0] + 0.1, self.limits[:, 1] - 0.1)
+    #         self.configuration.set_q(new_q)
+
+    #         # Compute IK error.
+    #         err_left = self.end_effector_task_left.compute_error(self.configuration)
+    #         err_right = self.end_effector_task_right.compute_error(self.configuration)
+
+    #         print(f"🛑 IK Error Left Pos: {np.linalg.norm(err_left[:3])}, Rot: {np.linalg.norm(err_left[3:])}")
+    #         print(f"🛑 IK Error Right Pos: {np.linalg.norm(err_right[:3])}, Rot: {np.linalg.norm(err_right[3:])}")
+
+    #         # Break the loop if errors are small.
+    #         if (np.linalg.norm(err_left[:3]) <= self.pos_threshold and
+    #             np.linalg.norm(err_left[3:]) <= self.ori_threshold and
+    #             np.linalg.norm(err_right[:3]) <= self.pos_threshold and
+    #             np.linalg.norm(err_right[3:]) <= self.ori_threshold):
+    #             break
 
 
     def reset_mocap_targets(self):

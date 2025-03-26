@@ -83,7 +83,7 @@ if __name__ == "__main__":
         # Record the initial mocap target positions.
         initial_target_position_left = data.mocap_pos[0].copy()
         initial_target_position_right = data.mocap_pos[1].copy()
-
+        
         # Trajectory parameters.
         amp = 0.15   # Amplitude of 5 cm.
         freq = 0.4   # Frequency of 0.5 Hz.

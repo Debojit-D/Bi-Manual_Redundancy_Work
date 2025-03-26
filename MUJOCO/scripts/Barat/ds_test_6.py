@@ -47,8 +47,10 @@ print(f"Init_pose_left: {init_pos_left}")
 
 # --- Define Asynchronous Target Poses ---
 # Pose A for left arm, Pose B for right arm (relative to initial positions).
-pose_A_position = init_pos_left + np.array([-0.1, -0.2, 0.1])
-pose_B_position = init_pos_right + np.array([-0.1, 0.2, 0.1])
+pose_A_position = init_pos_left + np.array([-0.2, -0.5, 0.1])
+pose_B_position = init_pos_right + np.array([-0.2, 0.5, 0.1])
+# pose_A_position = init_pos_left 
+# pose_B_position = init_pos_right 
 pose_A_orientation = np.array([1, 0, 0, 0])
 pose_B_orientation = np.array([1, 0, 0, 0])
 
