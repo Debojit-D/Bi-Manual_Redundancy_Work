@@ -24,7 +24,9 @@ def ik_task_constraints(model):
     right_ee_task = mink.FrameTask("attachment_site_right", "site", position_cost=1.0, orientation_cost=1.0, lm_damping=1.0)
     posture_task = mink.PostureTask(model=model, cost=1e-2)
     tasks = [left_ee_task, right_ee_task, posture_task]
-    solver = "osqp"
+    # Mink's current examples use DAQP, which is installed with
+    # the qpsolvers[daqp] dependency and supports Mink's constraints.
+    solver = "daqp"
     pos_threshold, ori_threshold = 0.008, 0.008
     max_iters = 20  # Inner iterations per planning cycle
     rate = RateLimiter(frequency=40.0, warn=False)
@@ -219,5 +221,4 @@ if __name__ == "__main__":
             mujoco.mj_step(model, data)
             viewer.sync()
             rate.sleep()
-
 

@@ -1,6 +1,6 @@
 <mujoco model="dual panda scene">
   <include file="dual_panda.xml"/>
-  <include file="/home/barat/Debojit_WS/Bi-Manual_Redundancy_Work/MUJOCO/assets/furniture/ventionTable/ventionTable_asset.xml"/>
+  <include file="../../assets/furniture/ventionTable/ventionTable_asset.xml"/>
 
   <option gravity = "0 0 -9.81" />
   <statistic center="0.3 0 0.4" extent="1"/>
@@ -34,7 +34,7 @@
     <!-- Vention Table with a defined position and orientation -->
   <body name="vention_table">
       <joint name="table_joint" type="free"/>
-      <include file="/home/barat/Debojit_WS/Bi-Manual_Redundancy_Work/MUJOCO/assets/furniture/ventionTable/ventionTable_body.xml"/>
+      <include file="../../assets/furniture/ventionTable/ventionTable_body.xml"/>
   </body>
 
   </worldbody>

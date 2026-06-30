@@ -1,12 +1,19 @@
-import mujoco
-import numpy as np
-from mujoco.viewer import launch
+from pathlib import Path
 
-# Path to your XML file for dual-arm setup
-xml_file_path = "/home/iitgn-robotics-1/Debojit_WS/Dual_Arm_Manipulation-Addverb_and_IITGN_Robotics/Other/MUJOCO/heal_dual_sphere_reconfigured_home.xml"
+import mujoco
+import mujoco.viewer
+import numpy as np
+
+# Resolve the model relative to this script so the code is machine-independent.
+xml_file_path = (
+    Path(__file__).resolve().parent.parent
+    / "robot_descriptions"
+    / "heal"
+    / "dual_heal_reconfigured_home.xml"
+)
 
 # Load the MuJoCo model
-model = mujoco.MjModel.from_xml_path(xml_file_path)
+model = mujoco.MjModel.from_xml_path(xml_file_path.as_posix())
 data = mujoco.MjData(model)
 
 # Define the target positions for the joints
@@ -38,9 +45,11 @@ def compute_pd_torques(data, target_positions, Kp, Kd):
     pd_torques = np.zeros(model.nu)
     for i in range(model.nu):
         # Get joint position and velocity indices
-        qpos_idx = model.jnt_dofadr[model.actuator_trnid[i][0]]
+        joint_id = model.actuator_trnid[i][0]
+        qpos_idx = model.jnt_qposadr[joint_id]
+        dof_idx = model.jnt_dofadr[joint_id]
         position_error = target_positions[qpos_idx] - data.qpos[qpos_idx]
-        velocity_error = -data.qvel[qpos_idx]
+        velocity_error = -data.qvel[dof_idx]
         pd_torques[i] = Kp * position_error + Kd * velocity_error
     return pd_torques
 
@@ -68,9 +77,13 @@ def control_callback(model, data):
     # Apply PD control torques combined with gravity compensation
     data.ctrl[:] = data.qfrc_bias[dof_indices] + pd_torques
 
-    # Calculate position error for the active joints only
-    active_dofs = target_joint_positions != 0
-    position_error = np.linalg.norm((target_joint_positions - data.qpos[:model.nq])[active_dofs])
+    # Calculate position error over all actuated joints. A zero-valued target is
+    # still an active target and must not be omitted from the convergence check.
+    actuator_joint_ids = model.actuator_trnid[:, 0]
+    qpos_indices = model.jnt_qposadr[actuator_joint_ids]
+    position_error = np.linalg.norm(
+        target_joint_positions[qpos_indices] - data.qpos[qpos_indices]
+    )
 
     if position_error < tolerance:
         print(f"Target position {current_target_idx + 1} reached.")
@@ -84,18 +97,19 @@ def control_callback(model, data):
         else:
             print(f"Moving to target position {current_target_idx + 1}.")
 
-# Set the control callback
-mujoco.set_mjcb_control(control_callback)
+def main():
+    """Run the PD-controlled simulation in MuJoCo's passive viewer."""
+    mujoco.set_mjcb_control(control_callback)
+    try:
+        with mujoco.viewer.launch_passive(model, data) as viewer:
+            while viewer.is_running():
+                mujoco.mj_step(model, data)
+                viewer.sync()
+    finally:
+        # Avoid leaving a process-global callback installed during interpreter
+        # shutdown or when this module is reused.
+        mujoco.set_mjcb_control(None)
 
-# Use the viewer for visualization
-viewer = launch(model, data)
 
-# Main simulation loop
-try:
-    while viewer and viewer.is_running():
-        # Step the simulation forward
-        mujoco.mj_step(model, data)
-        viewer.render()
-except AttributeError:
-    # Handle the case where viewer is None gracefully
-    print("MuJoCo viewer closed.")
+if __name__ == "__main__":
+    main()
