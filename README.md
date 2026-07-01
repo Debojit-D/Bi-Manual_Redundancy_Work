@@ -189,6 +189,34 @@ Sequence:
 3. maintain zero desired object velocity; and
 4. continuously apply `(I - J_H^dagger J_H) phi_dot_opt`.
 
+### CSV data recording
+
+The static and optimized lift-and-lower experiments can record every Equation
+(8) control step:
+
+```bash
+python -m MUJOCO.scripts.dual_franka_eq8_static_optimization --record-data
+python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place --record-data
+```
+
+Timestamped files are written to `outputs/mujoco_data/`. To choose a path:
+
+```bash
+python -m MUJOCO.scripts.dual_franka_eq8_static_optimization \
+  --output-csv outputs/my_static_run.csv
+```
+
+Supplying `--output-csv` enables recording without requiring `--record-data`.
+Existing paths are not overwritten; a numeric suffix is added. Each row is
+flushed immediately, and the file is closed in a `finally` block, so closing
+the viewer early or pressing `Ctrl+C` preserves every completed sample. The
+CSV contains object pose/error, grasp error, Equation (8) velocity terms,
+optimization gradient and objective, collision diagnostics, 14 arm joint
+positions, and actuator/bias/constraint/applied torque diagnostics.
+`tau_total_est_norm` uses
+`qfrc_actuator + qfrc_applied + qfrc_constraint - qfrc_bias` over the 14 arm
+DoFs.
+
 Both module commands can also be run as file paths after the editable install:
 
 ```bash

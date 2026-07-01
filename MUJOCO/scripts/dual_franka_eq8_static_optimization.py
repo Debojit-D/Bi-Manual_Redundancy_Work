@@ -5,12 +5,15 @@ selected paper objective generates phi_dot_opt while Equation (8)'s primary
 term continuously holds the object's position and orientation.
 """
 
+import argparse
+
 import numpy as np
 from loop_rate_limiters import RateLimiter
 
 from MUJOCO.utils.grasping_kinematics import (
     CooperativeManipulationKinematics,
 )
+from MUJOCO.utils.data_recording import Equation8CSVRecorder
 from MUJOCO.utils.redundancy_optimization import (
     Equation8Controller,
     ManipulabilityObjective,
@@ -69,6 +72,7 @@ def run_static_optimization(
     viewer,
     rate,
     duration=None,
+    recorder=None,
 ):
     """Hold q_d constant while continuously applying the null-space term."""
     desired_position, desired_rotation = kinematics.object_pose(scene.data)
@@ -98,6 +102,13 @@ def run_static_optimization(
         phi = scene.clip_arm_configuration(phi)
         scene.command(phi, scene.gripper_closed)
         scene.step(viewer)
+        if recorder is not None:
+            recorder.record(
+                desired_position,
+                desired_rotation,
+                optimization,
+                diagnostics,
+            )
         rate.sleep()
 
         if step % int(CONTROL_HZ) == 0:
@@ -125,7 +136,7 @@ def run_static_optimization(
     return initial_value, final_value
 
 
-def main():
+def main(*, record_data=False, output_csv=None):
     scene = DualFrankaMuJoCoScene(
         control_hz=CONTROL_HZ,
         left_arm_base_position=LEFT_ARM_SPAWN_POSITION,
@@ -162,23 +173,66 @@ def main():
         collision_sphere_radius=COLLISION_SPHERE_RADIUS,
     )
     rate = RateLimiter(frequency=CONTROL_HZ, warn=False)
-
-    with scene.launch_viewer() as viewer:
-        scene.configure_viewer_camera(viewer)
-        scene.settle(viewer, rate)
-        scene.run_grasp_approach(viewer, rate)
-        print("Closing both grippers...")
-        scene.close_grippers(viewer, rate)
-        equation_8.capture_grasp_reference(scene.data)
-        run_static_optimization(
+    recorder = None
+    if record_data or output_csv is not None:
+        recorder = Equation8CSVRecorder(
             scene,
             kinematics,
             equation_8,
             optimizer,
-            viewer,
-            rate,
+            experiment_name="dual_franka_eq8_static_optimization",
+            output_path=output_csv,
         )
+        print(f"Recording data to: {recorder.output_path}")
+
+    try:
+        with scene.launch_viewer() as viewer:
+            scene.configure_viewer_camera(viewer)
+            scene.settle(viewer, rate)
+            scene.run_grasp_approach(viewer, rate)
+            print("Closing both grippers...")
+            scene.close_grippers(viewer, rate)
+            equation_8.capture_grasp_reference(scene.data)
+            run_static_optimization(
+                scene,
+                kinematics,
+                equation_8,
+                optimizer,
+                viewer,
+                rate,
+                recorder=recorder,
+            )
+    except KeyboardInterrupt:
+        print("Interrupted by Ctrl+C; preserving recorded samples.")
+    finally:
+        if recorder is not None:
+            recorder.close()
+            print(
+                f"Saved {recorder.rows_written} rows to: "
+                f"{recorder.output_path}"
+            )
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--record-data",
+        action="store_true",
+        help="Record every Equation (8) control step to CSV.",
+    )
+    parser.add_argument(
+        "--output-csv",
+        help=(
+            "Optional CSV path. Supplying it also enables recording; existing "
+            "files receive a collision-safe numeric suffix."
+        ),
+    )
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    main()
+    arguments = parse_arguments()
+    main(
+        record_data=arguments.record_data,
+        output_csv=arguments.output_csv,
+    )

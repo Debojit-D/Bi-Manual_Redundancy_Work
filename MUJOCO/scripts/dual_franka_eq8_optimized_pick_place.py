@@ -1,11 +1,14 @@
 """Dual-Franka optimized Equation (8) lift-and-lower demonstration."""
 
+import argparse
+
 import numpy as np
 from loop_rate_limiters import RateLimiter
 
 from MUJOCO.utils.grasping_kinematics import (
     CooperativeManipulationKinematics,
 )
+from MUJOCO.utils.data_recording import Equation8CSVRecorder
 from MUJOCO.utils.redundancy_optimization import (
     Equation8Controller,
     ManipulabilityObjective,
@@ -104,6 +107,7 @@ def optimized_equation_8_step(
     desired_twist,
     viewer,
     rate,
+    recorder=None,
 ):
     """Apply one primary-plus-null-space Equation (8) control step."""
     optimization = optimizer.optimization_velocity(scene.data)
@@ -118,6 +122,13 @@ def optimized_equation_8_step(
     phi = scene.clip_arm_configuration(phi)
     scene.command(phi, scene.gripper_closed)
     scene.step(viewer)
+    if recorder is not None:
+        recorder.record(
+            desired_position,
+            desired_rotation,
+            optimization,
+            diagnostics,
+        )
     rate.sleep()
     return phi, optimization, diagnostics
 
@@ -130,6 +141,7 @@ def run_optimized_lift(
     viewer,
     rate,
     hold_duration=None,
+    recorder=None,
 ):
     """Lift, lower, then keep optimizing at the returned grasped pose."""
     initial_position, desired_rotation = kinematics.object_pose(scene.data)
@@ -145,7 +157,11 @@ def run_optimized_lift(
     total_duration = LIFT_DURATION + LOWER_DURATION
     number_of_steps = int(total_duration * CONTROL_HZ) + 1
     apex_objective = None
+    motion_completed = True
     for step in range(number_of_steps):
+        if not viewer.is_running():
+            motion_completed = False
+            break
         time = min(step / CONTROL_HZ, total_duration)
         desired_position, rotation, desired_twist = lift_and_lower_reference(
             initial_position,
@@ -163,6 +179,7 @@ def run_optimized_lift(
             desired_twist,
             viewer,
             rate,
+            recorder,
         )
 
         if apex_objective is None and time >= LIFT_DURATION:
@@ -190,11 +207,14 @@ def run_optimized_lift(
             )
 
     returned_objective = optimizer.value(scene.data)
-    print(
-        f"Lift-and-lower complete: objective {initial_objective:.6g} -> "
-        f"{returned_objective:.6g}. Holding the returned pose with "
-        "optimization active; close the viewer to exit."
-    )
+    if motion_completed:
+        print(
+            f"Lift-and-lower complete: objective {initial_objective:.6g} -> "
+            f"{returned_objective:.6g}. Holding the returned pose with "
+            "optimization active; close the viewer to exit."
+        )
+    else:
+        print("Viewer closed before the lift-and-lower motion completed.")
 
     maximum_hold_steps = (
         None
@@ -215,6 +235,7 @@ def run_optimized_lift(
             np.zeros(6),
             viewer,
             rate,
+            recorder,
         )
         if hold_step % int(CONTROL_HZ) == 0:
             print(
@@ -240,7 +261,7 @@ def run_optimized_lift(
     }
 
 
-def main():
+def main(*, record_data=False, output_csv=None):
     scene = DualFrankaMuJoCoScene(
         control_hz=CONTROL_HZ,
         left_arm_base_position=LEFT_ARM_SPAWN_POSITION,
@@ -277,23 +298,66 @@ def main():
         collision_sphere_radius=COLLISION_SPHERE_RADIUS,
     )
     rate = RateLimiter(frequency=CONTROL_HZ, warn=False)
-
-    with scene.launch_viewer() as viewer:
-        scene.configure_viewer_camera(viewer)
-        scene.settle(viewer, rate)
-        scene.run_grasp_approach(viewer, rate)
-        print("Closing both grippers...")
-        scene.close_grippers(viewer, rate)
-        equation_8.capture_grasp_reference(scene.data)
-        run_optimized_lift(
+    recorder = None
+    if record_data or output_csv is not None:
+        recorder = Equation8CSVRecorder(
             scene,
             kinematics,
             equation_8,
             optimizer,
-            viewer,
-            rate,
+            experiment_name="dual_franka_eq8_optimized_lift_lower",
+            output_path=output_csv,
         )
+        print(f"Recording data to: {recorder.output_path}")
+
+    try:
+        with scene.launch_viewer() as viewer:
+            scene.configure_viewer_camera(viewer)
+            scene.settle(viewer, rate)
+            scene.run_grasp_approach(viewer, rate)
+            print("Closing both grippers...")
+            scene.close_grippers(viewer, rate)
+            equation_8.capture_grasp_reference(scene.data)
+            run_optimized_lift(
+                scene,
+                kinematics,
+                equation_8,
+                optimizer,
+                viewer,
+                rate,
+                recorder=recorder,
+            )
+    except KeyboardInterrupt:
+        print("Interrupted by Ctrl+C; preserving recorded samples.")
+    finally:
+        if recorder is not None:
+            recorder.close()
+            print(
+                f"Saved {recorder.rows_written} rows to: "
+                f"{recorder.output_path}"
+            )
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--record-data",
+        action="store_true",
+        help="Record every Equation (8) control step to CSV.",
+    )
+    parser.add_argument(
+        "--output-csv",
+        help=(
+            "Optional CSV path. Supplying it also enables recording; existing "
+            "files receive a collision-safe numeric suffix."
+        ),
+    )
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    main()
+    arguments = parse_arguments()
+    main(
+        record_data=arguments.record_data,
+        output_csv=arguments.output_csv,
+    )

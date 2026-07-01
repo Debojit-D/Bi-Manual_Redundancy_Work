@@ -26,3 +26,6 @@ __pycache__/
 rosbag/
 *.bag
 *.log
+
+# Generated MuJoCo experiment CSV files
+outputs/mujoco_data/
