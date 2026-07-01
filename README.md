@@ -53,6 +53,7 @@ MUJOCO/
 ├── robot_descriptions/             Franka and object MJCF models
 ├── scripts/
 │   ├── dual_franka_eq8_baseline_pick_place.py
+│   ├── dual_franka_eq8_optimized_pick_place.py
 │   ├── dual_franka_eq8_static_optimization.py
 │   └── legacy_code/                Earlier MuJoCo experiments
 └── utils/
@@ -134,6 +135,18 @@ Sequence:
 4. continuously track the final object pose; and
 5. keep null-space optimization disabled.
 
+### Optimized Equation (8) lift
+
+```bash
+python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place
+```
+
+This runs the same grasp, 0.26 m quintic lift, and final-pose hold as the
+baseline while evaluating `phi_dot_opt` and applying the projected null-space
+term every control cycle. Optimization remains active during the final hold.
+Velocity manipulability is the default objective; the force and
+directional-force objectives can be selected in the runner settings.
+
 ### Static null-space optimization
 
 ```bash
@@ -151,6 +164,7 @@ Both module commands can also be run as file paths after the editable install:
 
 ```bash
 python MUJOCO/scripts/dual_franka_eq8_baseline_pick_place.py
+python MUJOCO/scripts/dual_franka_eq8_optimized_pick_place.py
 python MUJOCO/scripts/dual_franka_eq8_static_optimization.py
 ```
 
@@ -171,7 +185,7 @@ Changing an arm spawn position changes only the corresponding fixed base-body
 position; joint states, base orientations, object pose, and other scene
 properties remain unchanged.
 
-### Baseline settings
+### Lift settings
 
 - `LIFT_HEIGHT`
 - `LIFT_DURATION`
