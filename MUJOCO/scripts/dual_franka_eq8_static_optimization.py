@@ -40,22 +40,24 @@ GRASP_K_P = np.diag([8.0, 8.0, 8.0, 6.0, 6.0, 6.0])
 
 # This collision-aware static test exercises force manipulability. Change this
 # value to VELOCITY or DIRECTIONAL_FORCE for the other paper objectives.
-OBJECTIVE = ManipulabilityObjective.FORCE
+OBJECTIVE = ManipulabilityObjective.DIRECTIONAL_FORCE
 # The raw spatial-gradient scale is small; the joint-speed cap below remains
 # the final safety limit after applying this Equation (4) gain Lambda.
-OPTIMIZATION_GAIN = 1000.0
-MAXIMUM_OPTIMIZATION_JOINT_SPEED = 2
+OPTIMIZATION_GAIN = 100.0
+MAXIMUM_OPTIMIZATION_JOINT_SPEED = 5
 FINITE_DIFFERENCE_STEP = 1e-4
 
 # MuJoCo-native coarse-sphere soft penalty. This discourages inter-arm
 # proximity but is not a hard collision-proof planner.
 ENABLE_COLLISION_PENALTY = True
 COLLISION_WEIGHT = 1700.0
-COLLISION_SAFETY_MARGIN = 0.1
-COLLISION_SPHERE_RADIUS = 0.08
+# COLLISION_SAFETY_MARGIN = 0.16
+# COLLISION_SPHERE_RADIUS = 0.14
+COLLISION_SAFETY_MARGIN = 0.009
+COLLISION_SPHERE_RADIUS = 0.007
 
 # Used only by DIRECTIONAL_FORCE: world-frame [Fx, Fy, Fz, Mx, My, Mz].
-DESIRED_WRENCH_DIRECTION = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+DESIRED_WRENCH_DIRECTION = np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0])
 CHARACTERISTIC_LENGTH = 0.4
 
 

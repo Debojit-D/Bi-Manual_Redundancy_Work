@@ -35,15 +35,15 @@ GRASP_K_P = np.diag([8.0, 8.0, 8.0, 6.0, 6.0, 6.0])
 # Change this to FORCE or DIRECTIONAL_FORCE to test the other paper costs.
 OBJECTIVE = ManipulabilityObjective.FORCE
 OPTIMIZATION_GAIN = 100.0
-MAXIMUM_OPTIMIZATION_JOINT_SPEED = 50
+MAXIMUM_OPTIMIZATION_JOINT_SPEED = 5
 FINITE_DIFFERENCE_STEP = 1e-4
 
 # MuJoCo-native coarse-sphere soft penalty. This discourages inter-arm
 # proximity but is not a hard collision-proof planner.
 ENABLE_COLLISION_PENALTY = True
 COLLISION_WEIGHT = 1700.0
-COLLISION_SAFETY_MARGIN = 0.1
-COLLISION_SPHERE_RADIUS = 0.08
+COLLISION_SAFETY_MARGIN = 0.16
+COLLISION_SPHERE_RADIUS = 0.14
 
 DESIRED_WRENCH_DIRECTION = np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
 CHARACTERISTIC_LENGTH = 0.4
