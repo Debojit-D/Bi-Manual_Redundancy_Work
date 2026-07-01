@@ -39,6 +39,8 @@ class DualFrankaMuJoCoScene:
         approach_timeout=20.0,
         approach_segment_duration=3.0,
         maximum_approach_joint_speed=0.6,
+        pregrasp_distance=0.05,
+        grasp_penetration=0.02,
     ):
         self.model_path = Path(model_path or self.DEFAULT_MODEL_PATH)
         self.control_hz = float(control_hz)
@@ -52,6 +54,12 @@ class DualFrankaMuJoCoScene:
         self.maximum_approach_joint_speed = float(
             maximum_approach_joint_speed
         )
+        self.pregrasp_distance = float(pregrasp_distance)
+        self.grasp_penetration = float(grasp_penetration)
+        if self.pregrasp_distance < 0.0 or self.grasp_penetration < 0.0:
+            raise ValueError(
+                "pregrasp_distance and grasp_penetration must be nonnegative"
+            )
 
         self.model = mujoco.MjModel.from_xml_path(self.model_path.as_posix())
         self._set_arm_base_positions(
@@ -235,6 +243,9 @@ class DualFrankaMuJoCoScene:
 
     def _approach_waypoints(self):
         left_quaternion, right_quaternion = self._initialize_mocap_targets()
+        object_position = self.data.site_xpos[
+            self.model.site("site_top_middle").id
+        ].copy()
         left_position = self.data.site_xpos[
             self.model.site("site_left").id
         ].copy()
@@ -242,15 +253,30 @@ class DualFrankaMuJoCoScene:
             self.model.site("site_right").id
         ].copy()
 
-        left_pregrasp = left_position.copy()
-        left_pregrasp[1] -= 0.05
-        right_pregrasp = right_position.copy()
-        right_pregrasp[1] += 0.05
+        # Derive each approach direction from the live object geometry. These
+        # vectors therefore translate and rotate with arbitrary object poses,
+        # unlike fixed offsets along a world axis.
+        left_outward = left_position - object_position
+        right_outward = right_position - object_position
+        left_norm = np.linalg.norm(left_outward)
+        right_norm = np.linalg.norm(right_outward)
+        if left_norm <= 1e-9 or right_norm <= 1e-9:
+            raise ValueError("Object contact sites must differ from its reference site")
+        left_outward /= left_norm
+        right_outward /= right_norm
 
-        left_grasp = left_pregrasp.copy()
-        left_grasp[1] += 0.07
-        right_grasp = right_pregrasp.copy()
-        right_grasp[1] -= 0.07
+        left_pregrasp = (
+            left_position + self.pregrasp_distance * left_outward
+        )
+        right_pregrasp = (
+            right_position + self.pregrasp_distance * right_outward
+        )
+        left_grasp = (
+            left_position - self.grasp_penetration * left_outward
+        )
+        right_grasp = (
+            right_position - self.grasp_penetration * right_outward
+        )
 
         return (
             [

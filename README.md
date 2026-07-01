@@ -53,6 +53,7 @@ MUJOCO/
 ├── robot_descriptions/             Franka and object MJCF models
 ├── scripts/
 │   ├── dual_franka_eq8_baseline_pick_place.py
+│   ├── dual_franka_eq8_optimized_6d_pick_place.py
 │   ├── dual_franka_eq8_optimized_pick_place.py
 │   ├── dual_franka_eq8_static_optimization.py
 │   └── legacy_code/                Earlier MuJoCo experiments
@@ -147,6 +148,34 @@ term every control cycle. Optimization remains active during the final hold.
 Velocity manipulability is the default objective; the force and
 directional-force objectives can be selected in the runner settings.
 
+### Optimized 6D pick-and-place trajectory
+
+```bash
+python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place
+```
+
+This example initializes the physical table at an editable start pose, grasps
+it, follows one smooth `start -> intermediate -> goal` trajectory in full
+SE(3), and then keeps the table grasped at the goal until the viewer closes.
+The intermediate pose is a pass-through waypoint rather than a stop: linear
+and angular velocity stay continuous there. The trajectory starts and finishes
+at zero twist, with Equation (8), null-space optimization, and the soft
+inter-arm collision penalty active throughout the motion and final hold.
+
+After the grippers close, the controller records both hand poses relative to
+the table. A position-level grasp correction then removes the small drift that
+an instantaneous Jacobian null-space projection alone cannot prevent under
+finite integration, actuator lag, and compliant contact.
+
+The following world-frame pose settings are editable near the top of the file:
+
+- `TABLE_START_POSITION`, `TABLE_START_EULER_XYZ`;
+- `TABLE_INTERMEDIATE_POSITION`, `TABLE_INTERMEDIATE_EULER_XYZ`; and
+- `TABLE_GOAL_POSITION`, `TABLE_GOAL_EULER_XYZ`.
+
+Positions are metres. Euler angles are extrinsic XYZ radians and describe the
+controlled `site_top_middle` table frame.
+
 ### Static null-space optimization
 
 ```bash
@@ -164,6 +193,7 @@ Both module commands can also be run as file paths after the editable install:
 
 ```bash
 python MUJOCO/scripts/dual_franka_eq8_baseline_pick_place.py
+python MUJOCO/scripts/dual_franka_eq8_optimized_6d_pick_place.py
 python MUJOCO/scripts/dual_franka_eq8_optimized_pick_place.py
 python MUJOCO/scripts/dual_franka_eq8_static_optimization.py
 ```

@@ -7,6 +7,25 @@ import mujoco
 import numpy as np
 
 
+LEFT_COLLISION_BODIES = (
+    "link3_l",
+    "link4_l",
+    "link5_l",
+    "link6_l",
+    "link7_l",
+    "hand_l",
+)
+
+RIGHT_COLLISION_BODIES = (
+    "link3_r",
+    "link4_r",
+    "link5_r",
+    "link6_r",
+    "link7_r",
+    "hand_r",
+)
+
+
 class ManipulabilityObjective(str, Enum):
     """The three redundancy objectives compared in the paper."""
 
@@ -43,6 +62,10 @@ class ManipulabilityOptimizer:
         desired_wrench_direction=(0.0, 0.0, 1.0, 0.0, 0.0, 0.0),
         characteristic_length=0.4,
         determinant_floor=1e-18,
+        enable_collision_penalty=False,
+        collision_weight=25.0,
+        collision_safety_margin=0.08,
+        collision_sphere_radius=0.07,
     ):
         self.kinematics = kinematics
         self.model = kinematics.model
@@ -53,6 +76,19 @@ class ManipulabilityOptimizer:
         self.maximum_joint_speed = float(maximum_joint_speed)
         self.characteristic_length = float(characteristic_length)
         self.determinant_floor = float(determinant_floor)
+        self.enable_collision_penalty = bool(enable_collision_penalty)
+        self.collision_weight = float(collision_weight)
+        self.collision_safety_margin = float(collision_safety_margin)
+        self.collision_sphere_radius = float(collision_sphere_radius)
+        # Resolve names once: finite-difference evaluations reuse these IDs.
+        self.left_collision_body_ids = np.array(
+            [self.model.body(name).id for name in LEFT_COLLISION_BODIES],
+            dtype=int,
+        )
+        self.right_collision_body_ids = np.array(
+            [self.model.body(name).id for name in RIGHT_COLLISION_BODIES],
+            dtype=int,
+        )
         self.desired_force_matrix = self._make_direction_matrix(
             desired_wrench_direction
         )
@@ -63,6 +99,12 @@ class ManipulabilityOptimizer:
             raise ValueError("finite_difference_step must be positive")
         if self.characteristic_length <= 0.0:
             raise ValueError("characteristic_length must be positive")
+        if self.collision_weight < 0.0:
+            raise ValueError("collision_weight must be nonnegative")
+        if self.collision_safety_margin < 0.0:
+            raise ValueError("collision_safety_margin must be nonnegative")
+        if self.collision_sphere_radius < 0.0:
+            raise ValueError("collision_sphere_radius must be nonnegative")
 
     def _make_direction_matrix(self, wrench_direction):
         weights = np.asarray(wrench_direction, dtype=float).copy()
@@ -105,6 +147,35 @@ class ManipulabilityOptimizer:
         )
         return float(np.linalg.norm(difference, ord="fro"))
 
+    def _inter_arm_clearances(self, data):
+        """Return all coarse-sphere clearances between the two arms."""
+        left_positions = data.xpos[self.left_collision_body_ids]
+        right_positions = data.xpos[self.right_collision_body_ids]
+        center_distances = np.linalg.norm(
+            left_positions[:, np.newaxis, :]
+            - right_positions[np.newaxis, :, :],
+            axis=2,
+        )
+        combined_radius = 2.0 * self.collision_sphere_radius
+        return center_distances - combined_radius
+
+    def minimum_inter_arm_clearance(self, data):
+        """Return the closest coarse-sphere inter-arm clearance in metres."""
+        return float(np.min(self._inter_arm_clearances(data)))
+
+    def inter_arm_collision_cost(self, data):
+        """Return the summed squared soft-margin violations.
+
+        This is a smooth optimization bias around coarse body spheres, not a
+        hard collision constraint or a collision-proof motion planner.
+        """
+        clearances = self._inter_arm_clearances(data)
+        violations = np.maximum(
+            0.0,
+            self.collision_safety_margin - clearances,
+        )
+        return float(np.sum(violations**2))
+
     def _sqrt_determinant(self, matrix):
         sign, log_determinant = np.linalg.slogdet(matrix)
         if sign <= 0:
@@ -115,10 +186,21 @@ class ManipulabilityOptimizer:
     def value(self, data, objective=None):
         selected = ManipulabilityObjective(objective or self.objective)
         if selected is ManipulabilityObjective.VELOCITY:
-            return self.velocity_manipulability(data)
-        if selected is ManipulabilityObjective.FORCE:
-            return self.force_manipulability(data)
-        return self.directional_force_cost(data)
+            value = self.velocity_manipulability(data)
+        elif selected is ManipulabilityObjective.FORCE:
+            value = self.force_manipulability(data)
+        else:
+            # Directional force is currently minimized through sign reversal
+            # in optimization_velocity(). Collision-aware directional-force
+            # optimization therefore needs separate sign handling later.
+            return self.directional_force_cost(data)
+
+        if self.enable_collision_penalty and selected in (
+            ManipulabilityObjective.VELOCITY,
+            ManipulabilityObjective.FORCE,
+        ):
+            value -= self.collision_weight * self.inter_arm_collision_cost(data)
+        return value
 
     def gradient(self, data, objective=None):
         """Return the central-difference derivative with respect to 14 joints."""

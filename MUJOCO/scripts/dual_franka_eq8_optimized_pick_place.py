@@ -23,12 +23,21 @@ ENABLE_ARM_BIAS_COMPENSATION = True
 LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.2, 0.2])
 RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.2, 0.2])
 K_P = np.diag([8.0, 8.0, 8.0, 4.0, 4.0, 4.0])
+GRASP_K_P = np.diag([8.0, 8.0, 8.0, 6.0, 6.0, 6.0])
 
 # Change this to FORCE or DIRECTIONAL_FORCE to test the other paper costs.
-OBJECTIVE = ManipulabilityObjective.VELOCITY
-OPTIMIZATION_GAIN = 10000.0
-MAXIMUM_OPTIMIZATION_JOINT_SPEED = 15.0
+OBJECTIVE = ManipulabilityObjective.FORCE
+OPTIMIZATION_GAIN = 100.0
+MAXIMUM_OPTIMIZATION_JOINT_SPEED = 0.15
 FINITE_DIFFERENCE_STEP = 1e-4
+
+# MuJoCo-native coarse-sphere soft penalty. This discourages inter-arm
+# proximity but is not a hard collision-proof planner.
+ENABLE_COLLISION_PENALTY = True
+COLLISION_WEIGHT = 1700.0
+COLLISION_SAFETY_MARGIN = 0.1
+COLLISION_SPHERE_RADIUS = 0.08
+
 DESIRED_WRENCH_DIRECTION = np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
 CHARACTERISTIC_LENGTH = 0.4
 
@@ -121,8 +130,14 @@ def run_optimized_lift(
                 f"  t={time:4.1f}s, objective={optimization.value:.6g}, "
                 f"position error="
                 f"{np.linalg.norm(diagnostics.pose_error[:3]):.5f} m, "
+                f"grasp error="
+                f"{np.linalg.norm(diagnostics.grasp_pose_error):.5f}, "
                 f"null speed="
-                f"{np.max(np.abs(diagnostics.null_space_joint_velocity)):.4f} rad/s"
+                f"{np.max(np.abs(diagnostics.null_space_joint_velocity)):.4f} rad/s, "
+                f"min clearance="
+                f"{optimizer.minimum_inter_arm_clearance(scene.data):.4f} m, "
+                f"collision cost="
+                f"{optimizer.inter_arm_collision_cost(scene.data):.6f}"
             )
 
     lift_objective = optimizer.value(scene.data)
@@ -156,7 +171,13 @@ def run_optimized_lift(
             print(
                 f"  hold={hold_step / CONTROL_HZ:5.1f}s, "
                 f"objective={optimization.value:.6g}, position error="
-                f"{np.linalg.norm(diagnostics.pose_error[:3]):.5f} m"
+                f"{np.linalg.norm(diagnostics.pose_error[:3]):.5f} m, "
+                f"grasp error="
+                f"{np.linalg.norm(diagnostics.grasp_pose_error):.5f}, "
+                f"min clearance="
+                f"{optimizer.minimum_inter_arm_clearance(scene.data):.4f} m, "
+                f"collision cost="
+                f"{optimizer.inter_arm_collision_cost(scene.data):.6f}"
             )
         hold_step += 1
 
@@ -185,6 +206,7 @@ def main():
         kinematics,
         control_dt=scene.control_dt,
         feedback_gain=K_P,
+        grasp_feedback_gain=GRASP_K_P,
     )
     optimizer = ManipulabilityOptimizer(
         kinematics,
@@ -195,6 +217,10 @@ def main():
         maximum_joint_speed=MAXIMUM_OPTIMIZATION_JOINT_SPEED,
         desired_wrench_direction=DESIRED_WRENCH_DIRECTION,
         characteristic_length=CHARACTERISTIC_LENGTH,
+        enable_collision_penalty=ENABLE_COLLISION_PENALTY,
+        collision_weight=COLLISION_WEIGHT,
+        collision_safety_margin=COLLISION_SAFETY_MARGIN,
+        collision_sphere_radius=COLLISION_SPHERE_RADIUS,
     )
     rate = RateLimiter(frequency=CONTROL_HZ, warn=False)
 
@@ -204,6 +230,7 @@ def main():
         scene.run_grasp_approach(viewer, rate)
         print("Closing both grippers...")
         scene.close_grippers(viewer, rate)
+        equation_8.capture_grasp_reference(scene.data)
         run_optimized_lift(
             scene,
             kinematics,
