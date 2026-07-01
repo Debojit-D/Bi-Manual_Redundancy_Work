@@ -1,6 +1,5 @@
 """Optimized dual-Franka pick-and-place through three configurable SE(3) poses."""
 
-import mujoco
 import numpy as np
 from loop_rate_limiters import RateLimiter
 from scipy.interpolate import CubicSpline
@@ -20,8 +19,11 @@ from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 CONTROL_HZ = 50.0
 SHOW_MOCAP_TARGETS = False
 ENABLE_ARM_BIAS_COMPENSATION = True
+# Robot base poses: world xyz [m] and extrinsic XYZ Euler angles [degrees].
 LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.2, 0.2])
 RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.2, 0.2])
+LEFT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
+RIGHT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
 K_P = np.diag([8.0, 8.0, 8.0, 4.0, 4.0, 4.0])
 GRASP_K_P = np.diag([8.0, 8.0, 8.0, 6.0, 6.0, 6.0])
 
@@ -66,45 +68,7 @@ def rotation_matrix(euler_xyz):
 
 def set_table_reference_pose(scene, position, rotation):
     """Set the table free joint so ``site_top_middle`` has the requested pose."""
-    position = np.asarray(position, dtype=float)
-    rotation = np.asarray(rotation, dtype=float)
-    if position.shape != (3,) or rotation.shape != (3, 3):
-        raise ValueError("Table pose must contain a 3D position and 3x3 rotation")
-
-    model = scene.model
-    data = scene.data
-    body_id = model.body("vention_table").id
-    site_id = model.site("site_top_middle").id
-    joint_id = model.joint("table_joint").id
-
-    # Recover the fixed body-to-reference-site transform from the loaded model,
-    # then invert it to obtain the free-body pose for the desired site pose.
-    current_body_rotation = data.xmat[body_id].reshape(3, 3)
-    current_site_rotation = data.site_xmat[site_id].reshape(3, 3)
-    body_to_site_rotation = current_body_rotation.T @ current_site_rotation
-    body_to_site_position = current_body_rotation.T @ (
-        data.site_xpos[site_id] - data.xpos[body_id]
-    )
-
-    desired_body_rotation = rotation @ body_to_site_rotation.T
-    desired_body_position = position - (
-        desired_body_rotation @ body_to_site_position
-    )
-
-    qpos_address = model.jnt_qposadr[joint_id]
-    dof_address = model.jnt_dofadr[joint_id]
-    body_quaternion_xyzw = Rotation.from_matrix(
-        desired_body_rotation
-    ).as_quat()
-    data.qpos[qpos_address : qpos_address + 3] = desired_body_position
-    data.qpos[qpos_address + 3 : qpos_address + 7] = np.roll(
-        body_quaternion_xyzw, 1
-    )
-    data.qvel[dof_address : dof_address + 6] = 0.0
-    mujoco.mj_forward(model, data)
-
-    scene.configuration.update(data.qpos)
-    scene.posture_task.set_target_from_configuration(scene.configuration)
+    scene.set_table_reference_pose(position, rotation)
 
 
 class ContinuousSE3WaypointTrajectory:
@@ -378,6 +342,8 @@ def main():
         control_hz=CONTROL_HZ,
         left_arm_base_position=LEFT_ARM_SPAWN_POSITION,
         right_arm_base_position=RIGHT_ARM_SPAWN_POSITION,
+        left_arm_base_euler_xyz_degrees=LEFT_ARM_SPAWN_EULER_XYZ_DEGREES,
+        right_arm_base_euler_xyz_degrees=RIGHT_ARM_SPAWN_EULER_XYZ_DEGREES,
         show_mocap_targets=SHOW_MOCAP_TARGETS,
         enable_bias_compensation=ENABLE_ARM_BIAS_COMPENSATION,
     )

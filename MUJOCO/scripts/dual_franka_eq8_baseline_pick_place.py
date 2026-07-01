@@ -18,10 +18,11 @@ LIFT_DURATION = 6.0
 SHOW_MOCAP_TARGETS = False
 ENABLE_ARM_BIAS_COMPENSATION = True
 
-# Robot base spawn locations [x, y, z] in the world frame.  These defaults
-# reproduce the MJCF exactly; edit only these two vectors to reposition arms.
+# Robot base poses: world xyz [m] and extrinsic XYZ Euler angles [degrees].
 LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.2, 0.0])
 RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.2, 0.0])
+LEFT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
+RIGHT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
 
 K_P = np.diag([8.0, 8.0, 8.0, 2.0, 2.0, 2.0])
 
@@ -99,6 +100,8 @@ def main():
         control_hz=CONTROL_HZ,
         left_arm_base_position=LEFT_ARM_SPAWN_POSITION,
         right_arm_base_position=RIGHT_ARM_SPAWN_POSITION,
+        left_arm_base_euler_xyz_degrees=LEFT_ARM_SPAWN_EULER_XYZ_DEGREES,
+        right_arm_base_euler_xyz_degrees=RIGHT_ARM_SPAWN_EULER_XYZ_DEGREES,
         show_mocap_targets=SHOW_MOCAP_TARGETS,
         enable_bias_compensation=ENABLE_ARM_BIAS_COMPENSATION,
     )

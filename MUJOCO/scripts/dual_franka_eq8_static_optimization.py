@@ -23,10 +23,14 @@ CONTROL_HZ = 50.0
 SHOW_MOCAP_TARGETS = False
 ENABLE_ARM_BIAS_COMPENSATION = True
 
-# Robot base spawn locations [x, y, z] in the world frame.  These defaults
-# reproduce the MJCF exactly; edit only these two vectors to reposition arms.
-LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.2, 0.2])
-RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.2, 0.2])
+# Robot base poses: world xyz [m] and extrinsic XYZ Euler angles [degrees].
+LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.25, 0.0])
+RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.25, 0.0])
+LEFT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
+RIGHT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
+
+# World position [x, y, z] of the table's site_top_middle reference frame.
+TABLE_SPAWN_POSITION = np.array([0.30, 0.0, 0.28])
 
 # LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.5, 0.0])
 # RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.5, 0.0])
@@ -39,8 +43,8 @@ GRASP_K_P = np.diag([8.0, 8.0, 8.0, 6.0, 6.0, 6.0])
 OBJECTIVE = ManipulabilityObjective.FORCE
 # The raw spatial-gradient scale is small; the joint-speed cap below remains
 # the final safety limit after applying this Equation (4) gain Lambda.
-OPTIMIZATION_GAIN = 100.0
-MAXIMUM_OPTIMIZATION_JOINT_SPEED = 0.5
+OPTIMIZATION_GAIN = 1000.0
+MAXIMUM_OPTIMIZATION_JOINT_SPEED = 2
 FINITE_DIFFERENCE_STEP = 1e-4
 
 # MuJoCo-native coarse-sphere soft penalty. This discourages inter-arm
@@ -124,9 +128,12 @@ def main():
         control_hz=CONTROL_HZ,
         left_arm_base_position=LEFT_ARM_SPAWN_POSITION,
         right_arm_base_position=RIGHT_ARM_SPAWN_POSITION,
+        left_arm_base_euler_xyz_degrees=LEFT_ARM_SPAWN_EULER_XYZ_DEGREES,
+        right_arm_base_euler_xyz_degrees=RIGHT_ARM_SPAWN_EULER_XYZ_DEGREES,
         show_mocap_targets=SHOW_MOCAP_TARGETS,
         enable_bias_compensation=ENABLE_ARM_BIAS_COMPENSATION,
     )
+    scene.set_table_reference_pose(TABLE_SPAWN_POSITION)
     kinematics = CooperativeManipulationKinematics(
         scene.model,
         scene.left_arm_dofs,

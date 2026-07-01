@@ -205,15 +205,27 @@ The runner files intentionally keep experiment-level parameters near the top.
 ### Shared settings
 
 - `LEFT_ARM_SPAWN_POSITION`, `RIGHT_ARM_SPAWN_POSITION`: robot base positions
-  in world-frame `[x, y, z]` coordinates.
+  in world-frame `[x, y, z]` coordinates. Both arms share one fixed-footprint
+  mounting base from the ground to their common positive `z` height; at
+  `z <= 0` that base is hidden and non-colliding. The two `z` values must be
+  equal because both robots sit on the same top surface.
+- `LEFT_ARM_SPAWN_EULER_XYZ_DEGREES`,
+  `RIGHT_ARM_SPAWN_EULER_XYZ_DEGREES`: robot-base orientations as extrinsic
+  XYZ Euler angles in degrees. The shared scene API also retains optional
+  `*_euler_xyz` radian arguments for programmatic callers.
+- `TABLE_SPAWN_POSITION` in the static and optimized lift-and-lower runners:
+  world-frame `[x, y, z]` position of the table's `site_top_middle` reference
+  frame.
 - `SHOW_MOCAP_TARGETS`: display or hide Cartesian target bodies.
 - `ENABLE_ARM_BIAS_COMPENSATION`: apply MuJoCo model-bias compensation to the
   14 arm DoFs.
 - `K_P`: closed-loop object position/orientation feedback gains.
 
-Changing an arm spawn position changes only the corresponding fixed base-body
-position; joint states, base orientations, object pose, and other scene
-properties remain unchanged.
+Changing an arm spawn position changes the corresponding fixed base-body and
+recenters the shared mounting platform between the two robot bases. Joint
+states, base orientations, object pose, and other scene properties remain
+unchanged. Its footprint is configured once in
+`DualFrankaMuJoCoScene.MOUNTING_PLATFORM_HALF_SIZE_XY`.
 
 ### Lift settings
 

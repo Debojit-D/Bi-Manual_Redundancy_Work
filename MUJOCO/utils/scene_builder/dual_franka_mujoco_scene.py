@@ -23,6 +23,11 @@ class DualFrankaMuJoCoScene:
     RIGHT_JOINT_NAMES = tuple(f"joint{i}_r" for i in range(1, 8))
     DEFAULT_LEFT_ARM_BASE_POSITION = np.array([0.0, -0.2, 0.0])
     DEFAULT_RIGHT_ARM_BASE_POSITION = np.array([0.0, 0.2, 0.0])
+    DEFAULT_LEFT_ARM_BASE_EULER_XYZ = np.zeros(3)
+    DEFAULT_RIGHT_ARM_BASE_EULER_XYZ = np.zeros(3)
+    MOUNTING_PLATFORM_HALF_SIZE_XY = np.array([0.16, 0.58])
+    MOUNTING_PLATFORM_RGBA = np.array([0.28, 0.30, 0.34, 1.0])
+    MOUNTING_PLATFORM_GEOM = "dual_arm_mounting_platform"
 
     def __init__(
         self,
@@ -30,6 +35,10 @@ class DualFrankaMuJoCoScene:
         model_path=None,
         left_arm_base_position=None,
         right_arm_base_position=None,
+        left_arm_base_euler_xyz=None,
+        right_arm_base_euler_xyz=None,
+        left_arm_base_euler_xyz_degrees=None,
+        right_arm_base_euler_xyz_degrees=None,
         control_hz=50.0,
         solver="daqp",
         enable_bias_compensation=True,
@@ -62,9 +71,13 @@ class DualFrankaMuJoCoScene:
             )
 
         self.model = mujoco.MjModel.from_xml_path(self.model_path.as_posix())
-        self._set_arm_base_positions(
+        self._set_arm_base_poses(
             left_arm_base_position,
             right_arm_base_position,
+            left_arm_base_euler_xyz,
+            right_arm_base_euler_xyz,
+            left_arm_base_euler_xyz_degrees,
+            right_arm_base_euler_xyz_degrees,
         )
         self._set_mocap_target_visibility(show_mocap_targets)
         self.data = mujoco.MjData(self.model)
@@ -95,12 +108,57 @@ class DualFrankaMuJoCoScene:
         self.left_task, self.right_task, self.posture_task = self._make_tasks()
         self.tasks = [self.left_task, self.right_task, self.posture_task]
 
-    def _set_arm_base_positions(
+    def set_table_reference_pose(self, position, rotation=None):
+        """Place ``site_top_middle`` at a requested world-frame pose."""
+        position = np.asarray(position, dtype=float)
+        if position.shape != (3,):
+            raise ValueError("Table reference position must have shape (3,)")
+        site_id = self.model.site("site_top_middle").id
+        body_id = self.model.body("vention_table").id
+        joint_id = self.model.joint("table_joint").id
+
+        current_body_rotation = self.data.xmat[body_id].reshape(3, 3)
+        current_site_rotation = self.data.site_xmat[site_id].reshape(3, 3)
+        body_to_site_rotation = current_body_rotation.T @ current_site_rotation
+        body_to_site_position = current_body_rotation.T @ (
+            self.data.site_xpos[site_id] - self.data.xpos[body_id]
+        )
+
+        if rotation is None:
+            rotation = current_site_rotation.copy()
+        rotation = np.asarray(rotation, dtype=float)
+        if rotation.shape != (3, 3):
+            raise ValueError("Table reference rotation must have shape (3, 3)")
+
+        desired_body_rotation = rotation @ body_to_site_rotation.T
+        desired_body_position = position - (
+            desired_body_rotation @ body_to_site_position
+        )
+        qpos_address = self.model.jnt_qposadr[joint_id]
+        dof_address = self.model.jnt_dofadr[joint_id]
+        quaternion_xyzw = Rotation.from_matrix(
+            desired_body_rotation
+        ).as_quat()
+        self.data.qpos[qpos_address : qpos_address + 3] = desired_body_position
+        self.data.qpos[qpos_address + 3 : qpos_address + 7] = np.roll(
+            quaternion_xyzw,
+            1,
+        )
+        self.data.qvel[dof_address : dof_address + 6] = 0.0
+        mujoco.mj_forward(self.model, self.data)
+        self.configuration.update(self.data.qpos)
+        self.posture_task.set_target_from_configuration(self.configuration)
+
+    def _set_arm_base_poses(
         self,
         left_arm_base_position,
         right_arm_base_position,
+        left_arm_base_euler_xyz,
+        right_arm_base_euler_xyz,
+        left_arm_base_euler_xyz_degrees,
+        right_arm_base_euler_xyz_degrees,
     ):
-        """Override only the two fixed robot-base positions from the MJCF."""
+        """Set fixed robot-base positions and extrinsic XYZ Euler rotations."""
         left_position = (
             self.DEFAULT_LEFT_ARM_BASE_POSITION
             if left_arm_base_position is None
@@ -111,11 +169,107 @@ class DualFrankaMuJoCoScene:
             if right_arm_base_position is None
             else np.asarray(right_arm_base_position, dtype=float)
         )
+        left_euler = self._resolve_euler_xyz(
+            left_arm_base_euler_xyz,
+            left_arm_base_euler_xyz_degrees,
+            self.DEFAULT_LEFT_ARM_BASE_EULER_XYZ,
+            "left",
+        )
+        right_euler = self._resolve_euler_xyz(
+            right_arm_base_euler_xyz,
+            right_arm_base_euler_xyz_degrees,
+            self.DEFAULT_RIGHT_ARM_BASE_EULER_XYZ,
+            "right",
+        )
         if left_position.shape != (3,) or right_position.shape != (3,):
-            raise ValueError("Arm base positions must be xyz vectors of shape (3,)")
+            raise ValueError(
+                "Arm base positions must be xyz vectors of shape (3,)"
+            )
+        if left_euler.shape != (3,) or right_euler.shape != (3,):
+            raise ValueError(
+                "Arm base Euler orientations must have shape (3,)"
+            )
 
-        self.model.body_pos[self.model.body("franka1").id] = left_position
-        self.model.body_pos[self.model.body("franka2").id] = right_position
+        left_body_id = self.model.body("franka1").id
+        right_body_id = self.model.body("franka2").id
+        self.model.body_pos[left_body_id] = left_position
+        self.model.body_pos[right_body_id] = right_position
+        self.model.body_quat[left_body_id] = np.roll(
+            Rotation.from_euler("xyz", left_euler).as_quat(),
+            1,
+        )
+        self.model.body_quat[right_body_id] = np.roll(
+            Rotation.from_euler("xyz", right_euler).as_quat(),
+            1,
+        )
+        self._set_mounting_platform(left_position, right_position)
+
+    @staticmethod
+    def _resolve_euler_xyz(radians, degrees, default, side):
+        """Return one Euler XYZ vector in radians from either accepted unit."""
+        if radians is not None and degrees is not None:
+            raise ValueError(
+                f"Specify the {side} arm Euler orientation in either radians "
+                "or degrees, not both"
+            )
+        if degrees is not None:
+            return np.deg2rad(np.asarray(degrees, dtype=float))
+        if radians is not None:
+            return np.asarray(radians, dtype=float)
+        return np.asarray(default, dtype=float)
+
+    def _set_mounting_platform(self, left_position, right_position):
+        """Place one fixed-footprint base below both elevated robots."""
+        geom_id = mujoco.mj_name2id(
+            self.model,
+            mujoco.mjtObj.mjOBJ_GEOM,
+            self.MOUNTING_PLATFORM_GEOM,
+        )
+        # Keep custom scene files without the optional pedestal geoms usable.
+        if geom_id < 0:
+            return
+
+        left_height = float(left_position[2])
+        right_height = float(right_position[2])
+        if not np.isclose(left_height, right_height, atol=1e-9):
+            raise ValueError(
+                "A shared mounting platform requires equal left and right "
+                "arm spawn z coordinates"
+            )
+
+        height = left_height
+        center_xy = 0.5 * (left_position[:2] + right_position[:2])
+        if height <= 0.0:
+            self.model.geom_pos[geom_id] = [
+                center_xy[0],
+                center_xy[1],
+                -1.0,
+            ]
+            self.model.geom_rgba[geom_id, 3] = 0.0
+            self.model.geom_contype[geom_id] = 0
+            self.model.geom_conaffinity[geom_id] = 0
+            return
+
+        self.model.geom_pos[geom_id] = [
+            center_xy[0],
+            center_xy[1],
+            0.5 * height,
+        ]
+        self.model.geom_size[geom_id] = [
+            self.MOUNTING_PLATFORM_HALF_SIZE_XY[0],
+            self.MOUNTING_PLATFORM_HALF_SIZE_XY[1],
+            0.5 * height,
+        ]
+        # geom_size is runtime-configurable, while these broad-phase bounds
+        # are compile-time fields. Keep them synchronized with the new box.
+        self.model.geom_aabb[geom_id, :3] = 0.0
+        self.model.geom_aabb[geom_id, 3:] = self.model.geom_size[geom_id]
+        self.model.geom_rbound[geom_id] = np.linalg.norm(
+            self.model.geom_size[geom_id]
+        )
+        self.model.geom_rgba[geom_id] = self.MOUNTING_PLATFORM_RGBA
+        self.model.geom_contype[geom_id] = 1
+        self.model.geom_conaffinity[geom_id] = 1
 
     def _joint_indices(self, joint_names):
         joint_ids = np.array(

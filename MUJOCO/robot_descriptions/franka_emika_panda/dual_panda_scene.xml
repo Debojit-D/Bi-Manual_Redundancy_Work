@@ -22,6 +22,12 @@
     <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
 
+    <!-- Runtime-sized shared base under both robots. Its fixed x/y footprint
+         and z-dependent height are configured by the shared scene builder. -->
+    <geom name="dual_arm_mounting_platform" type="box"
+          pos="0 0 -1" size="0.18 0.38 0.001"
+          contype="0" conaffinity="0" rgba="0.28 0.30 0.34 0"/>
+
   <body name="target_left" pos="0.1 0 .5" quat="1 0 0 0" mocap="true">
       <geom type="box" size=".05 .05 .05" contype="0" conaffinity="0" rgba=".6 .3 .3 1"/>
   </body>
