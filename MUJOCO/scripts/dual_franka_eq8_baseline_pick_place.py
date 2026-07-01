@@ -17,6 +17,12 @@ LIFT_HEIGHT = 0.26
 LIFT_DURATION = 6.0
 SHOW_MOCAP_TARGETS = False
 ENABLE_ARM_BIAS_COMPENSATION = True
+
+# Robot base spawn locations [x, y, z] in the world frame.  These defaults
+# reproduce the MJCF exactly; edit only these two vectors to reposition arms.
+LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.2, 0.0])
+RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.2, 0.0])
+
 K_P = np.diag([8.0, 8.0, 8.0, 2.0, 2.0, 2.0])
 
 
@@ -91,6 +97,8 @@ def run_equation_8(scene, kinematics, equation_8, viewer, rate):
 def main():
     scene = DualFrankaMuJoCoScene(
         control_hz=CONTROL_HZ,
+        left_arm_base_position=LEFT_ARM_SPAWN_POSITION,
+        right_arm_base_position=RIGHT_ARM_SPAWN_POSITION,
         show_mocap_targets=SHOW_MOCAP_TARGETS,
         enable_bias_compensation=ENABLE_ARM_BIAS_COMPENSATION,
     )

@@ -20,11 +20,15 @@ class DualFrankaMuJoCoScene:
     )
     LEFT_JOINT_NAMES = tuple(f"joint{i}_l" for i in range(1, 8))
     RIGHT_JOINT_NAMES = tuple(f"joint{i}_r" for i in range(1, 8))
+    DEFAULT_LEFT_ARM_BASE_POSITION = np.array([0.0, -0.2, 0.0])
+    DEFAULT_RIGHT_ARM_BASE_POSITION = np.array([0.0, 0.2, 0.0])
 
     def __init__(
         self,
         *,
         model_path=None,
+        left_arm_base_position=None,
+        right_arm_base_position=None,
         control_hz=50.0,
         solver="daqp",
         enable_bias_compensation=True,
@@ -49,6 +53,10 @@ class DualFrankaMuJoCoScene:
         )
 
         self.model = mujoco.MjModel.from_xml_path(self.model_path.as_posix())
+        self._set_arm_base_positions(
+            left_arm_base_position,
+            right_arm_base_position,
+        )
         self._set_mocap_target_visibility(show_mocap_targets)
         self.data = mujoco.MjData(self.model)
         mujoco.mj_resetDataKeyframe(
@@ -72,6 +80,28 @@ class DualFrankaMuJoCoScene:
         )
         self.left_task, self.right_task, self.posture_task = self._make_tasks()
         self.tasks = [self.left_task, self.right_task, self.posture_task]
+
+    def _set_arm_base_positions(
+        self,
+        left_arm_base_position,
+        right_arm_base_position,
+    ):
+        """Override only the two fixed robot-base positions from the MJCF."""
+        left_position = (
+            self.DEFAULT_LEFT_ARM_BASE_POSITION
+            if left_arm_base_position is None
+            else np.asarray(left_arm_base_position, dtype=float)
+        )
+        right_position = (
+            self.DEFAULT_RIGHT_ARM_BASE_POSITION
+            if right_arm_base_position is None
+            else np.asarray(right_arm_base_position, dtype=float)
+        )
+        if left_position.shape != (3,) or right_position.shape != (3,):
+            raise ValueError("Arm base positions must be xyz vectors of shape (3,)")
+
+        self.model.body_pos[self.model.body("franka1").id] = left_position
+        self.model.body_pos[self.model.body("franka2").id] = right_position
 
     def _joint_indices(self, joint_names):
         joint_ids = np.array(
