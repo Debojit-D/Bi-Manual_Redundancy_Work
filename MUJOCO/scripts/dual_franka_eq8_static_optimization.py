@@ -35,7 +35,7 @@ K_P = np.diag([8.0, 8.0, 8.0, 2.0, 2.0, 2.0])
 
 # The paper's spatial dual-Franka study uses velocity manipulability.  Change
 # this single value to FORCE or DIRECTIONAL_FORCE to exercise the other costs.
-OBJECTIVE = ManipulabilityObjective.DIRECTIONAL_FORCE
+OBJECTIVE = ManipulabilityObjective.VELOCITY
 # The raw spatial-gradient scale is small; the joint-speed cap below remains
 # the final safety limit after applying this Equation (4) gain Lambda.
 OPTIMIZATION_GAIN = 10000.0
