@@ -415,9 +415,10 @@
     <general class="panda" name="actuator6_l" joint="joint6_l" gainprm="2000" biasprm="0 -2000 -200" forcerange="-12 12"
       ctrlrange="-0.0175 3.7525"/>
     <general class="panda" name="actuator7_l" joint="joint7_l" gainprm="2000" biasprm="0 -2000 -200" forcerange="-12 12"/>
-    <!-- Remap original ctrlrange (0, 0.04) to (0, 255): 0.04 * 100 / 255 = 0.01568627451 -->
+    <!-- Tendon length is 2.5*q1 + 2.5*q2, hence 0.20 at q1=q2=0.04.
+         With tendon Kp=50, map ctrl=255 to length 0.20: 50*0.20/255. -->
     <general class="panda" name="actuator8_l" tendon="split1" forcerange="-100 100" ctrlrange="0 255"
-      gainprm="0.01568627451 0 0" biasprm="0 -50 -10"/>
+      gainprm="0.03921568627 0 0" biasprm="0 -50 -10"/>
     
     <general class="panda" name="actuator1_r" joint="joint1_r" gainprm="4500" biasprm="0 -4500 -450"/>
     <general class="panda" name="actuator2_r" joint="joint2_r" gainprm="4500" biasprm="0 -4500 -450"
@@ -429,9 +430,9 @@
     <general class="panda" name="actuator6_r" joint="joint6_r" gainprm="2000" biasprm="0 -2000 -200" forcerange="-12 12"
       ctrlrange="-0.0175 3.7525"/>
     <general class="panda" name="actuator7_r" joint="joint7_r" gainprm="2000" biasprm="0 -2000 -200" forcerange="-12 12"/>
-    <!-- Remap original ctrlrange (0, 0.04) to (0, 255): 0.04 * 100 / 255 = 0.01568627451 -->
+    <!-- Same 0-255 to 0-0.20 tendon-length mapping for the right gripper. -->
     <general class="panda" name="actuator8_r" tendon="split2" forcerange="-100 100" ctrlrange="0 255"
-      gainprm="0.01568627451 0 0" biasprm="0 -50 -10"/>
+      gainprm="0.03921568627 0 0" biasprm="0 -50 -10"/>
       
   </actuator>
 

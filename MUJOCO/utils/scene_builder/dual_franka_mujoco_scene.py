@@ -6,6 +6,7 @@ import mink
 import mujoco
 import mujoco.viewer
 import numpy as np
+from loop_rate_limiters import RateLimiter
 from scipy.spatial.transform import Rotation
 
 
@@ -13,7 +14,7 @@ class DualFrankaMuJoCoScene:
     """Own the MuJoCo model, actuators, viewer targets, and grasp approach."""
 
     DEFAULT_MODEL_PATH = (
-        Path(__file__).resolve().parent.parent
+        Path(__file__).resolve().parents[2]
         / "robot_descriptions"
         / "franka_emika_panda"
         / "dual_panda_scene.xml"
@@ -62,6 +63,11 @@ class DualFrankaMuJoCoScene:
         mujoco.mj_resetDataKeyframe(
             self.model, self.data, self.model.key("home1").id
         )
+        # Establish the intended open-gripper command before the first forward
+        # dynamics evaluation.  This also protects against future keyframes
+        # that omit actuator controls.
+        self.data.ctrl[7] = self.gripper_open
+        self.data.ctrl[15] = self.gripper_open
         mujoco.mj_forward(self.model, self.data)
 
         self.configuration = mink.Configuration(self.model)
@@ -409,3 +415,34 @@ class DualFrankaMuJoCoScene:
                 self.model, self.data, "target_right"
             )
         )
+
+
+# Standalone scene-preview settings [x, y, z] in the world frame.
+PREVIEW_LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.2, 0.0])
+PREVIEW_RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.2, 0.0])
+PREVIEW_SHOW_MOCAP_TARGETS = False
+PREVIEW_CONTROL_HZ = 50.0
+
+
+def main():
+    """Open the shared scene at home and keep it active until viewer closure."""
+    scene = DualFrankaMuJoCoScene(
+        control_hz=PREVIEW_CONTROL_HZ,
+        left_arm_base_position=PREVIEW_LEFT_ARM_SPAWN_POSITION,
+        right_arm_base_position=PREVIEW_RIGHT_ARM_SPAWN_POSITION,
+        show_mocap_targets=PREVIEW_SHOW_MOCAP_TARGETS,
+        enable_bias_compensation=True,
+    )
+    rate = RateLimiter(frequency=PREVIEW_CONTROL_HZ, warn=False)
+    home_configuration = scene.arm_configuration()
+
+    with scene.launch_viewer() as viewer:
+        scene.configure_viewer_camera(viewer)
+        while viewer.is_running():
+            scene.command(home_configuration, scene.gripper_open)
+            scene.step(viewer)
+            rate.sleep()
+
+
+if __name__ == "__main__":
+    main()

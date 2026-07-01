@@ -3,11 +3,11 @@
 import numpy as np
 from loop_rate_limiters import RateLimiter
 
-from cooperative_manipulation_kinematics import (
+from MUJOCO.utils.grasping_kinematics import (
     CooperativeManipulationKinematics,
 )
-from dual_franka_mujoco_scene import DualFrankaMuJoCoScene
-from equation_8_controller import Equation8Controller
+from MUJOCO.utils.redundancy_optimization import Equation8Controller
+from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 
 
 # Experiment settings.  Scene implementation and paper mathematics live in
