@@ -3,8 +3,11 @@
 import numpy as np
 from loop_rate_limiters import RateLimiter
 
+from cooperative_manipulation_kinematics import (
+    CooperativeManipulationKinematics,
+)
 from dual_franka_mujoco_scene import DualFrankaMuJoCoScene
-from paper_equation_8 import CooperativeManipulationMath
+from equation_8_controller import Equation8Controller
 
 
 # Experiment settings.  Scene implementation and paper mathematics live in
@@ -32,9 +35,9 @@ def lift_reference(initial_position, final_position, rotation, time):
     return desired_position, rotation, desired_twist
 
 
-def run_equation_8(scene, equation_8, viewer, rate):
+def run_equation_8(scene, kinematics, equation_8, viewer, rate):
     """Run Equation (8) with phi_dot_opt=0, then hold the final pose."""
-    initial_position, desired_rotation = equation_8.object_pose(scene.data)
+    initial_position, desired_rotation = kinematics.object_pose(scene.data)
     final_position = initial_position + np.array([0.0, 0.0, LIFT_HEIGHT])
     phi = scene.arm_configuration()
 
@@ -50,7 +53,7 @@ def run_equation_8(scene, equation_8, viewer, rate):
         )
 
         # Equation (8): primary tracking + projected optimization velocity.
-        phi, diagnostics = equation_8.equation_8_update(
+        phi, diagnostics = equation_8.update(
             scene.data,
             phi,
             desired_position,
@@ -66,13 +69,12 @@ def run_equation_8(scene, equation_8, viewer, rate):
         if step % int(CONTROL_HZ) == 0:
             print(
                 f"  t={time:4.1f}s, position error="
-                f"{np.linalg.norm(diagnostics.pose_error[:3]):.4f} m, "
-                f"W_v={diagnostics.velocity_manipulability:.6f}"
+                f"{np.linalg.norm(diagnostics.pose_error[:3]):.4f} m"
             )
 
     print("Lift complete. Equation (8) remains active; close the viewer to exit.")
     while viewer.is_running():
-        phi, _ = equation_8.equation_8_update(
+        phi, _ = equation_8.update(
             scene.data,
             phi,
             final_position,
@@ -92,10 +94,13 @@ def main():
         show_mocap_targets=SHOW_MOCAP_TARGETS,
         enable_bias_compensation=ENABLE_ARM_BIAS_COMPENSATION,
     )
-    equation_8 = CooperativeManipulationMath(
+    kinematics = CooperativeManipulationKinematics(
         scene.model,
         scene.left_arm_dofs,
         scene.right_arm_dofs,
+    )
+    equation_8 = Equation8Controller(
+        kinematics,
         control_dt=scene.control_dt,
         feedback_gain=K_P,
     )
@@ -107,7 +112,7 @@ def main():
         scene.run_grasp_approach(viewer, rate)
         print("Closing both grippers...")
         scene.close_grippers(viewer, rate)
-        run_equation_8(scene, equation_8, viewer, rate)
+        run_equation_8(scene, kinematics, equation_8, viewer, rate)
 
 
 if __name__ == "__main__":
