@@ -17,8 +17,8 @@ from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 # Match the baseline experiment so the null-space term is the main difference.
 CONTROL_HZ = 50.0
 LIFT_HEIGHT = 0.26
-LIFT_DURATION = 6.0
-LOWER_DURATION = 6.0
+LIFT_DURATION = 12.0
+LOWER_DURATION = 12.0
 SHOW_MOCAP_TARGETS = False
 ENABLE_ARM_BIAS_COMPENSATION = True
 # Robot base poses: world xyz [m] and extrinsic XYZ Euler angles [degrees].
@@ -33,9 +33,9 @@ K_P = np.diag([8.0, 8.0, 8.0, 4.0, 4.0, 4.0])
 GRASP_K_P = np.diag([8.0, 8.0, 8.0, 6.0, 6.0, 6.0])
 
 # Change this to FORCE or DIRECTIONAL_FORCE to test the other paper costs.
-OBJECTIVE = ManipulabilityObjective.VELOCITY
+OBJECTIVE = ManipulabilityObjective.FORCE
 OPTIMIZATION_GAIN = 100.0
-MAXIMUM_OPTIMIZATION_JOINT_SPEED = 0.15
+MAXIMUM_OPTIMIZATION_JOINT_SPEED = 50
 FINITE_DIFFERENCE_STEP = 1e-4
 
 # MuJoCo-native coarse-sphere soft penalty. This discourages inter-arm
