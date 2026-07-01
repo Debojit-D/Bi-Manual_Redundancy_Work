@@ -1,4 +1,4 @@
-"""Dual-Franka Equation (8) lift with null-space optimization enabled."""
+"""Dual-Franka optimized Equation (8) lift-and-lower demonstration."""
 
 import numpy as np
 from loop_rate_limiters import RateLimiter
@@ -18,6 +18,7 @@ from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 CONTROL_HZ = 50.0
 LIFT_HEIGHT = 0.26
 LIFT_DURATION = 6.0
+LOWER_DURATION = 6.0
 SHOW_MOCAP_TARGETS = False
 ENABLE_ARM_BIAS_COMPENSATION = True
 LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.2, 0.2])
@@ -42,19 +43,49 @@ DESIRED_WRENCH_DIRECTION = np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
 CHARACTERISTIC_LENGTH = 0.4
 
 
-def lift_reference(initial_position, final_position, rotation, time):
-    """Return the same zero-end-velocity lift used by the baseline."""
-    ratio = np.clip(time / LIFT_DURATION, 0.0, 1.0)
+def quintic_segment_reference(
+    start_position,
+    goal_position,
+    rotation,
+    time,
+    duration,
+):
+    """Return a zero-end-velocity Cartesian segment reference."""
+    ratio = np.clip(time / duration, 0.0, 1.0)
     scale = 10.0 * ratio**3 - 15.0 * ratio**4 + 6.0 * ratio**5
     scale_rate = (
         30.0 * ratio**2 - 60.0 * ratio**3 + 30.0 * ratio**4
-    ) / LIFT_DURATION
-    displacement = final_position - initial_position
-    desired_position = initial_position + scale * displacement
+    ) / duration
+    displacement = goal_position - start_position
+    desired_position = start_position + scale * displacement
     desired_twist = np.concatenate(
         (scale_rate * displacement, np.zeros(3))
     )
     return desired_position, rotation, desired_twist
+
+
+def lift_and_lower_reference(
+    initial_position,
+    lifted_position,
+    rotation,
+    time,
+):
+    """Lift to the apex, then smoothly return to the initial pose."""
+    if time <= LIFT_DURATION:
+        return quintic_segment_reference(
+            initial_position,
+            lifted_position,
+            rotation,
+            time,
+            LIFT_DURATION,
+        )
+    return quintic_segment_reference(
+        lifted_position,
+        initial_position,
+        rotation,
+        time - LIFT_DURATION,
+        LOWER_DURATION,
+    )
 
 
 def optimized_equation_8_step(
@@ -94,22 +125,25 @@ def run_optimized_lift(
     rate,
     hold_duration=None,
 ):
-    """Lift the object and keep optimization active at the final pose."""
+    """Lift, lower, then keep optimizing at the returned grasped pose."""
     initial_position, desired_rotation = kinematics.object_pose(scene.data)
-    final_position = initial_position + np.array([0.0, 0.0, LIFT_HEIGHT])
+    lifted_position = initial_position + np.array([0.0, 0.0, LIFT_HEIGHT])
     phi = scene.arm_configuration()
     initial_objective = optimizer.value(scene.data)
 
     print(
-        f"Starting optimized Equation (8) lift ({optimizer.objective.value}): "
+        f"Starting optimized Equation (8) lift-and-lower "
+        f"({optimizer.objective.value}): "
         f"initial objective={initial_objective:.6g}"
     )
-    number_of_steps = int(LIFT_DURATION * CONTROL_HZ) + 1
+    total_duration = LIFT_DURATION + LOWER_DURATION
+    number_of_steps = int(total_duration * CONTROL_HZ) + 1
+    apex_objective = None
     for step in range(number_of_steps):
-        time = min(step / CONTROL_HZ, LIFT_DURATION)
-        desired_position, rotation, desired_twist = lift_reference(
+        time = min(step / CONTROL_HZ, total_duration)
+        desired_position, rotation, desired_twist = lift_and_lower_reference(
             initial_position,
-            final_position,
+            lifted_position,
             desired_rotation,
             time,
         )
@@ -125,9 +159,18 @@ def run_optimized_lift(
             rate,
         )
 
-        if step % int(CONTROL_HZ) == 0:
+        if apex_objective is None and time >= LIFT_DURATION:
+            apex_objective = optimizer.value(scene.data)
             print(
-                f"  t={time:4.1f}s, objective={optimization.value:.6g}, "
+                f"Lift apex reached at {LIFT_HEIGHT:.3f} m; "
+                "starting smooth return."
+            )
+
+        if step % int(CONTROL_HZ) == 0:
+            phase = "lifting" if time < LIFT_DURATION else "lowering"
+            print(
+                f"  {phase} t={time:4.1f}s, "
+                f"objective={optimization.value:.6g}, "
                 f"position error="
                 f"{np.linalg.norm(diagnostics.pose_error[:3]):.5f} m, "
                 f"grasp error="
@@ -140,11 +183,11 @@ def run_optimized_lift(
                 f"{optimizer.inter_arm_collision_cost(scene.data):.6f}"
             )
 
-    lift_objective = optimizer.value(scene.data)
+    returned_objective = optimizer.value(scene.data)
     print(
-        f"Lift complete: objective {initial_objective:.6g} -> "
-        f"{lift_objective:.6g}. Optimization remains active; "
-        "close the viewer to exit."
+        f"Lift-and-lower complete: objective {initial_objective:.6g} -> "
+        f"{returned_objective:.6g}. Holding the returned pose with "
+        "optimization active; close the viewer to exit."
     )
 
     maximum_hold_steps = (
@@ -161,7 +204,7 @@ def run_optimized_lift(
             equation_8,
             optimizer,
             phi,
-            final_position,
+            initial_position,
             desired_rotation,
             np.zeros(6),
             viewer,
@@ -183,8 +226,10 @@ def run_optimized_lift(
 
     return {
         "initial_position": initial_position,
-        "final_position": final_position,
+        "lifted_position": lifted_position,
+        "final_position": initial_position.copy(),
         "initial_objective": initial_objective,
+        "apex_objective": apex_objective,
         "final_objective": optimizer.value(scene.data),
     }
 

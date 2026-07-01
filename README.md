@@ -142,11 +142,11 @@ Sequence:
 python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place
 ```
 
-This runs the same grasp, 0.26 m quintic lift, and final-pose hold as the
-baseline while evaluating `phi_dot_opt` and applying the projected null-space
-term every control cycle. Optimization remains active during the final hold.
-Velocity manipulability is the default objective; the force and
-directional-force objectives can be selected in the runner settings.
+This grasps the table, executes a 0.26 m quintic lift, smoothly lowers it back
+to its measured starting pose, and then holds it there. It evaluates
+`phi_dot_opt` and applies the projected null-space term during lifting,
+lowering, and the final hold. The force, velocity, and directional-force
+objectives can be selected in the runner settings.
 
 ### Optimized 6D pick-and-place trajectory
 
