@@ -31,7 +31,7 @@ RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.2, 0.2])
 # LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.5, 0.0])
 # RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.5, 0.0])
 
-K_P = np.diag([8.0, 8.0, 8.0, 2.0, 2.0, 2.0])
+K_P = np.diag([8.0, 8.0, 8.0, 4.0, 4.0, 4.0])
 
 # The paper's spatial dual-Franka study uses velocity manipulability.  Change
 # this single value to FORCE or DIRECTIONAL_FORCE to exercise the other costs.
