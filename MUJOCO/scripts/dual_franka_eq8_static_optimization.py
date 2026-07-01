@@ -25,19 +25,22 @@ ENABLE_ARM_BIAS_COMPENSATION = True
 
 # Robot base spawn locations [x, y, z] in the world frame.  These defaults
 # reproduce the MJCF exactly; edit only these two vectors to reposition arms.
-LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.4, 0.0])
-RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.2, 0.0])
+LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.2, 0.2])
+RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.2, 0.2])
+
+# LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.5, 0.0])
+# RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.5, 0.0])
 
 K_P = np.diag([8.0, 8.0, 8.0, 2.0, 2.0, 2.0])
 
 # The paper's spatial dual-Franka study uses velocity manipulability.  Change
 # this single value to FORCE or DIRECTIONAL_FORCE to exercise the other costs.
-OBJECTIVE = ManipulabilityObjective.VELOCITY
+OBJECTIVE = ManipulabilityObjective.DIRECTIONAL_FORCE
 # The raw spatial-gradient scale is small; the joint-speed cap below remains
 # the final safety limit after applying this Equation (4) gain Lambda.
-OPTIMIZATION_GAIN = 100000.0
-MAXIMUM_OPTIMIZATION_JOINT_SPEED = 10.0
-FINITE_DIFFERENCE_STEP = 1e-3
+OPTIMIZATION_GAIN = 10000.0
+MAXIMUM_OPTIMIZATION_JOINT_SPEED = 5.0
+FINITE_DIFFERENCE_STEP = 1e-4
 
 # Used only by DIRECTIONAL_FORCE: world-frame [Fx, Fy, Fz, Mx, My, Mz].
 DESIRED_WRENCH_DIRECTION = np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
