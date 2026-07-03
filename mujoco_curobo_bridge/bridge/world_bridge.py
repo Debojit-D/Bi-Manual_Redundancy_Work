@@ -2,7 +2,7 @@
 world_bridge.py
 
 Converts world.world_manager.WorldManager obstacles into a
-curobo.geom.types.WorldConfig, so cuRobo's collision checker and
+curobo.scene.Scene, so cuRobo's collision checker and
 motion planner become aware of the same obstacles being rendered
 in the MuJoCo viewer.
 
@@ -18,7 +18,7 @@ Unit conventions (this is where bugs like to hide):
   are [x, y, z, qw, qx, qy, qz].
 """
 
-from curobo.geom.types import WorldConfig, Cuboid, Sphere, Cylinder
+from curobo.scene import Scene, Cuboid, Sphere, Cylinder
 
 from world.world_manager import WorldManager
 from world.obstacle import Obstacle
@@ -70,9 +70,9 @@ _CONVERTERS = {
 }
 
 
-def to_world_config(world: WorldManager) -> WorldConfig:
+def to_world_config(world: WorldManager) -> Scene:
     """
-    Build a cuRobo WorldConfig from every enabled obstacle in a
+    Build a cuRobo v0.8 Scene from every enabled obstacle in a
     WorldManager.
 
     "mesh" obstacles are skipped for now - WorldRenderer doesn't
@@ -109,8 +109,12 @@ def to_world_config(world: WorldManager) -> WorldConfig:
     if skipped:
         print(f"[world_bridge] Skipped unsupported obstacle shapes: {skipped}")
 
-    return WorldConfig(
+    scene = Scene(
         cuboid=cuboids,
         sphere=spheres,
         cylinder=cylinders,
     )
+
+    # v0.8 collision kernels consume cuboids, meshes, and voxel grids. Convert
+    # spheres and cylinders to in-memory meshes so they are actually checked.
+    return Scene.create_collision_support_world(scene, process=False)

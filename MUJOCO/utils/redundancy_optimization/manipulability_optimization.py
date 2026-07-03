@@ -34,6 +34,13 @@ class ManipulabilityObjective(str, Enum):
     DIRECTIONAL_FORCE = "directional_force"
 
 
+class CollisionModelVersion(str, Enum):
+    """Selectable inter-arm collision approximations."""
+
+    VERSION1 = "version1"
+    VERSION2 = "version2"
+
+
 @dataclass(frozen=True)
 class OptimizationResult:
     objective: ManipulabilityObjective
@@ -65,7 +72,10 @@ class ManipulabilityOptimizer:
         enable_collision_penalty=False,
         collision_weight=25.0,
         collision_safety_margin=0.08,
+        collision_proximity_scale=0.01,
         collision_sphere_radius=0.07,
+        collision_version=CollisionModelVersion.VERSION1,
+        collision_sphere_model_path=None,
     ):
         self.kinematics = kinematics
         self.model = kinematics.model
@@ -79,7 +89,9 @@ class ManipulabilityOptimizer:
         self.enable_collision_penalty = bool(enable_collision_penalty)
         self.collision_weight = float(collision_weight)
         self.collision_safety_margin = float(collision_safety_margin)
+        self.collision_proximity_scale = float(collision_proximity_scale)
         self.collision_sphere_radius = float(collision_sphere_radius)
+        self.collision_version = CollisionModelVersion(collision_version)
         # Resolve names once: finite-difference evaluations reuse these IDs.
         self.left_collision_body_ids = np.array(
             [self.model.body(name).id for name in LEFT_COLLISION_BODIES],
@@ -89,6 +101,14 @@ class ManipulabilityOptimizer:
             [self.model.body(name).id for name in RIGHT_COLLISION_BODIES],
             dtype=int,
         )
+        self.left_detailed_body_ids = np.empty(0, dtype=int)
+        self.left_detailed_centers = np.empty((0, 3))
+        self.left_detailed_radii = np.empty(0)
+        self.right_detailed_body_ids = np.empty(0, dtype=int)
+        self.right_detailed_centers = np.empty((0, 3))
+        self.right_detailed_radii = np.empty(0)
+        if self.collision_version is CollisionModelVersion.VERSION2:
+            self._load_detailed_collision_spheres(collision_sphere_model_path)
         self.desired_force_matrix = self._make_direction_matrix(
             desired_wrench_direction
         )
@@ -103,8 +123,96 @@ class ManipulabilityOptimizer:
             raise ValueError("collision_weight must be nonnegative")
         if self.collision_safety_margin < 0.0:
             raise ValueError("collision_safety_margin must be nonnegative")
+        if self.collision_proximity_scale <= 0.0:
+            raise ValueError("collision_proximity_scale must be positive")
         if self.collision_sphere_radius < 0.0:
             raise ValueError("collision_sphere_radius must be nonnegative")
+
+    @staticmethod
+    def _is_descendant(model, body_id, root_id):
+        while body_id > 0:
+            if body_id == root_id:
+                return True
+            body_id = int(model.body_parentid[body_id])
+        return False
+
+    def _load_detailed_collision_spheres(self, model_path):
+        """Load fitted body-local spheres and map them onto this MuJoCo model."""
+        if model_path is None:
+            raise ValueError(
+                "collision_sphere_model_path is required for collision version2"
+            )
+        sphere_model = mujoco.MjModel.from_xml_path(str(model_path))
+        left_root = sphere_model.body("franka1").id
+        right_root = sphere_model.body("franka2").id
+        # Fixed bases cannot move away from one another, so exclude them from
+        # the optimization cost and retain all articulated arm/hand spheres.
+        excluded_bodies = {"franka1", "franka2", "link0_l", "link0_r"}
+        detailed = {"left": [], "right": []}
+
+        for geom_id in range(sphere_model.ngeom):
+            geom_name = sphere_model.geom(geom_id).name
+            if not geom_name.startswith("spherefit_"):
+                continue
+            body_id = int(sphere_model.geom_bodyid[geom_id])
+            body_name = sphere_model.body(body_id).name
+            if body_name in excluded_bodies:
+                continue
+            if self._is_descendant(sphere_model, body_id, left_root):
+                side = "left"
+            elif self._is_descendant(sphere_model, body_id, right_root):
+                side = "right"
+            else:
+                continue
+
+            target_body_id = mujoco.mj_name2id(
+                self.model,
+                mujoco.mjtObj.mjOBJ_BODY,
+                body_name,
+            )
+            if target_body_id < 0:
+                raise ValueError(
+                    f"Sphere body {body_name!r} is absent from the target model"
+                )
+            detailed[side].append(
+                (
+                    target_body_id,
+                    sphere_model.geom_pos[geom_id].copy(),
+                    float(sphere_model.geom_size[geom_id, 0]),
+                )
+            )
+
+        if not detailed["left"] or not detailed["right"]:
+            raise ValueError(
+                f"No dual-arm fitted spheres found in {model_path}"
+            )
+
+        for side in ("left", "right"):
+            entries = detailed[side]
+            setattr(
+                self,
+                f"{side}_detailed_body_ids",
+                np.array([entry[0] for entry in entries], dtype=int),
+            )
+            setattr(
+                self,
+                f"{side}_detailed_centers",
+                np.array([entry[1] for entry in entries], dtype=float),
+            )
+            setattr(
+                self,
+                f"{side}_detailed_radii",
+                np.array([entry[2] for entry in entries], dtype=float),
+            )
+
+    @staticmethod
+    def _sphere_world_positions(data, body_ids, local_centers):
+        rotations = data.xmat[body_ids].reshape(-1, 3, 3)
+        return data.xpos[body_ids] + np.einsum(
+            "nij,nj->ni",
+            rotations,
+            local_centers,
+        )
 
     def _make_direction_matrix(self, wrench_direction):
         weights = np.asarray(wrench_direction, dtype=float).copy()
@@ -133,47 +241,134 @@ class ManipulabilityOptimizer:
         )
         return self._sqrt_determinant(force_matrix)
 
+
+    ## Old Cost (Mostly Incorrect)
+    # def directional_force_cost(self, data):
+    #     """Equation (15): normalized Frobenius directional distance."""
+    #     velocity_map = self.kinematics.paper_object_velocity_map(data)
+    #     capability = velocity_map @ velocity_map.T
+    #     capability_trace = np.trace(capability)
+    #     desired_trace = np.trace(self.desired_force_matrix)
+    #     if capability_trace <= 0.0 or desired_trace <= 0.0:
+    #         return float("inf")
+    #     difference = (
+    #         capability / capability_trace
+    #         - self.desired_force_matrix / desired_trace
+    #     )
+    #     return float(np.linalg.norm(difference, ord="fro"))
+    
+    ## Fixed Cost (Mostly Correct)
     def directional_force_cost(self, data):
-        """Equation (15): normalized Frobenius directional distance."""
+        """Equation (15): normalized Frobenius directional force-capability distance.
+
+        This uses the same force-side matrix as Eq. (14), namely
+        (A A.T)^dagger. Therefore the objective is minimized in
+        optimization_velocity() for DIRECTIONAL_FORCE.
+        """
         velocity_map = self.kinematics.paper_object_velocity_map(data)
-        capability = velocity_map @ velocity_map.T
-        capability_trace = np.trace(capability)
+
+        # Force-capability matrix, consistent with Eq. (14).
+        force_capability = np.linalg.pinv(
+            velocity_map @ velocity_map.T,
+            rcond=self.kinematics.pinv_rcond,
+        )
+
+        capability_trace = np.trace(force_capability)
         desired_trace = np.trace(self.desired_force_matrix)
+
         if capability_trace <= 0.0 or desired_trace <= 0.0:
             return float("inf")
+
         difference = (
-            capability / capability_trace
+            force_capability / capability_trace
             - self.desired_force_matrix / desired_trace
         )
+
         return float(np.linalg.norm(difference, ord="fro"))
 
     def _inter_arm_clearances(self, data):
-        """Return all coarse-sphere clearances between the two arms."""
-        left_positions = data.xpos[self.left_collision_body_ids]
-        right_positions = data.xpos[self.right_collision_body_ids]
+        """Return every left–right sphere surface clearance."""
+        if self.collision_version is CollisionModelVersion.VERSION1:
+            left_positions = data.xpos[self.left_collision_body_ids]
+            right_positions = data.xpos[self.right_collision_body_ids]
+            left_radii = np.full(
+                left_positions.shape[0],
+                self.collision_sphere_radius,
+            )
+            right_radii = np.full(
+                right_positions.shape[0],
+                self.collision_sphere_radius,
+            )
+        else:
+            left_positions = self._sphere_world_positions(
+                data,
+                self.left_detailed_body_ids,
+                self.left_detailed_centers,
+            )
+            right_positions = self._sphere_world_positions(
+                data,
+                self.right_detailed_body_ids,
+                self.right_detailed_centers,
+            )
+            left_radii = self.left_detailed_radii
+            right_radii = self.right_detailed_radii
+
         center_distances = np.linalg.norm(
             left_positions[:, np.newaxis, :]
             - right_positions[np.newaxis, :, :],
             axis=2,
         )
-        combined_radius = 2.0 * self.collision_sphere_radius
+        combined_radius = (
+            left_radii[:, np.newaxis] + right_radii[np.newaxis, :]
+        )
         return center_distances - combined_radius
+
+    def detailed_collision_spheres(self, data):
+        """Return v2 world spheres as ``(left, right)`` arrays of xyz-radius."""
+        if self.collision_version is not CollisionModelVersion.VERSION2:
+            return np.empty((0, 4)), np.empty((0, 4))
+        left_positions = self._sphere_world_positions(
+            data,
+            self.left_detailed_body_ids,
+            self.left_detailed_centers,
+        )
+        right_positions = self._sphere_world_positions(
+            data,
+            self.right_detailed_body_ids,
+            self.right_detailed_centers,
+        )
+        return (
+            np.column_stack((left_positions, self.left_detailed_radii)),
+            np.column_stack((right_positions, self.right_detailed_radii)),
+        )
 
     def minimum_inter_arm_clearance(self, data):
         """Return the closest coarse-sphere inter-arm clearance in metres."""
         return float(np.min(self._inter_arm_clearances(data)))
 
     def inter_arm_collision_cost(self, data):
-        """Return the summed squared soft-margin violations.
+        """Return a distance-weighted inter-arm proximity cost.
 
-        This is a smooth optimization bias around coarse body spheres, not a
+        This is a soft optimization bias around body spheres, not a
         hard collision constraint or a collision-proof motion planner.
+
+        Version 1 retains its original squared hinge for reproducibility.
+        Version 2 uses a squared softplus potential.  Its influence decays
+        exponentially outside the requested clearance, grows smoothly as the
+        arms approach, and keeps growing through sphere overlap.
         """
         clearances = self._inter_arm_clearances(data)
-        violations = np.maximum(
-            0.0,
-            self.collision_safety_margin - clearances,
-        )
+        signed_violations = self.collision_safety_margin - clearances
+        if self.collision_version is CollisionModelVersion.VERSION1:
+            violations = np.maximum(0.0, signed_violations)
+        else:
+            scale = self.collision_proximity_scale
+            # scale*softplus(x/scale) is a smooth approximation of max(0, x).
+            # np.logaddexp keeps the evaluation stable for deep overlap.
+            violations = scale * np.logaddexp(
+                0.0,
+                signed_violations / scale,
+            )
         return float(np.sum(violations**2))
 
     def _sqrt_determinant(self, matrix):
@@ -190,10 +385,16 @@ class ManipulabilityOptimizer:
         elif selected is ManipulabilityObjective.FORCE:
             value = self.force_manipulability(data)
         else:
-            # Directional force is currently minimized through sign reversal
-            # in optimization_velocity(). Collision-aware directional-force
-            # optimization therefore needs separate sign handling later.
-            return self.directional_force_cost(data)
+            # optimization_velocity() reverses this gradient to minimize the
+            # directional distance. Adding collision cost here therefore
+            # minimizes both directional error and collision violations.
+            value = self.directional_force_cost(data)
+            if self.enable_collision_penalty:
+                value += (
+                    self.collision_weight
+                    * self.inter_arm_collision_cost(data)
+                )
+            return value
 
         if self.enable_collision_penalty and selected in (
             ManipulabilityObjective.VELOCITY,

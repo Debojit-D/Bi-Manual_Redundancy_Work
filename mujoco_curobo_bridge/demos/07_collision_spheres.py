@@ -1,5 +1,10 @@
 import time
 
+if __package__:
+    from demos import _bootstrap
+else:
+    import _bootstrap
+
 from bridge.mujoco_loader import MujocoRobot
 from bridge.curobo_loader import CuroboRobot
 from bridge.state_sync import PandaState
@@ -14,6 +19,7 @@ def main():
     print("=" * 70)
 
     mj = MujocoRobot()
+    mj.reset_home()
     viewer = mj.launch()
 
     print("✓ Viewer Started")

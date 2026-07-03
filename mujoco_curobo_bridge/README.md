@@ -15,11 +15,11 @@ world/            Neutral obstacle representation (no MuJoCo or cuRobo import)
 
 bridge/           Everything that talks to MuJoCo or cuRobo directly
   mujoco_loader.py    MjModel / MjData wrapper, viewer launch, home reset
-  curobo_loader.py    CudaRobotModel wrapper, forward kinematics
+  curobo_loader.py    Kinematics wrapper and forward kinematics
   state_sync.py       MuJoCo qpos -> 7-dof Panda arm joint slice
   sphere_bridge.py    cuRobo FK -> collision sphere list (x, y, z, r)
-  world_bridge.py     WorldManager -> curobo.geom.types.WorldConfig
-  motion_gen_bridge.py  MotionGen wrapper: plan_to_pose()
+  world_bridge.py     WorldManager -> cuRobo v0.8 Scene
+  motion_planner_bridge.py  MotionPlanner wrapper: plan_to_pose()
 
 viewer/           Draws into MuJoCo's passive-viewer overlay scene
   world_renderer.py   Draws Obstacles as MuJoCo geoms
@@ -32,96 +32,113 @@ demos/            Runnable scripts, 01 (load model) through 13 (multi-waypoint
 
 ## Requirements
 
-- NVIDIA GPU, Volta architecture or newer, 4GB+ VRAM
-- Python 3.10 (cuRobo recommends 3.10; 3.8-3.10 supported)
-- CUDA-capable PyTorch build matching your driver
-- `git-lfs` (cuRobo's asset repo uses it)
+- NVIDIA GPU newer than Turing with at least 4GB VRAM
+- NVIDIA driver 580.65.06 or newer
+- Python 3.10-3.13 (Python 3.11 is cuRobo's documented default)
+- `uv` and `git`
 
 ## Setup
 
 ```bash
-# 1. Clone this repo
-git clone <your-repo-url> mujoco_curobo_bridge
-cd mujoco_curobo_bridge
+# 1. Clone this repository and enter its root
+git clone <your-repo-url>
+cd <repository-directory>
+REPO_ROOT="$PWD"
 
-# 2. Virtual environment
-python3.10 -m venv .venv
+# 2. One shared environment for MuJoCo and cuRobo
+python3.11 -m venv .venv
 source .venv/bin/activate
 
-# 3. PyTorch - install the build matching your CUDA driver first
-#    (see https://pytorch.org/get-started/locally/), then:
-pip install -r requirements.txt
+# 3. MuJoCo bridge dependencies
+python -m pip install -r mujoco_curobo_bridge/requirements.txt
 
-# 4. cuRobo - build from source, PINNED to v0.7.8.
-#    main/HEAD is cuRoboV2 (v0.8.0+, April 2026), a rewrite with a
-#    DIFFERENT public API. This project uses the v1 API
-#    (CudaRobotModel, RobotConfig.from_dict, MotionGenConfig.load_from_robot_config),
-#    so installing main will break every import in bridge/.
-sudo apt install git-lfs
-git clone https://github.com/NVlabs/curobo.git
-cd curobo && git checkout v0.7.8
-pip install -e . --no-build-isolation   # ~20 minutes
-cd ..
+# 4. cuRobo v0.8 with CUDA 13 and its matching PyTorch wheel
+git clone https://github.com/NVlabs/curobo.git ~/curobo
+cd ~/curobo
+git checkout a35a708ecfbb26eb9ab2d7ef22c65919c4fae4a9
+uv pip install --python "$REPO_ROOT/.venv/bin/python" '.[cu13-torch]'
+cd "$REPO_ROOT"
 
-# 5. Robot assets - mujoco_menagerie (not bundled in this repo)
-git clone https://github.com/google-deepmind/mujoco_menagerie.git
+# 5. Robot assets
+#    The demos use the Panda scene bundled in this repository under
+#    MUJOCO/robot_descriptions/franka_emika_panda by default.
+```
 
-# 6. Point bridge/config.py at your local scene.xml
-#    Edit MUJOCO_SCENE in bridge/config.py to the absolute path of
-#    mujoco_menagerie/franka_emika_panda/scene.xml on your machine.
+To use a different scene without editing the source, set `MUJOCO_SCENE`:
+
+```bash
+MUJOCO_SCENE=/path/to/scene.xml python -m demos.01_load_panda
 ```
 
 Verify the install:
 
 ```bash
-python -m demos.02_inspect_model     # MuJoCo model loads, prints joint/body counts
+python -m demos.01_load_panda       # Inspect the home pose and open the viewer
 python -m demos.04_curobo_joint      # cuRobo robot config loads
 ```
 
-Run everything as a module from the repo root (`python -m demos.05_fk_bridge`,
-not `python demos/05_fk_bridge.py`) - the demos import `bridge.*` and `world.*`
-as top-level packages, which only resolves correctly when the repo root is on
-`sys.path`.
+The demos support both module execution from `mujoco_curobo_bridge`
+(`python -m demos.05_fk_bridge`) and direct file execution from any working
+directory (`python /path/to/mujoco_curobo_bridge/demos/05_fk_bridge.py`).
 
 ## Running the demos
 
 | # | Script | What it shows |
 |---|--------|----------------|
-| 01 | `01_load_panda.py` | Load the model, open the passive viewer |
-| 02 | `02_inspect_model.py` | Print joint / body / actuator counts |
-| 03 | `03_joint_mapping.py` | qpos/qvel index of every joint |
+| 01 | `01_load_panda.py` | Load the `home` keyframe, print model/joint information, and open the viewer |
+| 02 | `02_fit_mujoco_spheres.py` | Fit cuRobo spheres directly to MJCF collision geometry and generate a new XML |
 | 04 | `04_curobo_joint.py` | Load the Panda into cuRobo |
 | 05-06 | `0{5,6}_fk_bridge.py` | Read MuJoCo qpos, run cuRobo forward kinematics |
 | 07 | `07_collision_spheres.py` | Live collision-sphere overlay on the moving arm |
 | 08 | `08_world_test.py` | Build a `WorldManager` with a few obstacles (no viewer) |
 | 09 | `09_world_viewer.py` | Render those obstacles in the MuJoCo viewer |
-| 10 | `10_world_config_test.py` | Convert `WorldManager` -> cuRobo `WorldConfig` |
+| 10 | `10_world_config_test.py` | Convert `WorldManager` -> cuRobo v0.8 `Scene` |
 | 11 | `11_motion_plan.py` | Plan a single collision-free trajectory (headless) |
 | 12 | `12_planned_playback.py` | Plan + play back one trajectory in the viewer |
 | 13 | `13_multi_motion.py` | Cycle through several waypoints indefinitely |
 
+### Fit collision spheres directly from MJCF
+
+Demo 02 compiles the input MJCF first, so included files and inherited defaults
+are resolved. It fits each body's group-3 collision geometry with cuRobo and
+writes a complete `scene_spherefit.xml`. Original collision geoms are retained
+for reference but disabled; the generated body-local spheres replace them.
+The checked-in Panda output uses density `1.0` and contains 158 fitted spheres.
+
+```bash
+python mujoco_curobo_bridge/demos/02_fit_mujoco_spheres.py \
+  --sphere-density 1.0 \
+  --iterations 200 \
+  --compute-metrics
+```
+
+Set exact counts for selected bodies when automatic density is not desired:
+
+```bash
+python mujoco_curobo_bridge/demos/02_fit_mujoco_spheres.py \
+  --body link5 --num-spheres link5=20 \
+  --body hand  --num-spheres hand=12
+```
+
+Preview the generated model with the regular viewer:
+
+```bash
+MUJOCO_SCENE=MUJOCO/robot_descriptions/franka_emika_panda/scene_spherefit.xml \
+  python mujoco_curobo_bridge/demos/01_load_panda.py
+```
+
 ## Known issues / current state
 
-- **Demo 12 mixes kinematic playback with physics.** It calls both
-  `mj.set_qpos()` (teleports joints to the planned trajectory) and
-  `mj.step()` (integrates real dynamics against the position actuators'
-  `ctrl` targets, which are still set to the home keyframe) every frame.
-  The two fight each other. Demo 13 has the correct pattern: `mj.forward()`
-  only, never `mj.step()`, during kinematic playback.
-- **Warm-up looks like a freeze.** `MotionGen.warmup()` JIT-compiles CUDA
-  kernels for 30s-2min on first use. Both demo 12 and 13 launch the MuJoCo
-  viewer *before* constructing `MotionGenBridge`, so the window can appear
-  unresponsive during warmup. Harmless, just slow.
 - **Demo 13's `WAYPOINTS[1] = (0.70, 0.20, ...)` sits at ~92% of the Panda's
   straight-line max reach** (~0.855m from the shoulder), with orientation
   fully locked to `home_quat`. This is the most likely single point of
   planning failure - watch `result.status` on that waypoint specifically.
 - The four table **legs** and the **ground plane** in `scene.xml` are not
-  represented in the cuRobo `WorldConfig` - only `table_top` is. Fine for
+  represented in the cuRobo `Scene` - only `table_top` is. Fine for
   above-table motion, not collision-checked if a goal or IK seed goes low.
-- `WorldConfig` is built once at startup. Moving an `Obstacle` after that
+- The cuRobo `Scene` is built once at startup. Moving an `Obstacle` after that
   point updates the viewer but **not** the planner - use
-  `motion_gen.update_world()` if the world becomes dynamic.
+  `motion_bridge.planner.update_world()` if the world becomes dynamic.
 
 ## Math behind it
 
@@ -136,12 +153,12 @@ Orientation is tracked as a unit quaternion (cuRobo and MuJoCo both use
 $$q = (w, x, y, z), \quad w = \cos(\theta/2), \quad (x,y,z) = \sin(\theta/2)\,\mathbf{n}$$
 
 The robot is approximated as a set of spheres for cheap, closed-form
-collision checking against `WorldConfig` cuboids (center $c$, half-extents
+collision checking against `Scene` cuboids (center $c$, half-extents
 $h$):
 
 $$d(x_s) = \lVert x_s - \mathrm{clamp}(x_s,\, c-h,\, c+h) \rVert - r$$
 
-`MotionGen` finds a trajectory $q_{1:T}$ minimizing smoothness plus a
+`MotionPlanner` finds a trajectory $q_{1:T}$ minimizing smoothness plus a
 collision penalty that activates within a distance $\epsilon$ of any
 obstacle, subject to reaching the goal pose:
 

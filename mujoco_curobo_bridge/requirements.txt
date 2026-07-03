@@ -1,8 +1,5 @@
 mujoco>=3.1.0
 numpy>=1.24
-torch>=2.0
 
-# cuRobo is NOT pip-installable from PyPI under this project's API.
-# It must be built from source and PINNED to v0.7.8 - see README
-# "Install cuRobo" step. main/HEAD is now cuRoboV2 (v0.8.0+) with a
-# different, incompatible public API.
+# Install cuRobo v0.8 and its matching CUDA/PyTorch extra separately with uv.
+# See README.md; an unqualified torch wheel can select the wrong CUDA build.

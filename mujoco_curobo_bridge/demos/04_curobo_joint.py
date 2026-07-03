@@ -1,21 +1,21 @@
-from curobo.util_file import (
-    get_robot_configs_path,
-    join_path,
-    load_yaml,
-)
-from curobo.types.robot import RobotConfig
+"""Load and summarize the standard Franka configuration with cuRobo v0.8."""
 
-config_file = join_path(
-    get_robot_configs_path(),
-    "franka.yml"
-)
+from curobo.kinematics import Kinematics, KinematicsCfg
 
-robot_dict = load_yaml(config_file)
 
-robot_cfg = RobotConfig.from_dict(robot_dict)
+def main() -> None:
+    config = KinematicsCfg.from_robot_yaml_file("franka.yml")
+    robot = Kinematics(config)
 
-print("=" * 60)
-print("Robot Loaded Successfully")
-print("=" * 60)
+    print("=" * 60)
+    print("Robot Loaded Successfully")
+    print("=" * 60)
+    print("cuRobo API: v0.8")
+    print("Degrees of freedom:", robot.get_dof())
+    print("Joint names:", robot.joint_names)
+    print("Tool frames:", robot.tool_frames)
+    print("Device:", config.device_cfg.device)
 
-print(robot_cfg)
+
+if __name__ == "__main__":
+    main()

@@ -1,44 +1,40 @@
+"""cuRobo v0.8 robot-model and forward-kinematics adapter."""
+
+import numpy as np
 import torch
 
-from curobo.cuda_robot_model.cuda_robot_model import CudaRobotModel
-
-from curobo.types.base import TensorDeviceType
-from curobo.types.robot import RobotConfig
-
-from curobo.util_file import (
-    get_robot_path,
-    join_path,
-    load_yaml,
-)
+from curobo.kinematics import Kinematics, KinematicsCfg
+from curobo.types import JointState
 
 
 class CuroboRobot:
+    """Load the standard Franka model and expose NumPy-friendly FK helpers."""
 
-    def __init__(self):
+    ROBOT_FILE = "franka.yml"
 
-        self.tensor_args = TensorDeviceType()
+    def __init__(self, robot_file: str = ROBOT_FILE):
+        self.config = KinematicsCfg.from_robot_yaml_file(robot_file)
+        self.model = Kinematics(self.config)
+        self.joint_names = list(self.model.joint_names)
+        self.tool_frames = list(self.model.tool_frames)
+        self.device = self.config.device_cfg.device
+        self.dtype = self.config.device_cfg.dtype
 
-        config = load_yaml(
-            join_path(
-                get_robot_path(),
-                "franka.yml",
-            )
-        )["robot_cfg"]
-
-        self.robot_cfg = RobotConfig.from_dict(
-            config,
-            self.tensor_args,
-        )
-
-        self.model = CudaRobotModel(
-            self.robot_cfg.kinematics
-        )
+    def joint_state(self, q) -> JointState:
+        """Convert one joint vector to a batched v0.8 ``JointState``."""
+        position = torch.as_tensor(
+            np.asarray(q, dtype=np.float32),
+            device=self.device,
+            dtype=self.dtype,
+        ).reshape(1, -1)
+        return JointState.from_position(position, joint_names=self.joint_names)
 
     def fk(self, q):
+        """Compute the v0.8 ``KinematicsState`` for one joint vector."""
+        return self.model.compute_kinematics(self.joint_state(q))
 
-        q = torch.tensor(
-            q,
-            **self.tensor_args.as_torch_dict(),
-        ).unsqueeze(0)
-
-        return self.model.get_state(q)
+    def get_end_effector_pose(self, state):
+        """Return the pose of the model's first configured tool frame."""
+        if not self.tool_frames:
+            raise RuntimeError("cuRobo robot configuration has no tool frame")
+        return state.tool_poses.get_link_pose(self.tool_frames[0])

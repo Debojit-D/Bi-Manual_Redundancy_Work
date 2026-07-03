@@ -1,0 +1,31 @@
+<mujoco model="dual panda robots only">
+  <!-- Robot bodies, meshes, joints, actuators, and grippers. -->
+  <include file="dual_panda.xml"/>
+
+  <option gravity="0 0 -9.81"/>
+  <statistic center="0 0 0.45" extent="1.1"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="120" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7"
+             rgb2="0 0 0" width="512" height="3072"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+  </worldbody>
+
+  <!-- Only the 18 robot qpos values are present: 7 arm + 2 finger per side. -->
+  <keyframe>
+    <key name="home1"
+         qpos="0 0 0 -1.57079 0 1.57079 -0.7853 0.04 0.04
+               0 0 0 -1.57079 0 1.57079 -0.7853 0.04 0.04"
+         ctrl="0 0 0 -1.57079 0 1.57079 -0.7853 255
+               0 0 0 -1.57079 0 1.57079 -0.7853 255"/>
+  </keyframe>
+</mujoco>

@@ -1,3 +1,8 @@
+if __package__:
+    from demos import _bootstrap
+else:
+    import _bootstrap
+
 from world.world_manager import WorldManager
 from world.obstacle import Obstacle
 

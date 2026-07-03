@@ -48,13 +48,16 @@ class SphereBridge:
         # Run Forward Kinematics
         state = self.robot.fk(q)
 
-        spheres = state.link_spheres_tensor
+        spheres = state.robot_spheres
+
+        if spheres is None:
+            raise RuntimeError("cuRobo did not return robot collision spheres")
 
         if isinstance(spheres, torch.Tensor):
             spheres = spheres.detach().cpu().numpy()
 
-        # Remove batch dimension
-        spheres = np.squeeze(spheres, axis=0)
+        # v0.8 preserves batch and horizon dimensions: [B, H, N, 4].
+        spheres = spheres.reshape(-1, spheres.shape[-2], 4)[0]
 
         # Remove disabled spheres
         #

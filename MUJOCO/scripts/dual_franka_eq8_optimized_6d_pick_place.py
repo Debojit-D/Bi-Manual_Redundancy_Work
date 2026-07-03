@@ -1,4 +1,37 @@
-"""Optimized dual-Franka pick-and-place through three configurable SE(3) poses."""
+"""Collision-aware Equation (8) through three configurable SE(3) poses.
+
+The two Franka arms grasp the table and follow one continuous spatial path
+from the measured pickup pose through an intermediate pose to a final pose.
+Both translation and orientation vary along the path. Equation (8) preserves
+the primary object motion while the paper objective acts through the
+joint-limit-safe projected null-space term used by the static and simple
+pick-and-place experiments.
+
+Run from the repository root according to what you want to inspect::
+
+    # Default spatial pick-and-place with fitted collision spheres.
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place
+
+    # Draw the fitted spheres during the complete SE(3) motion.
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
+        --show-collision-spheres
+
+    # Record every Equation (8) step, including the final hold.
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
+        --output-csv results/optimized_6d_pick_place.csv
+
+    # Override the spatial waypoint and final pose from the CLI.
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
+        --intermediate-position 0.40 0.00 0.52 \\
+        --goal-position 0.20 0.45 0.269
+
+Collision avoidance remains a soft cost, not a hard collision guarantee. Run
+with ``--help`` for all collision, joint-limit, trajectory, and recording
+options.
+"""
+
+import argparse
+from pathlib import Path
 
 import numpy as np
 from loop_rate_limiters import RateLimiter
@@ -8,10 +41,12 @@ from scipy.spatial.transform import Rotation
 from MUJOCO.utils.grasping_kinematics import (
     CooperativeManipulationKinematics,
 )
+from MUJOCO.utils.data_recording import Equation8CSVRecorder
 from MUJOCO.utils.redundancy_optimization import (
     Equation8Controller,
     ManipulabilityObjective,
     ManipulabilityOptimizer,
+    draw_detailed_collision_spheres,
 )
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 
@@ -20,8 +55,8 @@ CONTROL_HZ = 50.0
 SHOW_MOCAP_TARGETS = False
 ENABLE_ARM_BIAS_COMPENSATION = True
 # Robot base poses: world xyz [m] and extrinsic XYZ Euler angles [degrees].
-LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.2, 0.2])
-RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.2, 0.2])
+LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.25, 0.0])
+RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.25, 0.0])
 LEFT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
 RIGHT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
 K_P = np.diag([8.0, 8.0, 8.0, 4.0, 4.0, 4.0])
@@ -44,15 +79,24 @@ INTERMEDIATE_TO_GOAL_DURATION = 15.0
 
 # Null-space optimization remains active throughout both trajectory segments
 # and continuously at the final goal pose.
-OBJECTIVE = ManipulabilityObjective.FORCE
-OPTIMIZATION_GAIN = 100.0
-MAXIMUM_OPTIMIZATION_JOINT_SPEED = 0.5
+OBJECTIVE = ManipulabilityObjective.DIRECTIONAL_FORCE
+OPTIMIZATION_GAIN = 5000.0
+MAXIMUM_OPTIMIZATION_JOINT_SPEED = 5
 FINITE_DIFFERENCE_STEP = 1e-4
+JOINT_LIMIT_MARGIN = 0.05
+JOINT_LIMIT_STOP_DISTANCE = 0.07
+JOINT_LIMIT_SLOW_DISTANCE = 0.25
 
 ENABLE_COLLISION_PENALTY = True
-COLLISION_WEIGHT = 1700.0
-COLLISION_SAFETY_MARGIN = 0.08
-COLLISION_SPHERE_RADIUS = 0.07
+COLLISION_WEIGHT = 5000.0
+COLLISION_SAFETY_MARGIN = 0.05
+COLLISION_PROXIMITY_SCALE = 0.01
+COLLISION_SPHERE_MODEL_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "robot_descriptions"
+    / "franka_emika_panda"
+    / "dual_panda_robots_only_spherefit.xml"
+)
 
 DESIRED_WRENCH_DIRECTION = np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
 CHARACTERISTIC_LENGTH = 0.4
@@ -164,7 +208,10 @@ def optimized_control_step(
     desired_twist,
     viewer,
     rate,
+    recorder=None,
+    show_collision_spheres=False,
 ):
+    """Apply one joint-limit-safe primary-plus-null-space control step."""
     optimization = optimizer.optimization_velocity(scene.data)
     phi, diagnostics = equation_8.update(
         scene.data,
@@ -174,9 +221,17 @@ def optimized_control_step(
         desired_twist,
         optimization.phi_dot_opt,
     )
-    phi = scene.clip_arm_configuration(phi)
     scene.command(phi, scene.gripper_closed)
+    if show_collision_spheres:
+        draw_detailed_collision_spheres(viewer, optimizer, scene.data)
     scene.step(viewer)
+    if recorder is not None:
+        recorder.record(
+            desired_position,
+            desired_rotation,
+            optimization,
+            diagnostics,
+        )
     rate.sleep()
     return phi, optimization, diagnostics
 
@@ -189,6 +244,8 @@ def run_trajectory(
     trajectory,
     viewer,
     rate,
+    recorder=None,
+    show_collision_spheres=False,
 ):
     """Execute one continuous start-through-waypoint-to-goal trajectory."""
     number_of_steps = int(trajectory.total_duration * CONTROL_HZ) + 1
@@ -201,6 +258,9 @@ def run_trajectory(
     )
 
     for step in range(number_of_steps):
+        if not viewer.is_running():
+            print("Viewer closed before the spatial trajectory completed.")
+            break
         time = min(step / CONTROL_HZ, trajectory.total_duration)
         desired_position, desired_rotation, desired_twist = trajectory.sample(
             time
@@ -215,6 +275,8 @@ def run_trajectory(
             desired_twist,
             viewer,
             rate,
+            recorder,
+            show_collision_spheres,
         )
 
         if step % int(CONTROL_HZ) == 0:
@@ -231,6 +293,16 @@ def run_trajectory(
                 f"{np.linalg.norm(diagnostics.pose_error[3:]):.5f} rad, "
                 f"grasp error="
                 f"{np.linalg.norm(diagnostics.grasp_pose_error):.5f}, "
+                f"null speed="
+                f"{np.max(np.abs(diagnostics.null_space_joint_velocity)):.4f} rad/s, "
+                f"alpha={diagnostics.null_space_scale:.3f}, "
+                f"joint margin="
+                f"{diagnostics.minimum_joint_limit_distance:.4f} rad, "
+                f"null leakage="
+                f"{diagnostics.scaled_null_space_leakage:.2e}/"
+                f"{diagnostics.unscaled_null_space_leakage:.2e}, "
+                f"command speed="
+                f"{np.max(np.abs(diagnostics.commanded_joint_velocity)):.4f} rad/s, "
                 f"clearance="
                 f"{optimizer.minimum_inter_arm_clearance(scene.data):.4f} m, "
                 f"collision cost="
@@ -248,6 +320,8 @@ def hold_goal_pose(
     viewer,
     rate,
     duration=None,
+    recorder=None,
+    show_collision_spheres=False,
 ):
     """Keep Equation (8) and optimization active at the final grasped pose."""
     goal_position, goal_rotation = goal_pose
@@ -267,6 +341,8 @@ def hold_goal_pose(
             np.zeros(6),
             viewer,
             rate,
+            recorder,
+            show_collision_spheres,
         )
         if step % int(CONTROL_HZ) == 0:
             print(
@@ -276,7 +352,21 @@ def hold_goal_pose(
                 f"orientation error="
                 f"{np.linalg.norm(diagnostics.pose_error[3:]):.5f} rad, "
                 f"grasp error="
-                f"{np.linalg.norm(diagnostics.grasp_pose_error):.5f}"
+                f"{np.linalg.norm(diagnostics.grasp_pose_error):.5f}, "
+                f"null speed="
+                f"{np.max(np.abs(diagnostics.null_space_joint_velocity)):.4f} rad/s, "
+                f"alpha={diagnostics.null_space_scale:.3f}, "
+                f"joint margin="
+                f"{diagnostics.minimum_joint_limit_distance:.4f} rad, "
+                f"null leakage="
+                f"{diagnostics.scaled_null_space_leakage:.2e}/"
+                f"{diagnostics.unscaled_null_space_leakage:.2e}, "
+                f"command speed="
+                f"{np.max(np.abs(diagnostics.commanded_joint_velocity)):.4f} rad/s, "
+                f"clearance="
+                f"{optimizer.minimum_inter_arm_clearance(scene.data):.4f} m, "
+                f"collision cost="
+                f"{optimizer.inter_arm_collision_cost(scene.data):.6f}"
             )
         step += 1
     return phi
@@ -290,21 +380,29 @@ def run_pick_and_place(
     viewer,
     rate,
     hold_duration=None,
+    recorder=None,
+    show_collision_spheres=False,
+    intermediate_position=TABLE_INTERMEDIATE_POSITION,
+    intermediate_euler_xyz=TABLE_INTERMEDIATE_EULER_XYZ,
+    goal_position=TABLE_GOAL_POSITION,
+    goal_euler_xyz=TABLE_GOAL_EULER_XYZ,
+    start_to_intermediate_duration=START_TO_INTERMEDIATE_DURATION,
+    intermediate_to_goal_duration=INTERMEDIATE_TO_GOAL_DURATION,
 ):
     """Execute start -> intermediate -> goal and continuously hold the grasp."""
     measured_start_pose = kinematics.object_pose(scene.data)
     intermediate_pose = (
-        TABLE_INTERMEDIATE_POSITION.copy(),
-        rotation_matrix(TABLE_INTERMEDIATE_EULER_XYZ),
+        np.asarray(intermediate_position, dtype=float).copy(),
+        rotation_matrix(intermediate_euler_xyz),
     )
     goal_pose = (
-        TABLE_GOAL_POSITION.copy(),
-        rotation_matrix(TABLE_GOAL_EULER_XYZ),
+        np.asarray(goal_position, dtype=float).copy(),
+        rotation_matrix(goal_euler_xyz),
     )
     phi = scene.arm_configuration()
     trajectory = ContinuousSE3WaypointTrajectory(
         (measured_start_pose, intermediate_pose, goal_pose),
-        (START_TO_INTERMEDIATE_DURATION, INTERMEDIATE_TO_GOAL_DURATION),
+        (start_to_intermediate_duration, intermediate_to_goal_duration),
     )
     phi = run_trajectory(
         scene,
@@ -314,6 +412,8 @@ def run_pick_and_place(
         trajectory,
         viewer,
         rate,
+        recorder,
+        show_collision_spheres,
     )
     hold_goal_pose(
         scene,
@@ -324,6 +424,8 @@ def run_pick_and_place(
         viewer,
         rate,
         hold_duration,
+        recorder,
+        show_collision_spheres,
     )
 
     held_position, held_rotation = kinematics.object_pose(scene.data)
@@ -337,7 +439,31 @@ def run_pick_and_place(
     }
 
 
-def main():
+def main(
+    *,
+    record_data=False,
+    output_csv=None,
+    collision_weight=COLLISION_WEIGHT,
+    collision_safety_margin=COLLISION_SAFETY_MARGIN,
+    collision_proximity_scale=COLLISION_PROXIMITY_SCALE,
+    collision_sphere_model_path=COLLISION_SPHERE_MODEL_PATH,
+    enable_collision_penalty=ENABLE_COLLISION_PENALTY,
+    show_collision_spheres=False,
+    optimization_gain=OPTIMIZATION_GAIN,
+    maximum_joint_speed=MAXIMUM_OPTIMIZATION_JOINT_SPEED,
+    joint_limit_margin=JOINT_LIMIT_MARGIN,
+    joint_limit_stop_distance=JOINT_LIMIT_STOP_DISTANCE,
+    joint_limit_slow_distance=JOINT_LIMIT_SLOW_DISTANCE,
+    start_position=TABLE_START_POSITION,
+    start_euler_xyz=TABLE_START_EULER_XYZ,
+    intermediate_position=TABLE_INTERMEDIATE_POSITION,
+    intermediate_euler_xyz=TABLE_INTERMEDIATE_EULER_XYZ,
+    goal_position=TABLE_GOAL_POSITION,
+    goal_euler_xyz=TABLE_GOAL_EULER_XYZ,
+    start_to_intermediate_duration=START_TO_INTERMEDIATE_DURATION,
+    intermediate_to_goal_duration=INTERMEDIATE_TO_GOAL_DURATION,
+    hold_duration=None,
+):
     scene = DualFrankaMuJoCoScene(
         control_hz=CONTROL_HZ,
         left_arm_base_position=LEFT_ARM_SPAWN_POSITION,
@@ -349,52 +475,293 @@ def main():
     )
     set_table_reference_pose(
         scene,
-        TABLE_START_POSITION,
-        rotation_matrix(TABLE_START_EULER_XYZ),
+        np.asarray(start_position, dtype=float),
+        rotation_matrix(start_euler_xyz),
     )
     kinematics = CooperativeManipulationKinematics(
         scene.model,
         scene.left_arm_dofs,
         scene.right_arm_dofs,
     )
+    left_limits = scene.model.actuator_ctrlrange[0:7]
+    right_limits = scene.model.actuator_ctrlrange[8:15]
+    joint_position_lower = np.concatenate(
+        (left_limits[:, 0], right_limits[:, 0])
+    )
+    joint_position_upper = np.concatenate(
+        (left_limits[:, 1], right_limits[:, 1])
+    )
     equation_8 = Equation8Controller(
         kinematics,
         control_dt=scene.control_dt,
         feedback_gain=K_P,
         grasp_feedback_gain=GRASP_K_P,
+        joint_position_lower=joint_position_lower,
+        joint_position_upper=joint_position_upper,
+        joint_velocity_lower=-maximum_joint_speed,
+        joint_velocity_upper=maximum_joint_speed,
+        joint_limit_margin=joint_limit_margin,
+        joint_limit_stop_distance=joint_limit_stop_distance,
+        joint_limit_slow_distance=joint_limit_slow_distance,
     )
     optimizer = ManipulabilityOptimizer(
         kinematics,
         scene.arm_qpos,
         objective=OBJECTIVE,
-        gain=OPTIMIZATION_GAIN,
+        gain=optimization_gain,
         finite_difference_step=FINITE_DIFFERENCE_STEP,
-        maximum_joint_speed=MAXIMUM_OPTIMIZATION_JOINT_SPEED,
+        maximum_joint_speed=maximum_joint_speed,
         desired_wrench_direction=DESIRED_WRENCH_DIRECTION,
         characteristic_length=CHARACTERISTIC_LENGTH,
-        enable_collision_penalty=ENABLE_COLLISION_PENALTY,
-        collision_weight=COLLISION_WEIGHT,
-        collision_safety_margin=COLLISION_SAFETY_MARGIN,
-        collision_sphere_radius=COLLISION_SPHERE_RADIUS,
+        enable_collision_penalty=enable_collision_penalty,
+        collision_weight=collision_weight,
+        collision_safety_margin=collision_safety_margin,
+        collision_proximity_scale=collision_proximity_scale,
+        collision_version="version2",
+        collision_sphere_model_path=collision_sphere_model_path,
     )
+    print(
+        f"Collision model: {optimizer.collision_version.value}, "
+        f"weight={optimizer.collision_weight:g}, "
+        f"safety margin={optimizer.collision_safety_margin:.3f} m, "
+        f"proximity scale={optimizer.collision_proximity_scale:.3f} m"
+    )
+    print(
+        "Detailed spheres: "
+        f"left={optimizer.left_detailed_radii.size}, "
+        f"right={optimizer.right_detailed_radii.size}, "
+        f"model={collision_sphere_model_path}"
+    )
+    if show_collision_spheres:
+        visual_geoms = scene.model.geom_group == 2
+        scene.model.geom_rgba[visual_geoms, 3] = 0.25
     rate = RateLimiter(frequency=CONTROL_HZ, warn=False)
-
-    with scene.launch_viewer() as viewer:
-        scene.configure_viewer_camera(viewer)
-        scene.settle(viewer, rate)
-        scene.run_grasp_approach(viewer, rate)
-        print("Closing both grippers...")
-        scene.close_grippers(viewer, rate)
-        equation_8.capture_grasp_reference(scene.data)
-        run_pick_and_place(
+    recorder = None
+    if record_data or output_csv is not None:
+        recorder = Equation8CSVRecorder(
             scene,
             kinematics,
             equation_8,
             optimizer,
-            viewer,
-            rate,
+            experiment_name=(
+                "dual_franka_eq8_optimized_6d_pick_place_fitted_spheres"
+            ),
+            output_path=output_csv,
         )
+        print(f"Recording data to: {recorder.output_path}")
+
+    try:
+        with scene.launch_viewer() as viewer:
+            scene.configure_viewer_camera(viewer)
+            scene.settle(viewer, rate)
+            scene.run_grasp_approach(viewer, rate)
+            print("Closing both grippers...")
+            scene.close_grippers(viewer, rate)
+            equation_8.capture_grasp_reference(scene.data)
+            return run_pick_and_place(
+                scene,
+                kinematics,
+                equation_8,
+                optimizer,
+                viewer,
+                rate,
+                hold_duration=hold_duration,
+                recorder=recorder,
+                show_collision_spheres=show_collision_spheres,
+                intermediate_position=intermediate_position,
+                intermediate_euler_xyz=intermediate_euler_xyz,
+                goal_position=goal_position,
+                goal_euler_xyz=goal_euler_xyz,
+                start_to_intermediate_duration=(
+                    start_to_intermediate_duration
+                ),
+                intermediate_to_goal_duration=intermediate_to_goal_duration,
+            )
+    except KeyboardInterrupt:
+        print("Interrupted by Ctrl+C; preserving recorded samples.")
+        return None
+    finally:
+        if recorder is not None:
+            recorder.close()
+            print(
+                f"Saved {recorder.rows_written} rows to: "
+                f"{recorder.output_path}"
+            )
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--record-data",
+        action="store_true",
+        help="record every Equation (8) control step to CSV",
+    )
+    parser.add_argument(
+        "--output-csv",
+        help="optional CSV path; supplying it also enables recording",
+    )
+    parser.add_argument(
+        "--collision-weight",
+        type=float,
+        default=COLLISION_WEIGHT,
+        help="fitted-sphere collision cost weight",
+    )
+    parser.add_argument(
+        "--collision-safety-margin",
+        type=float,
+        default=COLLISION_SAFETY_MARGIN,
+        help="desired extra sphere-surface clearance in metres",
+    )
+    parser.add_argument(
+        "--collision-proximity-scale",
+        type=float,
+        default=COLLISION_PROXIMITY_SCALE,
+        help="smooth proximity transition length in metres",
+    )
+    parser.add_argument(
+        "--collision-sphere-model",
+        type=Path,
+        default=COLLISION_SPHERE_MODEL_PATH,
+        help="sphere-fitted dual-Franka MJCF",
+    )
+    parser.add_argument(
+        "--disable-collision-penalty",
+        action="store_true",
+        help="disable the soft inter-arm collision objective",
+    )
+    parser.add_argument(
+        "--show-collision-spheres",
+        action="store_true",
+        help="draw fitted spheres throughout the spatial motion",
+    )
+    parser.add_argument(
+        "--optimization-gain",
+        type=float,
+        default=OPTIMIZATION_GAIN,
+        help="Equation (4) null-space gradient gain Lambda",
+    )
+    parser.add_argument(
+        "--max-joint-speed",
+        type=float,
+        default=MAXIMUM_OPTIMIZATION_JOINT_SPEED,
+        help="symmetric simulation joint-velocity bound in rad/s",
+    )
+    parser.add_argument(
+        "--joint-limit-margin",
+        type=float,
+        default=JOINT_LIMIT_MARGIN,
+        help="reserved distance inside each position limit in radians",
+    )
+    parser.add_argument(
+        "--joint-limit-stop-distance",
+        type=float,
+        default=JOINT_LIMIT_STOP_DISTANCE,
+        help="distance in radians at which null-space motion stops",
+    )
+    parser.add_argument(
+        "--joint-limit-slow-distance",
+        type=float,
+        default=JOINT_LIMIT_SLOW_DISTANCE,
+        help="distance in radians at which null-space slowing begins",
+    )
+    parser.add_argument(
+        "--start-position",
+        type=float,
+        nargs=3,
+        default=TABLE_START_POSITION,
+        metavar=("X", "Y", "Z"),
+        help="initial table reference position in world metres",
+    )
+    parser.add_argument(
+        "--start-euler-xyz",
+        type=float,
+        nargs=3,
+        default=TABLE_START_EULER_XYZ,
+        metavar=("RX", "RY", "RZ"),
+        help="initial extrinsic XYZ orientation in radians",
+    )
+    parser.add_argument(
+        "--intermediate-position",
+        type=float,
+        nargs=3,
+        default=TABLE_INTERMEDIATE_POSITION,
+        metavar=("X", "Y", "Z"),
+        help="intermediate table reference position in world metres",
+    )
+    parser.add_argument(
+        "--intermediate-euler-xyz",
+        type=float,
+        nargs=3,
+        default=TABLE_INTERMEDIATE_EULER_XYZ,
+        metavar=("RX", "RY", "RZ"),
+        help="intermediate extrinsic XYZ orientation in radians",
+    )
+    parser.add_argument(
+        "--goal-position",
+        type=float,
+        nargs=3,
+        default=TABLE_GOAL_POSITION,
+        metavar=("X", "Y", "Z"),
+        help="final table reference position in world metres",
+    )
+    parser.add_argument(
+        "--goal-euler-xyz",
+        type=float,
+        nargs=3,
+        default=TABLE_GOAL_EULER_XYZ,
+        metavar=("RX", "RY", "RZ"),
+        help="final extrinsic XYZ orientation in radians",
+    )
+    parser.add_argument(
+        "--start-to-intermediate-duration",
+        type=float,
+        default=START_TO_INTERMEDIATE_DURATION,
+        help="first trajectory-segment duration in seconds",
+    )
+    parser.add_argument(
+        "--intermediate-to-goal-duration",
+        type=float,
+        default=INTERMEDIATE_TO_GOAL_DURATION,
+        help="second trajectory-segment duration in seconds",
+    )
+    parser.add_argument(
+        "--hold-duration",
+        type=float,
+        help="optional final hold duration; otherwise hold until viewer closes",
+    )
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    main()
+    arguments = parse_arguments()
+    main(
+        record_data=arguments.record_data,
+        output_csv=arguments.output_csv,
+        collision_weight=arguments.collision_weight,
+        collision_safety_margin=arguments.collision_safety_margin,
+        collision_proximity_scale=arguments.collision_proximity_scale,
+        collision_sphere_model_path=arguments.collision_sphere_model,
+        enable_collision_penalty=not arguments.disable_collision_penalty,
+        show_collision_spheres=arguments.show_collision_spheres,
+        optimization_gain=arguments.optimization_gain,
+        maximum_joint_speed=arguments.max_joint_speed,
+        joint_limit_margin=arguments.joint_limit_margin,
+        joint_limit_stop_distance=arguments.joint_limit_stop_distance,
+        joint_limit_slow_distance=arguments.joint_limit_slow_distance,
+        start_position=arguments.start_position,
+        start_euler_xyz=arguments.start_euler_xyz,
+        intermediate_position=arguments.intermediate_position,
+        intermediate_euler_xyz=arguments.intermediate_euler_xyz,
+        goal_position=arguments.goal_position,
+        goal_euler_xyz=arguments.goal_euler_xyz,
+        start_to_intermediate_duration=(
+            arguments.start_to_intermediate_duration
+        ),
+        intermediate_to_goal_duration=(
+            arguments.intermediate_to_goal_duration
+        ),
+        hold_duration=arguments.hold_duration,
+    )

@@ -1,3 +1,8 @@
+if __package__:
+    from demos import _bootstrap
+else:
+    import _bootstrap
+
 from world.world_manager import WorldManager
 from world.obstacle import Obstacle
 from bridge.world_bridge import to_world_config
@@ -56,15 +61,12 @@ world_cfg = to_world_config(world)
 
 print()
 print("=" * 70)
-print("cuRobo WorldConfig")
+print("cuRobo v0.8 collision Scene")
 print("=" * 70)
 print(f"Cuboids   : {len(world_cfg.cuboid)}")
-print(f"Spheres   : {len(world_cfg.sphere)}")
-print(f"Cylinders : {len(world_cfg.cylinder)}")
+print(f"Meshes    : {len(world_cfg.mesh)}")
 
 for c in world_cfg.cuboid:
     print(f"  cuboid   {c.name:10s} dims={c.dims}  pose={c.pose}")
-for s in world_cfg.sphere:
-    print(f"  sphere   {s.name:10s} radius={s.radius}  pose={s.pose}")
-for cyl in world_cfg.cylinder:
-    print(f"  cylinder {cyl.name:10s} radius={cyl.radius} height={cyl.height}  pose={cyl.pose}")
+for mesh in world_cfg.mesh:
+    print(f"  mesh     {mesh.name:10s} pose={mesh.pose}")

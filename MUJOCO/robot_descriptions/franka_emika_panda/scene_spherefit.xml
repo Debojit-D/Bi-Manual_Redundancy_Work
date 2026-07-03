@@ -1,0 +1,447 @@
+<mujoco model="panda scene">
+  <compiler angle="radian" meshdir="assets/" />
+  <option integrator="implicitfast" />
+  <size nkey="1" />
+  <visual>
+    <global azimuth="120" elevation="-20" />
+    <headlight ambient="0.3 0.3 0.3" diffuse="0.6 0.6 0.6" specular="0 0 0" />
+    <rgba haze="0.15 0.25 0.35 1" />
+  </visual>
+  <statistic extent="1" center="0.3 0 0.4" />
+  <default>
+    <default class="panda">
+      <material shininess="0.25" />
+      <joint range="-2.8973 2.8973" armature="0.1" damping="1" />
+      <general ctrlrange="-2.8973 2.8973" forcerange="-87 87" biastype="affine" />
+      <default class="finger">
+        <joint type="slide" range="0 0.04" />
+      </default>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" />
+      </default>
+      <default class="collision">
+        <geom type="mesh" group="3" />
+        <default class="fingertip_pad_collision_1">
+          <geom size="0.0085 0.004 0.0085" type="box" />
+        </default>
+        <default class="fingertip_pad_collision_2">
+          <geom size="0.003 0.002 0.003" type="box" />
+        </default>
+        <default class="fingertip_pad_collision_3">
+          <geom size="0.003 0.002 0.003" type="box" />
+        </default>
+        <default class="fingertip_pad_collision_4">
+          <geom size="0.003 0.002 0.0035" type="box" />
+        </default>
+        <default class="fingertip_pad_collision_5">
+          <geom size="0.003 0.002 0.0035" type="box" />
+        </default>
+      </default>
+    </default>
+  </default>
+  <asset>
+    <texture type="skybox" colorspace="auto" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
+    <texture type="2d" colorspace="auto" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="white" class="panda" />
+    <material name="off_white" class="panda" rgba="0.901961 0.921569 0.929412 1" />
+    <material name="black" class="panda" rgba="0.25 0.25 0.25 1" />
+    <material name="green" class="panda" rgba="0 1 0 1" />
+    <material name="light_blue" class="panda" rgba="0.039216 0.541176 0.780392 1" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2" />
+    <mesh name="link0_c" content_type="model/stl" file="link0.stl" />
+    <mesh name="link1_c" content_type="model/stl" file="link1.stl" />
+    <mesh name="link2_c" content_type="model/stl" file="link2.stl" />
+    <mesh name="link3_c" content_type="model/stl" file="link3.stl" />
+    <mesh name="link4_c" content_type="model/stl" file="link4.stl" />
+    <mesh name="link5_c0" content_type="model/obj" file="link5_collision_0.obj" />
+    <mesh name="link5_c1" content_type="model/obj" file="link5_collision_1.obj" />
+    <mesh name="link5_c2" content_type="model/obj" file="link5_collision_2.obj" />
+    <mesh name="link6_c" content_type="model/stl" file="link6.stl" />
+    <mesh name="link7_c" content_type="model/stl" file="link7.stl" />
+    <mesh name="hand_c" content_type="model/stl" file="hand.stl" />
+    <mesh name="link0_0" content_type="model/obj" file="link0_0.obj" />
+    <mesh name="link0_1" content_type="model/obj" file="link0_1.obj" />
+    <mesh name="link0_2" content_type="model/obj" file="link0_2.obj" />
+    <mesh name="link0_3" content_type="model/obj" file="link0_3.obj" />
+    <mesh name="link0_4" content_type="model/obj" file="link0_4.obj" />
+    <mesh name="link0_5" content_type="model/obj" file="link0_5.obj" />
+    <mesh name="link0_7" content_type="model/obj" file="link0_7.obj" />
+    <mesh name="link0_8" content_type="model/obj" file="link0_8.obj" />
+    <mesh name="link0_9" content_type="model/obj" file="link0_9.obj" />
+    <mesh name="link0_10" content_type="model/obj" file="link0_10.obj" />
+    <mesh name="link0_11" content_type="model/obj" file="link0_11.obj" />
+    <mesh name="link1" content_type="model/obj" file="link1.obj" />
+    <mesh name="link2" content_type="model/obj" file="link2.obj" />
+    <mesh name="link3_0" content_type="model/obj" file="link3_0.obj" />
+    <mesh name="link3_1" content_type="model/obj" file="link3_1.obj" />
+    <mesh name="link3_2" content_type="model/obj" file="link3_2.obj" />
+    <mesh name="link3_3" content_type="model/obj" file="link3_3.obj" />
+    <mesh name="link4_0" content_type="model/obj" file="link4_0.obj" />
+    <mesh name="link4_1" content_type="model/obj" file="link4_1.obj" />
+    <mesh name="link4_2" content_type="model/obj" file="link4_2.obj" />
+    <mesh name="link4_3" content_type="model/obj" file="link4_3.obj" />
+    <mesh name="link5_0" content_type="model/obj" file="link5_0.obj" />
+    <mesh name="link5_1" content_type="model/obj" file="link5_1.obj" />
+    <mesh name="link5_2" content_type="model/obj" file="link5_2.obj" />
+    <mesh name="link6_0" content_type="model/obj" file="link6_0.obj" />
+    <mesh name="link6_1" content_type="model/obj" file="link6_1.obj" />
+    <mesh name="link6_2" content_type="model/obj" file="link6_2.obj" />
+    <mesh name="link6_3" content_type="model/obj" file="link6_3.obj" />
+    <mesh name="link6_4" content_type="model/obj" file="link6_4.obj" />
+    <mesh name="link6_5" content_type="model/obj" file="link6_5.obj" />
+    <mesh name="link6_6" content_type="model/obj" file="link6_6.obj" />
+    <mesh name="link6_7" content_type="model/obj" file="link6_7.obj" />
+    <mesh name="link6_8" content_type="model/obj" file="link6_8.obj" />
+    <mesh name="link6_9" content_type="model/obj" file="link6_9.obj" />
+    <mesh name="link6_10" content_type="model/obj" file="link6_10.obj" />
+    <mesh name="link6_11" content_type="model/obj" file="link6_11.obj" />
+    <mesh name="link6_12" content_type="model/obj" file="link6_12.obj" />
+    <mesh name="link6_13" content_type="model/obj" file="link6_13.obj" />
+    <mesh name="link6_14" content_type="model/obj" file="link6_14.obj" />
+    <mesh name="link6_15" content_type="model/obj" file="link6_15.obj" />
+    <mesh name="link6_16" content_type="model/obj" file="link6_16.obj" />
+    <mesh name="link7_0" content_type="model/obj" file="link7_0.obj" />
+    <mesh name="link7_1" content_type="model/obj" file="link7_1.obj" />
+    <mesh name="link7_2" content_type="model/obj" file="link7_2.obj" />
+    <mesh name="link7_3" content_type="model/obj" file="link7_3.obj" />
+    <mesh name="link7_4" content_type="model/obj" file="link7_4.obj" />
+    <mesh name="link7_5" content_type="model/obj" file="link7_5.obj" />
+    <mesh name="link7_6" content_type="model/obj" file="link7_6.obj" />
+    <mesh name="link7_7" content_type="model/obj" file="link7_7.obj" />
+    <mesh name="hand_0" content_type="model/obj" file="hand_0.obj" />
+    <mesh name="hand_1" content_type="model/obj" file="hand_1.obj" />
+    <mesh name="hand_2" content_type="model/obj" file="hand_2.obj" />
+    <mesh name="hand_3" content_type="model/obj" file="hand_3.obj" />
+    <mesh name="hand_4" content_type="model/obj" file="hand_4.obj" />
+    <mesh name="finger_0" content_type="model/obj" file="finger_0.obj" />
+    <mesh name="finger_1" content_type="model/obj" file="finger_1.obj" />
+  </asset>
+  <worldbody>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
+    <light name="top" pos="0 0 2" dir="0 0 -1" mode="trackcom" />
+    <light pos="0 0 1.5" dir="0 0 -1" type="directional" />
+    <body name="link0" childclass="panda">
+      <inertial pos="-0.041018 -0.00014 0.049974" quat="0.00630474 0.751245 0.00741774 0.659952" mass="0.629769" diaginertia="0.00430465 0.00387984 0.00313051" />
+      <geom class="visual" material="off_white" mesh="link0_0" />
+      <geom class="visual" material="black" mesh="link0_1" />
+      <geom class="visual" material="off_white" mesh="link0_2" />
+      <geom class="visual" material="black" mesh="link0_3" />
+      <geom class="visual" material="off_white" mesh="link0_4" />
+      <geom class="visual" material="black" mesh="link0_5" />
+      <geom class="visual" material="white" mesh="link0_7" />
+      <geom class="visual" material="white" mesh="link0_8" />
+      <geom class="visual" material="black" mesh="link0_9" />
+      <geom class="visual" material="off_white" mesh="link0_10" />
+      <geom class="visual" material="white" mesh="link0_11" />
+      <geom class="collision" mesh="link0_c" contype="0" conaffinity="0" />
+      <body name="link1" pos="0 0 0.333">
+        <inertial pos="0.003875 0.002081 -0.04762" quat="0.711549 0.00634377 -0.0131124 0.702485" mass="4.97068" diaginertia="0.707137 0.703435 0.00852456" />
+        <joint name="joint1" pos="0 0 0" axis="0 0 1" />
+        <geom class="visual" material="white" mesh="link1" />
+        <geom class="collision" mesh="link1_c" contype="0" conaffinity="0" />
+        <body name="link2" quat="0.707107 -0.707107 0 0">
+          <inertial pos="-0.003141 -0.02872 0.003495" quat="-0.168175 0.828366 -0.122878 0.520027" mass="0.646926" diaginertia="0.0310326 0.0283001 0.00273425" />
+          <joint name="joint2" pos="0 0 0" axis="0 0 1" range="-1.7628 1.7628" />
+          <geom class="visual" material="white" mesh="link2" />
+          <geom class="collision" mesh="link2_c" contype="0" conaffinity="0" />
+          <body name="link3" pos="0 -0.316 0" quat="0.707107 0.707107 0 0">
+            <inertial pos="0.027518 0.039252 -0.066502" quat="0.662769 -0.00678331 0.252053 0.705096" mass="3.2286" diaginertia="0.0415014 0.0414793 0.00124635" />
+            <joint name="joint3" pos="0 0 0" axis="0 0 1" />
+            <geom class="visual" material="white" mesh="link3_0" />
+            <geom class="visual" material="white" mesh="link3_1" />
+            <geom class="visual" material="white" mesh="link3_2" />
+            <geom class="visual" material="black" mesh="link3_3" />
+            <geom class="collision" mesh="link3_c" contype="0" conaffinity="0" />
+            <body name="link4" pos="0.0825 0 0" quat="0.707107 0.707107 0 0">
+              <inertial pos="-0.05317 0.104419 0.027454" quat="0.65058 0.529822 -0.0962034 0.535518" mass="3.5879" diaginertia="0.0349596 0.0281483 0.0106201" />
+              <joint name="joint4" pos="0 0 0" axis="0 0 1" range="-3.0718 -0.0698" />
+              <geom class="visual" material="white" mesh="link4_0" />
+              <geom class="visual" material="white" mesh="link4_1" />
+              <geom class="visual" material="black" mesh="link4_2" />
+              <geom class="visual" material="white" mesh="link4_3" />
+              <geom class="collision" mesh="link4_c" contype="0" conaffinity="0" />
+              <body name="link5" pos="-0.0825 0.384 0" quat="0.707107 -0.707107 0 0">
+                <inertial pos="-0.011953 0.041065 -0.038437" quat="0.987313 -0.0121954 0.0719187 -0.141037" mass="1.22595" diaginertia="0.0367625 0.0288531 0.00803437" />
+                <joint name="joint5" pos="0 0 0" axis="0 0 1" />
+                <geom class="visual" material="black" mesh="link5_0" />
+                <geom class="visual" material="white" mesh="link5_1" />
+                <geom class="visual" material="white" mesh="link5_2" />
+                <geom class="collision" mesh="link5_c0" contype="0" conaffinity="0" />
+                <geom class="collision" mesh="link5_c1" contype="0" conaffinity="0" />
+                <geom class="collision" mesh="link5_c2" contype="0" conaffinity="0" />
+                <body name="link6" quat="0.707107 0.707107 0 0">
+                  <inertial pos="0.060149 -0.014117 -0.010517" quat="0.101075 0.59332 0.0287227 0.798079" mass="1.66656" diaginertia="0.00584276 0.00431037 0.00159787" />
+                  <joint name="joint6" pos="0 0 0" axis="0 0 1" range="-0.0175 3.7525" />
+                  <geom class="visual" material="off_white" mesh="link6_0" />
+                  <geom class="visual" material="white" mesh="link6_1" />
+                  <geom class="visual" material="black" mesh="link6_2" />
+                  <geom class="visual" material="white" mesh="link6_3" />
+                  <geom class="visual" material="white" mesh="link6_4" />
+                  <geom class="visual" material="white" mesh="link6_5" />
+                  <geom class="visual" material="white" mesh="link6_6" />
+                  <geom class="visual" material="light_blue" mesh="link6_7" />
+                  <geom class="visual" material="light_blue" mesh="link6_8" />
+                  <geom class="visual" material="black" mesh="link6_9" />
+                  <geom class="visual" material="black" mesh="link6_10" />
+                  <geom class="visual" material="white" mesh="link6_11" />
+                  <geom class="visual" material="green" mesh="link6_12" />
+                  <geom class="visual" material="white" mesh="link6_13" />
+                  <geom class="visual" material="black" mesh="link6_14" />
+                  <geom class="visual" material="black" mesh="link6_15" />
+                  <geom class="visual" material="white" mesh="link6_16" />
+                  <geom class="collision" mesh="link6_c" contype="0" conaffinity="0" />
+                  <body name="link7" pos="0.088 0 0" quat="0.707107 0.707107 0 0">
+                    <inertial pos="0.010517 -0.004252 0.061597" quat="0.992939 -0.0762041 0.0733595 -0.0537067" mass="0.735522" diaginertia="0.0127345 0.0101055 0.00451803" />
+                    <joint name="joint7" pos="0 0 0" axis="0 0 1" />
+                    <geom class="visual" material="white" mesh="link7_0" />
+                    <geom class="visual" material="black" mesh="link7_1" />
+                    <geom class="visual" material="black" mesh="link7_2" />
+                    <geom class="visual" material="black" mesh="link7_3" />
+                    <geom class="visual" material="black" mesh="link7_4" />
+                    <geom class="visual" material="black" mesh="link7_5" />
+                    <geom class="visual" material="black" mesh="link7_6" />
+                    <geom class="visual" material="white" mesh="link7_7" />
+                    <geom class="collision" mesh="link7_c" contype="0" conaffinity="0" />
+                    <body name="hand" pos="0 0 0.107" quat="0.92388 0 0 -0.382683">
+                      <inertial pos="-0.01 0 0.03" mass="0.73" diaginertia="0.001 0.0025 0.0017" />
+                      <geom class="visual" material="off_white" mesh="hand_0" />
+                      <geom class="visual" material="black" mesh="hand_1" />
+                      <geom class="visual" material="black" mesh="hand_2" />
+                      <geom class="visual" material="white" mesh="hand_3" />
+                      <geom class="visual" material="off_white" mesh="hand_4" />
+                      <geom class="collision" mesh="hand_c" contype="0" conaffinity="0" />
+                      <body name="left_finger" pos="0 0 0.0584">
+                        <inertial pos="0 0 0" mass="0.015" diaginertia="2.375e-06 2.375e-06 7.5e-07" />
+                        <joint name="finger_joint1" class="finger" pos="0 0 0" axis="0 1 0" />
+                        <geom class="visual" material="off_white" mesh="finger_0" />
+                        <geom class="visual" material="black" mesh="finger_1" />
+                        <geom class="collision" mesh="finger_0" contype="0" conaffinity="0" />
+                        <geom class="fingertip_pad_collision_1" pos="0 0.0055 0.0445" contype="0" conaffinity="0" />
+                        <geom class="fingertip_pad_collision_2" pos="0.0055 0.002 0.05" contype="0" conaffinity="0" />
+                        <geom class="fingertip_pad_collision_3" pos="-0.0055 0.002 0.05" contype="0" conaffinity="0" />
+                        <geom class="fingertip_pad_collision_4" pos="0.0055 0.002 0.0395" contype="0" conaffinity="0" />
+                        <geom class="fingertip_pad_collision_5" pos="-0.0055 0.002 0.0395" contype="0" conaffinity="0" />
+                        <geom name="spherefit_left_finger_000" type="sphere" pos="-0.0019128066 0.017753717 0.0081942324" size="0.018476961" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                        <geom name="spherefit_left_finger_001" type="sphere" pos="-0.0017043705 0.006618775 0.040830769" size="0.01345786" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                        <geom name="spherefit_left_finger_002" type="sphere" pos="0.0063103861 0.015417458 0.029133638" size="0.0036055928" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                      </body>
+                      <body name="right_finger" pos="0 0 0.0584" quat="0 0 0 1">
+                        <inertial pos="0 0 0" mass="0.015" diaginertia="2.375e-06 2.375e-06 7.5e-07" />
+                        <joint name="finger_joint2" class="finger" pos="0 0 0" axis="0 1 0" />
+                        <geom class="visual" material="off_white" mesh="finger_0" />
+                        <geom class="visual" material="black" mesh="finger_1" />
+                        <geom class="collision" mesh="finger_0" contype="0" conaffinity="0" />
+                        <geom class="fingertip_pad_collision_1" pos="0 0.0055 0.0445" contype="0" conaffinity="0" />
+                        <geom class="fingertip_pad_collision_2" pos="0.0055 0.002 0.05" contype="0" conaffinity="0" />
+                        <geom class="fingertip_pad_collision_3" pos="-0.0055 0.002 0.05" contype="0" conaffinity="0" />
+                        <geom class="fingertip_pad_collision_4" pos="0.0055 0.002 0.0395" contype="0" conaffinity="0" />
+                        <geom class="fingertip_pad_collision_5" pos="-0.0055 0.002 0.0395" contype="0" conaffinity="0" />
+                        <geom name="spherefit_right_finger_000" type="sphere" pos="0.0029284896 0.017829096 0.016561622" size="0.017643543" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                        <geom name="spherefit_right_finger_001" type="sphere" pos="-0.00032536761 0.0074887034 0.045172963" size="0.014439725" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                      </body>
+                      <geom name="spherefit_hand_000" type="sphere" pos="4.2554224e-05 -0.0045953942 0.0087971194" size="0.035278067" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                      <geom name="spherefit_hand_001" type="sphere" pos="-0.00090494909 -0.047265828 0.0063310405" size="0.0301148" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                      <geom name="spherefit_hand_002" type="sphere" pos="-0.00047383495 0.029957268 0.013240869" size="0.033073213" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                      <geom name="spherefit_hand_003" type="sphere" pos="0.00056539057 0.0015622218 0.045270067" size="0.025842227" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                      <geom name="spherefit_hand_004" type="sphere" pos="2.8088714e-05 0.036267631 0.045403514" size="0.024523821" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                      <geom name="spherefit_hand_005" type="sphere" pos="-0.0011512742 -0.035970643 0.044849522" size="0.028644845" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                      <geom name="spherefit_hand_006" type="sphere" pos="-0.0014082143 -0.080503069 0.0033812008" size="0.024942888" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                      <geom name="spherefit_hand_007" type="sphere" pos="0.00052496768 0.078676686 0.04726316" size="0.028009811" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                      <geom name="spherefit_hand_008" type="sphere" pos="-0.00033337908 0.066422574 0.016432859" size="0.033598211" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                      <geom name="spherefit_hand_009" type="sphere" pos="0.0019148043 -0.078427479 0.042974185" size="0.027338142" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                    </body>
+                    <geom name="spherefit_link7_000" type="sphere" pos="-0.016097909 -0.006865026 0.079115868" size="0.037093416" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                    <geom name="spherefit_link7_001" type="sphere" pos="-0.007178097 0.016663169 0.077393562" size="0.032667939" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                    <geom name="spherefit_link7_002" type="sphere" pos="0.012502712 -0.013632286 0.080736779" size="0.034134645" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                    <geom name="spherefit_link7_003" type="sphere" pos="0.018239673 0.038669344 0.079957023" size="0.029683644" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                    <geom name="spherefit_link7_004" type="sphere" pos="0.035013754 0.014798115 0.077342816" size="0.030786168" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                    <geom name="spherefit_link7_005" type="sphere" pos="0.039254393 0.062847503 0.084891766" size="0.019440325" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                    <geom name="spherefit_link7_006" type="sphere" pos="0.062127583 0.03735197 0.084898151" size="0.019563915" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                    <geom name="spherefit_link7_007" type="sphere" pos="-0.0025139162 -0.039290734 0.055943158" size="0.0050128298" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  </body>
+                  <geom name="spherefit_link6_000" type="sphere" pos="0.03822498 -0.0082287528 0.014150189" size="0.045892511" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_001" type="sphere" pos="-0.0050230902 0.0003271086 0.01476419" size="0.049981065" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_002" type="sphere" pos="0.0091286656 0.030199062 -0.0014219694" size="0.026185887" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_003" type="sphere" pos="0.08759097 -0.0090231877 -0.00086985953" size="0.058864065" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_004" type="sphere" pos="0.11272135 0.044917013 -0.0080659715" size="0.015588835" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_005" type="sphere" pos="0.040295169 0.029084528 0.011513891" size="0.046655387" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_006" type="sphere" pos="0.081220455 0.03600819 0.0025035543" size="0.050764699" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_007" type="sphere" pos="0.018010911 -0.034025904 -0.011411337" size="0.017491234" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_008" type="sphere" pos="0.10408486 0.058991391 0.014665773" size="0.012520738" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_009" type="sphere" pos="0.088023335 -0.021856597 0.034234475" size="0.0051783887" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_010" type="sphere" pos="0.0014345967 -0.037596829 -0.015677901" size="0.0084434235" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_011" type="sphere" pos="0.064512298 -0.035540108 -0.030158794" size="0.0097178146" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_012" type="sphere" pos="0.046932567 -0.039275695 0.040192835" size="0.0076264082" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_013" type="sphere" pos="0.045682184 -0.041775063 -0.024750009" size="0.015150618" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_014" type="sphere" pos="-0.02126513 0.034240209 0.004714686" size="0.0073546115" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_015" type="sphere" pos="0.097284131 -0.047246482 0.0275463" size="0.0034258184" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_016" type="sphere" pos="-0.020098684 -0.041344393 -0.013298669" size="0.0036620724" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                  <geom name="spherefit_link6_017" type="sphere" pos="0.049812101 0.067238592 -0.019057361" size="0.0060584345" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                </body>
+                <geom name="spherefit_link5_000" type="sphere" pos="-0.00093405723 0.070087552 0.0011004207" size="0.068507157" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_001" type="sphere" pos="0.0018190596 0.010052774 -0.21402232" size="0.062071901" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_002" type="sphere" pos="0.0020265537 0.05331767 -0.18465982" size="0.04281164" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_003" type="sphere" pos="-0.028676461 0.026691031 0.0094981957" size="0.01215815" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_004" type="sphere" pos="-0.013923307 0.075971924 -0.13777161" size="0.026681924" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_005" type="sphere" pos="0.0048374836 0.030375535 -0.24395189" size="0.0095336987" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_006" type="sphere" pos="-0.039088637 -0.014978009 -0.24618404" size="0.012492009" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_007" type="sphere" pos="0.035174415 0.011959727 -0.23889229" size="0.0090212207" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_008" type="sphere" pos="0.016652958 0.098187104 0.014018454" size="0.016343366" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_009" type="sphere" pos="0.02805265 0.023177782 -0.0086535811" size="0.0071652015" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_010" type="sphere" pos="-0.019721776 -0.018726487 -0.23367281" size="0.032758564" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_011" type="sphere" pos="-0.00026890528 -0.029277826 -0.21551476" size="0.016896965" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_012" type="sphere" pos="0.030309688 0.03889047 0.0027092937" size="0.012420507" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_013" type="sphere" pos="0.020590505 0.076803334 -0.15172918" size="0.0097377831" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_014" type="sphere" pos="0.005726981 0.075890392 -0.029215747" size="0.013803534" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_015" type="sphere" pos="0.035760313 0.025417639 -0.015761994" size="0.0061726039" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_016" type="sphere" pos="-0.01606811 0.099287577 -0.049973395" size="0.0095423814" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_017" type="sphere" pos="0.021838589 0.062500559 -0.14427331" size="0.0099206287" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_018" type="sphere" pos="0.014246128 0.087919898 -0.088857703" size="0.020962803" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_019" type="sphere" pos="0.021124002 0.02747784 -0.038989998" size="0.0084915273" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_020" type="sphere" pos="0.0236976 0.023551565 0.035794877" size="0.005667951" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_021" type="sphere" pos="0.0068049422 0.1101286 -0.055809613" size="0.0043731881" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_022" type="sphere" pos="0.012887429 0.099755831 -0.05516573" size="0.0081081968" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_023" type="sphere" pos="0.028865814 -0.012302139 -0.23607925" size="0.025113149" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_024" type="sphere" pos="-0.039823025 0.020289777 -0.25097707" size="0.0090714386" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_025" type="sphere" pos="-0.0070795445 -0.046872474 -0.24545859" size="0.0052402285" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_026" type="sphere" pos="-0.01745085 0.088543333 -0.10253382" size="0.02040663" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_027" type="sphere" pos="-0.01460222 0.091473408 -0.069509283" size="0.020437714" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_028" type="sphere" pos="-0.037853494 -0.018931353 -0.24807408" size="0.01356326" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_029" type="sphere" pos="0.0216466 0.099761382 -0.061911039" size="0.0086288881" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_030" type="sphere" pos="0.0083048791 0.10227837 -0.055067874" size="0.0050772713" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_031" type="sphere" pos="-0.017346565 0.027786653 0.040088758" size="0.0037728953" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_032" type="sphere" pos="0.01240485 0.078550607 -0.12822607" size="0.027941179" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_033" type="sphere" pos="0.026171336 -0.040368836 -0.25030339" size="0.0094021782" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_034" type="sphere" pos="0.01752818 0.0848497 -0.16027278" size="0.0081231017" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+                <geom name="spherefit_link5_035" type="sphere" pos="-0.024130711 0.028059419 -0.034365002" size="0.011835192" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+              </body>
+              <geom name="spherefit_link4_000" type="sphere" pos="-0.030865811 0.036599405 0.027947022" size="0.068593636" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+              <geom name="spherefit_link4_001" type="sphere" pos="0.0012455257 0.0014909616 0.056338195" size="0.058042735" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+              <geom name="spherefit_link4_002" type="sphere" pos="-0.079169407 0.07809899 0.003165622" size="0.070613079" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+              <geom name="spherefit_link4_003" type="sphere" pos="-0.0038042581 -0.016360749 0.022731049" size="0.041739799" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+              <geom name="spherefit_link4_004" type="sphere" pos="-0.044407636 0.10749961 0.021802692" size="0.018219709" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+              <geom name="spherefit_link4_005" type="sphere" pos="0.028795728 0.0084937047 0.01266761" size="0.025425958" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+              <geom name="spherefit_link4_006" type="sphere" pos="-0.036660276 0.098211117 -0.018080404" size="0.015098751" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+              <geom name="spherefit_link4_007" type="sphere" pos="-0.08024247 0.010938291 -0.0066023739" size="0.012162095" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+              <geom name="spherefit_link4_008" type="sphere" pos="-0.058630627 -0.013127284 -0.0080975881" size="0.0084375227" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+              <geom name="spherefit_link4_009" type="sphere" pos="0.03779459 -0.016461156 0.013520165" size="0.017785247" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+              <geom name="spherefit_link4_010" type="sphere" pos="-0.039919175 -0.033644795 -0.00073442701" size="0.0046092086" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            </body>
+            <geom name="spherefit_link3_000" type="sphere" pos="0.050438847 0.026531011 -0.030938966" size="0.071998857" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_001" type="sphere" pos="0.029458703 0.022693731 -0.072481282" size="0.052842405" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_002" type="sphere" pos="0.080293261 0.059814464 -6.2818886e-05" size="0.056701835" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_003" type="sphere" pos="-0.0025434655 0.0018384911 -0.071548469" size="0.06264995" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_004" type="sphere" pos="-0.02040023 -0.027741548 -0.063954361" size="0.011541793" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_005" type="sphere" pos="0.087988384 0.032768875 0.0052485717" size="0.057034638" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_006" type="sphere" pos="0.035826169 -0.0059348759 -0.085506216" size="0.038014539" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_007" type="sphere" pos="0.048172534 0.0007452562 0.030018505" size="0.012781035" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_008" type="sphere" pos="0.0038044753 -0.0091500422 -0.026501097" size="0.020527489" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_009" type="sphere" pos="-0.027772894 0.00025321191 -0.030362004" size="0.0061202268" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_010" type="sphere" pos="-0.04264551 -0.0092822909 -0.1073323" size="0.013610075" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_011" type="sphere" pos="-0.023810165 0.032279588 -0.11158334" size="0.0072113215" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_012" type="sphere" pos="0.04084691 -0.024356052 -0.10727189" size="0.0094163064" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_013" type="sphere" pos="0.021263769 -0.041634649 -0.110642" size="0.013073501" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_014" type="sphere" pos="-0.036943264 0.018851135 -0.11099765" size="0.012341901" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_015" type="sphere" pos="-0.015526754 -0.049571216 -0.10793135" size="0.0036686745" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_016" type="sphere" pos="0.10790204 -0.0018004663 0.010194682" size="0.0056584976" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_017" type="sphere" pos="0.11909424 0.0010746714 0.0006464058" size="0.0054414552" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_018" type="sphere" pos="0.12390024 0.0054154312 -0.016210565" size="0.012964026" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_019" type="sphere" pos="-0.014736214 0.039354108 -0.10884102" size="0.016725315" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_020" type="sphere" pos="-0.0041540177 -0.049401462 -0.11408798" size="0.0051996238" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_021" type="sphere" pos="0.070303515 0.0015902979 0.024383822" size="0.0087219235" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_022" type="sphere" pos="0.047458988 -0.027460812 -0.095568791" size="0.011743008" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_023" type="sphere" pos="-0.027901223 -0.028760364 -0.1076121" size="0.015209543" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_024" type="sphere" pos="0.092129268 0.0029017434 0.040314652" size="0.0039159274" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_025" type="sphere" pos="0.11152188 -0.0056982478 -0.013459339" size="0.0035295563" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+            <geom name="spherefit_link3_026" type="sphere" pos="-0.039444096 -0.01444899 -0.10984983" size="0.012350724" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+          </body>
+          <geom name="spherefit_link2_000" type="sphere" pos="-0.03343489 0.018576361 0.0051464085" size="0.012836586" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+          <geom name="spherefit_link2_001" type="sphere" pos="-0.0028333375 -0.044993091 0.060327653" size="0.05588961" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+          <geom name="spherefit_link2_002" type="sphere" pos="-0.0013378798 -0.14049478 0.0035680879" size="0.072787449" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+          <geom name="spherefit_link2_003" type="sphere" pos="0.00098720612 0.0019947845 0.079663537" size="0.051800039" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+          <geom name="spherefit_link2_004" type="sphere" pos="0.0018983267 -0.0011614246 0.038959432" size="0.062676668" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+          <geom name="spherefit_link2_005" type="sphere" pos="0.0013456515 -0.091671206 0.042002421" size="0.053248946" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+          <geom name="spherefit_link2_006" type="sphere" pos="-0.0007620416 -0.070051417 0.020671085" size="0.06146317" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+          <geom name="spherefit_link2_007" type="sphere" pos="0.037302088 -0.036244936 -0.0042761639" size="0.012870772" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+          <geom name="spherefit_link2_008" type="sphere" pos="-0.049048081 -0.0095060514 0.0019142329" size="0.0074265786" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+          <geom name="spherefit_link2_009" type="sphere" pos="-0.040116228 -0.029977415 0.00016828805" size="0.015670503" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        </body>
+        <geom name="spherefit_link1_000" type="sphere" pos="0.023582235 -0.015310721 -0.17193855" size="0.021727242" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_001" type="sphere" pos="-0.00045314705 -0.022015017 -0.062988341" size="0.060039755" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_002" type="sphere" pos="-0.00092057092 -0.05871626 -0.043434959" size="0.054410689" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_003" type="sphere" pos="-0.00046156015 -0.040361926 0.00039203651" size="0.064575069" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_004" type="sphere" pos="-0.0017536917 -0.0016616413 -0.13801391" size="0.073729023" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_005" type="sphere" pos="0.0017841128 -0.040619224 -0.083814435" size="0.05709403" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_006" type="sphere" pos="-0.00092837564 -0.075628452 -0.0020788196" size="0.054902501" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_007" type="sphere" pos="-0.0077188574 0.036293581 -0.14777456" size="0.020138299" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_008" type="sphere" pos="-0.042897549 0.012104793 -0.033606362" size="0.0055373535" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_009" type="sphere" pos="0.022785777 -0.073522314 -0.12822376" size="0.0034272419" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_010" type="sphere" pos="0.020167075 -0.10198374 0.035525959" size="0.0039438731" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_011" type="sphere" pos="0.038435202 0.0015229599 -0.021949226" size="0.0129252" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_012" type="sphere" pos="-0.041025665 0.0014777102 -0.032504473" size="0.010583846" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_013" type="sphere" pos="-0.019466996 0.017470306 -0.18804613" size="0.0045536095" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_014" type="sphere" pos="0.035856955 -0.10371017 0.026951527" size="0.00374092" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_015" type="sphere" pos="0.049713772 0.010318941 -0.18423398" size="0.0054943901" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+        <geom name="spherefit_link1_016" type="sphere" pos="-0.0071178721 -0.081043154 -0.12220071" size="0.0034522773" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      </body>
+      <geom name="spherefit_link0_000" type="sphere" pos="0.015946474 0.045353793 0.077049993" size="0.019298984" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_001" type="sphere" pos="-0.018739769 -0.0011133617 0.06879615" size="0.083458506" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_002" type="sphere" pos="-0.087505385 0.017578954 0.039657988" size="0.045619313" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_003" type="sphere" pos="0.038879573 -0.0068426081 0.030316472" size="0.041802924" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_004" type="sphere" pos="0.029102949 0.0047966647 0.11233333" size="0.036402445" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_005" type="sphere" pos="0.00072488893 -0.063577861 0.021959685" size="0.031884816" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_006" type="sphere" pos="-0.004268697 0.05681238 0.028000774" size="0.029424716" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_007" type="sphere" pos="-0.092584044 -0.03741581 0.030548658" size="0.040605884" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_008" type="sphere" pos="-0.049487621 -0.051822428 0.040275432" size="0.032462377" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_009" type="sphere" pos="-0.057683002 0.055860981 0.022100909" size="0.024335725" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_010" type="sphere" pos="-0.030706709 -0.07448823 0.012042834" size="0.016676828" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_011" type="sphere" pos="0.041508734 0.037755109 0.013953114" size="0.018444512" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_012" type="sphere" pos="-0.13026893 -0.025701696 0.014718105" size="0.016270565" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_013" type="sphere" pos="-0.019003902 -0.046591435 0.12189225" size="0.012504211" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_014" type="sphere" pos="-0.043457191 -0.058103342 0.07753396" size="0.01218338" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_015" type="sphere" pos="-0.14104453 -0.033893213 0.0082772356" size="0.0075076078" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_016" type="sphere" pos="0.037383553 -0.052123379 0.007335803" size="0.0095646083" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_017" type="sphere" pos="-0.12817509 -0.057241559 0.0086526498" size="0.011337718" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_018" type="sphere" pos="-0.12533313 0.039813444 0.015564094" size="0.017671285" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_019" type="sphere" pos="-0.062817015 0.074300848 0.0068914508" size="0.0093821017" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_020" type="sphere" pos="-0.10161459 0.053401694 0.017235171" size="0.024200602" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_021" type="sphere" pos="0.026561148 0.058145504 0.010321743" size="0.014386454" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_022" type="sphere" pos="0.018736489 -0.047363527 0.1269388" size="0.0050270408" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_023" type="sphere" pos="0.031808831 -0.03198123 0.12734365" size="0.015236125" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_024" type="sphere" pos="-0.012187243 0.050874107 0.13577656" size="0.0045568082" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_025" type="sphere" pos="0.013796808 0.044346903 0.12864964" size="0.014271358" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_026" type="sphere" pos="-0.13585509 0.0084853498 0.013225213" size="0.015256936" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_027" type="sphere" pos="-0.14391719 0.027119955 0.0065056728" size="0.008840153" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_028" type="sphere" pos="-0.052736547 -0.066374049 0.0072647161" size="0.0071353852" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_029" type="sphere" pos="0.029820003 -0.050602559 0.0043021147" size="0.0043912656" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_030" type="sphere" pos="-0.12087239 0.0029369385 0.022507757" size="0.023769267" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_031" type="sphere" pos="-0.14636183 -0.012114486 0.0066219913" size="0.0075979671" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_032" type="sphere" pos="-0.11343773 -0.041513108 0.0082383212" size="0.0068487367" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_033" type="sphere" pos="0.00082542258 0.083721653 0.0094970865" size="0.012959485" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_034" type="sphere" pos="-0.075320296 -0.067442849 0.011068773" size="0.013172142" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+      <geom name="spherefit_link0_035" type="sphere" pos="-0.029026615 0.073639639 0.01318156" size="0.017700464" group="3" contype="1" conaffinity="1" density="0" rgba="0 1 1 0.35" />
+    </body>
+  </worldbody>
+  <equality>
+    <joint joint1="finger_joint1" joint2="finger_joint2" polycoef="0 1 0 0 0" solref="0.005" solimp="0.95 0.99" />
+  </equality>
+  <tendon>
+    <fixed name="split">
+      <joint joint="finger_joint1" coef="0.5" />
+      <joint joint="finger_joint2" coef="0.5" />
+    </fixed>
+  </tendon>
+  <actuator>
+    <general name="actuator1" class="panda" joint="joint1" gainprm="4500" biasprm="0 -4500 -450" />
+    <general name="actuator2" class="panda" joint="joint2" ctrlrange="-1.7628 1.7628" gainprm="4500" biasprm="0 -4500 -450" />
+    <general name="actuator3" class="panda" joint="joint3" gainprm="3500" biasprm="0 -3500 -350" />
+    <general name="actuator4" class="panda" joint="joint4" ctrlrange="-3.0718 -0.0698" gainprm="3500" biasprm="0 -3500 -350" />
+    <general name="actuator5" class="panda" joint="joint5" forcerange="-12 12" gainprm="2000" biasprm="0 -2000 -200" />
+    <general name="actuator6" class="panda" joint="joint6" ctrlrange="-0.0175 3.7525" forcerange="-12 12" gainprm="2000" biasprm="0 -2000 -200" />
+    <general name="actuator7" class="panda" joint="joint7" forcerange="-12 12" gainprm="2000" biasprm="0 -2000 -200" />
+    <general name="actuator8" class="panda" tendon="split" ctrlrange="0 255" forcerange="-100 100" gainprm="0.0156863" biasprm="0 -100 -10" />
+  </actuator>
+  <keyframe>
+    <key name="home" qpos="0 0 0 -1.57079 0 1.57079 -0.7853 0.04 0.04" ctrl="0 0 0 -1.57079 0 1.57079 -0.7853 255" />
+  </keyframe>
+</mujoco>

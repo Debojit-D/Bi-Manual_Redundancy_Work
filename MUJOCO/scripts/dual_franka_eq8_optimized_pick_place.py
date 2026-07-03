@@ -1,6 +1,45 @@
-"""Dual-Franka optimized Equation (8) lift-and-lower demonstration."""
+"""Visualize collision-aware Equation (8) during a simple pick-and-place task.
+
+Both Franka arms grasp the table, lift it smoothly, and place it back at its
+measured pickup pose.  Throughout the motion, Equation (8)'s primary term
+tracks the object's position and orientation while the selected paper
+objective generates ``phi_dot_opt`` in the null space.  After placement, the
+controller keeps holding the returned pose and optimizing until the viewer is
+closed.
+
+Run from the repository root according to what you want to inspect::
+
+    # Default moving experiment: fitted spheres and collision cost.
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place
+
+    # Visualize the fitted collision spheres throughout pick and place.
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place \\
+        --show-collision-spheres
+
+    # Compare against optimization without the soft collision penalty.
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place \\
+        --disable-collision-penalty
+
+    # Record every moving and final-hold control step to an automatic CSV.
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place --record-data
+
+    # Record to a chosen file while visualizing the fitted spheres.
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place \\
+        --output-csv results/optimized_pick_place.csv \\
+        --show-collision-spheres
+
+The collision model loads fitted body-local sphere centers and radii from the
+cached dual-Franka sphere MJCF. Use ``--collision-weight``,
+``--collision-safety-margin``, and ``--collision-proximity-scale`` to tune its
+smooth proximity field. A different fitted-sphere MJCF can be supplied with
+``--collision-sphere-model``.
+
+The collision term is a soft optimization cost, not a hard collision
+guarantee. Run with ``--help`` for the complete option reference.
+"""
 
 import argparse
+from pathlib import Path
 
 import numpy as np
 from loop_rate_limiters import RateLimiter
@@ -10,6 +49,7 @@ from MUJOCO.utils.grasping_kinematics import (
 )
 from MUJOCO.utils.data_recording import Equation8CSVRecorder
 from MUJOCO.utils.redundancy_optimization import (
+    draw_detailed_collision_spheres,
     Equation8Controller,
     ManipulabilityObjective,
     ManipulabilityOptimizer,
@@ -31,22 +71,35 @@ LEFT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
 RIGHT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
 
 # World position [x, y, z] of the table's site_top_middle reference frame.
-TABLE_SPAWN_POSITION = np.array([0.30, 0.0, 0.28])
+TABLE_SPAWN_POSITION = np.array([0.60, 0.0, 0.28])
 K_P = np.diag([8.0, 8.0, 8.0, 4.0, 4.0, 4.0])
 GRASP_K_P = np.diag([8.0, 8.0, 8.0, 6.0, 6.0, 6.0])
 
-# Change this to FORCE or DIRECTIONAL_FORCE to test the other paper costs.
+# Match the static experiment so the trajectory is the only controller-level
+# difference between the two scripts.
 OBJECTIVE = ManipulabilityObjective.FORCE
-OPTIMIZATION_GAIN = 100.0
+OPTIMIZATION_GAIN = 5000.0
 MAXIMUM_OPTIMIZATION_JOINT_SPEED = 5
 FINITE_DIFFERENCE_STEP = 1e-4
+JOINT_LIMIT_MARGIN = 0.05
+JOINT_LIMIT_STOP_DISTANCE = 0.07
+JOINT_LIMIT_SLOW_DISTANCE = 0.25
 
 # MuJoCo-native coarse-sphere soft penalty. This discourages inter-arm
 # proximity but is not a hard collision-proof planner.
 ENABLE_COLLISION_PENALTY = True
-COLLISION_WEIGHT = 1700.0
-COLLISION_SAFETY_MARGIN = 0.16
-COLLISION_SPHERE_RADIUS = 0.14
+# The fitted-sphere model uses a smooth proximity field calibrated on the
+# full static force-optimization rollout: 5 cm is the desired sphere-surface
+# gap and 1 cm controls how gradually the warning fades in before that gap.
+COLLISION_WEIGHT = 5000.0
+COLLISION_SAFETY_MARGIN = 0.05
+COLLISION_PROXIMITY_SCALE = 0.01
+COLLISION_SPHERE_MODEL_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "robot_descriptions"
+    / "franka_emika_panda"
+    / "dual_panda_robots_only_spherefit.xml"
+)
 
 DESIRED_WRENCH_DIRECTION = np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
 CHARACTERISTIC_LENGTH = 0.4
@@ -108,6 +161,7 @@ def optimized_equation_8_step(
     viewer,
     rate,
     recorder=None,
+    show_collision_spheres=False,
 ):
     """Apply one primary-plus-null-space Equation (8) control step."""
     optimization = optimizer.optimization_velocity(scene.data)
@@ -119,8 +173,9 @@ def optimized_equation_8_step(
         desired_twist,
         optimization.phi_dot_opt,
     )
-    phi = scene.clip_arm_configuration(phi)
     scene.command(phi, scene.gripper_closed)
+    if show_collision_spheres:
+        draw_detailed_collision_spheres(viewer, optimizer, scene.data)
     scene.step(viewer)
     if recorder is not None:
         recorder.record(
@@ -142,6 +197,7 @@ def run_optimized_lift(
     rate,
     hold_duration=None,
     recorder=None,
+    show_collision_spheres=False,
 ):
     """Lift, lower, then keep optimizing at the returned grasped pose."""
     initial_position, desired_rotation = kinematics.object_pose(scene.data)
@@ -180,6 +236,7 @@ def run_optimized_lift(
             viewer,
             rate,
             recorder,
+            show_collision_spheres,
         )
 
         if apex_objective is None and time >= LIFT_DURATION:
@@ -200,6 +257,14 @@ def run_optimized_lift(
                 f"{np.linalg.norm(diagnostics.grasp_pose_error):.5f}, "
                 f"null speed="
                 f"{np.max(np.abs(diagnostics.null_space_joint_velocity)):.4f} rad/s, "
+                f"alpha={diagnostics.null_space_scale:.3f}, "
+                f"joint margin="
+                f"{diagnostics.minimum_joint_limit_distance:.4f} rad, "
+                f"null leakage="
+                f"{diagnostics.scaled_null_space_leakage:.2e}/"
+                f"{diagnostics.unscaled_null_space_leakage:.2e}, "
+                f"command speed="
+                f"{np.max(np.abs(diagnostics.commanded_joint_velocity)):.4f} rad/s, "
                 f"min clearance="
                 f"{optimizer.minimum_inter_arm_clearance(scene.data):.4f} m, "
                 f"collision cost="
@@ -236,6 +301,7 @@ def run_optimized_lift(
             viewer,
             rate,
             recorder,
+            show_collision_spheres,
         )
         if hold_step % int(CONTROL_HZ) == 0:
             print(
@@ -244,6 +310,14 @@ def run_optimized_lift(
                 f"{np.linalg.norm(diagnostics.pose_error[:3]):.5f} m, "
                 f"grasp error="
                 f"{np.linalg.norm(diagnostics.grasp_pose_error):.5f}, "
+                f"alpha={diagnostics.null_space_scale:.3f}, "
+                f"joint margin="
+                f"{diagnostics.minimum_joint_limit_distance:.4f} rad, "
+                f"null leakage="
+                f"{diagnostics.scaled_null_space_leakage:.2e}/"
+                f"{diagnostics.unscaled_null_space_leakage:.2e}, "
+                f"command speed="
+                f"{np.max(np.abs(diagnostics.commanded_joint_velocity)):.4f} rad/s, "
                 f"min clearance="
                 f"{optimizer.minimum_inter_arm_clearance(scene.data):.4f} m, "
                 f"collision cost="
@@ -261,7 +335,22 @@ def run_optimized_lift(
     }
 
 
-def main(*, record_data=False, output_csv=None):
+def main(
+    *,
+    record_data=False,
+    output_csv=None,
+    collision_weight=COLLISION_WEIGHT,
+    collision_safety_margin=COLLISION_SAFETY_MARGIN,
+    collision_proximity_scale=COLLISION_PROXIMITY_SCALE,
+    collision_sphere_model_path=COLLISION_SPHERE_MODEL_PATH,
+    enable_collision_penalty=ENABLE_COLLISION_PENALTY,
+    show_collision_spheres=False,
+    optimization_gain=OPTIMIZATION_GAIN,
+    maximum_joint_speed=MAXIMUM_OPTIMIZATION_JOINT_SPEED,
+    joint_limit_margin=JOINT_LIMIT_MARGIN,
+    joint_limit_stop_distance=JOINT_LIMIT_STOP_DISTANCE,
+    joint_limit_slow_distance=JOINT_LIMIT_SLOW_DISTANCE,
+):
     scene = DualFrankaMuJoCoScene(
         control_hz=CONTROL_HZ,
         left_arm_base_position=LEFT_ARM_SPAWN_POSITION,
@@ -277,26 +366,60 @@ def main(*, record_data=False, output_csv=None):
         scene.left_arm_dofs,
         scene.right_arm_dofs,
     )
+    left_limits = scene.model.actuator_ctrlrange[0:7]
+    right_limits = scene.model.actuator_ctrlrange[8:15]
+    joint_position_lower = np.concatenate(
+        (left_limits[:, 0], right_limits[:, 0])
+    )
+    joint_position_upper = np.concatenate(
+        (left_limits[:, 1], right_limits[:, 1])
+    )
     equation_8 = Equation8Controller(
         kinematics,
         control_dt=scene.control_dt,
         feedback_gain=K_P,
         grasp_feedback_gain=GRASP_K_P,
+        joint_position_lower=joint_position_lower,
+        joint_position_upper=joint_position_upper,
+        joint_velocity_lower=-maximum_joint_speed,
+        joint_velocity_upper=maximum_joint_speed,
+        joint_limit_margin=joint_limit_margin,
+        joint_limit_stop_distance=joint_limit_stop_distance,
+        joint_limit_slow_distance=joint_limit_slow_distance,
     )
     optimizer = ManipulabilityOptimizer(
         kinematics,
         scene.arm_qpos,
         objective=OBJECTIVE,
-        gain=OPTIMIZATION_GAIN,
+        gain=optimization_gain,
         finite_difference_step=FINITE_DIFFERENCE_STEP,
-        maximum_joint_speed=MAXIMUM_OPTIMIZATION_JOINT_SPEED,
+        maximum_joint_speed=maximum_joint_speed,
         desired_wrench_direction=DESIRED_WRENCH_DIRECTION,
         characteristic_length=CHARACTERISTIC_LENGTH,
-        enable_collision_penalty=ENABLE_COLLISION_PENALTY,
-        collision_weight=COLLISION_WEIGHT,
-        collision_safety_margin=COLLISION_SAFETY_MARGIN,
-        collision_sphere_radius=COLLISION_SPHERE_RADIUS,
+        enable_collision_penalty=enable_collision_penalty,
+        collision_weight=collision_weight,
+        collision_safety_margin=collision_safety_margin,
+        collision_proximity_scale=collision_proximity_scale,
+        collision_version="version2",
+        collision_sphere_model_path=collision_sphere_model_path,
     )
+    print(
+        f"Collision model: {optimizer.collision_version.value}, "
+        f"weight={optimizer.collision_weight:g}, "
+        f"safety margin={optimizer.collision_safety_margin:.3f} m, "
+        f"proximity scale={optimizer.collision_proximity_scale:.3f} m"
+    )
+    print(
+        "Detailed spheres: "
+        f"left={optimizer.left_detailed_radii.size}, "
+        f"right={optimizer.right_detailed_radii.size}, "
+        f"model={collision_sphere_model_path}"
+    )
+    if show_collision_spheres:
+        # Make visual meshes translucent so body-internal fitted spheres
+        # remain visible in the overlay. This does not affect contacts.
+        visual_geoms = scene.model.geom_group == 2
+        scene.model.geom_rgba[visual_geoms, 3] = 0.25
     rate = RateLimiter(frequency=CONTROL_HZ, warn=False)
     recorder = None
     if record_data or output_csv is not None:
@@ -305,7 +428,9 @@ def main(*, record_data=False, output_csv=None):
             kinematics,
             equation_8,
             optimizer,
-            experiment_name="dual_franka_eq8_optimized_lift_lower",
+            experiment_name=(
+                "dual_franka_eq8_optimized_lift_lower_fitted_spheres"
+            ),
             output_path=output_csv,
         )
         print(f"Recording data to: {recorder.output_path}")
@@ -326,6 +451,7 @@ def main(*, record_data=False, output_csv=None):
                 viewer,
                 rate,
                 recorder=recorder,
+                show_collision_spheres=show_collision_spheres,
             )
     except KeyboardInterrupt:
         print("Interrupted by Ctrl+C; preserving recorded samples.")
@@ -339,7 +465,10 @@ def main(*, record_data=False, output_csv=None):
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--record-data",
         action="store_true",
@@ -352,6 +481,73 @@ def parse_arguments():
             "files receive a collision-safe numeric suffix."
         ),
     )
+    parser.add_argument(
+        "--collision-weight",
+        type=float,
+        default=COLLISION_WEIGHT,
+        help="fitted-sphere collision cost weight",
+    )
+    parser.add_argument(
+        "--collision-safety-margin",
+        type=float,
+        default=COLLISION_SAFETY_MARGIN,
+        help="extra desired surface clearance in metres",
+    )
+    parser.add_argument(
+        "--collision-proximity-scale",
+        type=float,
+        default=COLLISION_PROXIMITY_SCALE,
+        help=(
+            "smooth transition length in metres; smaller values "
+            "make the penalty switch on more sharply near the safety margin"
+        ),
+    )
+    parser.add_argument(
+        "--collision-sphere-model",
+        type=Path,
+        default=COLLISION_SPHERE_MODEL_PATH,
+        help="sphere-fitted dual-Franka MJCF",
+    )
+    parser.add_argument(
+        "--disable-collision-penalty",
+        action="store_true",
+        help="disable the soft inter-arm collision term",
+    )
+    parser.add_argument(
+        "--show-collision-spheres",
+        action="store_true",
+        help="draw fitted left/right spheres in the MuJoCo viewer",
+    )
+    parser.add_argument(
+        "--optimization-gain",
+        type=float,
+        default=OPTIMIZATION_GAIN,
+        help="Equation (4) null-space gradient gain Lambda",
+    )
+    parser.add_argument(
+        "--max-joint-speed",
+        type=float,
+        default=MAXIMUM_OPTIMIZATION_JOINT_SPEED,
+        help="symmetric simulation joint-velocity bound in rad/s",
+    )
+    parser.add_argument(
+        "--joint-limit-margin",
+        type=float,
+        default=JOINT_LIMIT_MARGIN,
+        help="reserved distance inside each position limit in radians",
+    )
+    parser.add_argument(
+        "--joint-limit-stop-distance",
+        type=float,
+        default=JOINT_LIMIT_STOP_DISTANCE,
+        help="distance in radians at which null-space motion is stopped",
+    )
+    parser.add_argument(
+        "--joint-limit-slow-distance",
+        type=float,
+        default=JOINT_LIMIT_SLOW_DISTANCE,
+        help="distance in radians at which null-space slowing begins",
+    )
     return parser.parse_args()
 
 
@@ -360,4 +556,15 @@ if __name__ == "__main__":
     main(
         record_data=arguments.record_data,
         output_csv=arguments.output_csv,
+        collision_weight=arguments.collision_weight,
+        collision_safety_margin=arguments.collision_safety_margin,
+        collision_proximity_scale=arguments.collision_proximity_scale,
+        collision_sphere_model_path=arguments.collision_sphere_model,
+        enable_collision_penalty=not arguments.disable_collision_penalty,
+        show_collision_spheres=arguments.show_collision_spheres,
+        optimization_gain=arguments.optimization_gain,
+        maximum_joint_speed=arguments.max_joint_speed,
+        joint_limit_margin=arguments.joint_limit_margin,
+        joint_limit_stop_distance=arguments.joint_limit_stop_distance,
+        joint_limit_slow_distance=arguments.joint_limit_slow_distance,
     )

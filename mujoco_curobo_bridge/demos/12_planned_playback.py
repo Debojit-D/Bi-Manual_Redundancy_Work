@@ -9,12 +9,17 @@ current joint configuration each frame.
 
 import time
 
+if __package__:
+    from demos import _bootstrap
+else:
+    import _bootstrap
+
 from bridge.mujoco_loader import MujocoRobot
 from bridge.curobo_loader import CuroboRobot
 from bridge.state_sync import PandaState
 from bridge.sphere_bridge import SphereBridge
 from bridge.world_bridge import to_world_config
-from bridge.motion_gen_bridge import MotionGenBridge
+from bridge.motion_planner_bridge import MotionPlannerBridge
 
 from viewer.world_renderer import WorldRenderer
 from viewer.sphere_renderer import SphereRenderer
@@ -72,9 +77,6 @@ world_cfg = to_world_config(world)
 print("Loading MuJoCo...")
 mj = MujocoRobot()
 mj.reset_home()
-viewer = mj.launch()
-world_renderer = WorldRenderer(viewer)
-sphere_renderer = SphereRenderer(viewer)
 print("MuJoCo loaded.")
 
 start_q = PandaState.get_arm_qpos(mj.get_qpos())
@@ -83,26 +85,30 @@ cr = CuroboRobot()
 sphere_bridge = SphereBridge(cr)
 
 home_state = cr.fk(start_q)
-home_quat = home_state.ee_quaternion.squeeze().tolist()
+home_quat = cr.get_end_effector_pose(home_state).quaternion.squeeze().tolist()
 
-motion_bridge = MotionGenBridge(world_cfg)
+motion_bridge = MotionPlannerBridge(world_cfg)
 
 goal_xyz = (0.65, -0.15, TABLE_TOP_Z + 0.20)
 
 print("Planning to goal pose:", goal_xyz)
 result = motion_bridge.plan_to_pose(start_q, goal_xyz, goal_quat=tuple(home_quat))
 
-print("Planning success:", bool(result.success))
+print("Planning success:", motion_bridge.succeeded(result))
 
-if not bool(result.success):
-    print("Planning failed - status:", result.status)
-    viewer.close()
+if not motion_bridge.succeeded(result):
+    print("Planning failed - status:", motion_bridge.status(result))
     raise SystemExit(1)
 
-traj = result.get_interpolated_plan()
-positions = traj.position.cpu().numpy()
+positions = motion_bridge.get_arm_positions(result)
 
 print(f"Playing back {len(positions)} trajectory steps...")
+
+# Launch only after CUDA warmup and planning, so the viewer never appears
+# frozen while cuRobo prepares its kernels.
+viewer = mj.launch()
+world_renderer = WorldRenderer(viewer)
+sphere_renderer = SphereRenderer(viewer)
 
 step = 0
 
@@ -126,7 +132,8 @@ while viewer.is_running():
     spheres = sphere_bridge.get_spheres(q_current)
     sphere_renderer.draw_spheres(spheres, clear=False)
 
-    mj.step()
+    # Playback is kinematic; do not integrate physics against actuator targets.
+    mj.forward()
 
     viewer.sync()
 

@@ -1,6 +1,7 @@
 """Closed-loop cooperative controller implementing Equation (8)."""
 
 from dataclasses import dataclass
+import warnings
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -14,6 +15,116 @@ class Equation8Diagnostics:
     condition_tracking_map: float
     primary_joint_velocity: np.ndarray
     null_space_joint_velocity: np.ndarray
+    unscaled_null_space_joint_velocity: np.ndarray
+    commanded_joint_velocity: np.ndarray
+    null_space_scale: float
+    minimum_joint_limit_distance: float
+    unscaled_null_space_leakage: float
+    scaled_null_space_leakage: float
+
+
+def _joint_vector(value, number_of_joints, name):
+    """Return a scalar or joint-wise setting as a finite 1-D array."""
+    array = np.asarray(value, dtype=float)
+    if array.ndim == 0:
+        array = np.full(number_of_joints, float(array))
+    if array.shape != (number_of_joints,):
+        raise ValueError(f"{name} must be scalar or shape {(number_of_joints,)}")
+    if not np.all(np.isfinite(array)):
+        raise ValueError(f"{name} must contain only finite values")
+    return array
+
+
+def compute_nullspace_scale(
+    phi,
+    phidot_task,
+    u,
+    dt,
+    q_min,
+    q_max,
+    qdot_min,
+    qdot_max,
+    margin,
+    d_slow,
+    d_stop,
+):
+    """Return one safe multiplier for the complete projected null-space term.
+
+    The primary task velocity is never modified. If it is already outside the
+    position-derived or configured velocity bounds, no null-space motion can
+    make the requested primary command safe in general, so this function
+    warns and returns zero.
+    """
+    phi = np.asarray(phi, dtype=float)
+    phidot_task = np.asarray(phidot_task, dtype=float)
+    u = np.asarray(u, dtype=float)
+    if phi.ndim != 1 or phidot_task.shape != phi.shape or u.shape != phi.shape:
+        raise ValueError("phi, phidot_task, and u must have the same 1-D shape")
+    if dt <= 0.0:
+        raise ValueError("dt must be positive")
+    if margin < 0.0:
+        raise ValueError("margin must be nonnegative")
+    if d_stop < 0.0 or d_slow <= d_stop:
+        raise ValueError("Require 0 <= d_stop < d_slow")
+
+    number_of_joints = phi.size
+    q_min = _joint_vector(q_min, number_of_joints, "q_min")
+    q_max = _joint_vector(q_max, number_of_joints, "q_max")
+    qdot_min = _joint_vector(qdot_min, number_of_joints, "qdot_min")
+    qdot_max = _joint_vector(qdot_max, number_of_joints, "qdot_max")
+    if np.any(q_min + margin > q_max - margin):
+        raise ValueError("joint-limit margin leaves an empty position range")
+    if np.any(qdot_min > qdot_max):
+        raise ValueError("qdot_min must not exceed qdot_max")
+
+    lower_position_velocity = (q_min + margin - phi) / dt
+    upper_position_velocity = (q_max - margin - phi) / dt
+    lower = np.maximum(qdot_min, lower_position_velocity)
+    upper = np.minimum(qdot_max, upper_position_velocity)
+    tolerance = 1e-9
+
+    primary_infeasible = np.any(phidot_task < lower - tolerance) or np.any(
+        phidot_task > upper + tolerance
+    )
+    if primary_infeasible:
+        warnings.warn(
+            "Primary Equation (8) task velocity violates joint position or "
+            "velocity bounds; disabling the null-space term for this step.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return 0.0
+
+    alpha_low = 0.0
+    alpha_high = 1.0
+    for index in range(number_of_joints):
+        if abs(u[index]) < tolerance:
+            continue
+        if u[index] > 0.0:
+            alpha_low_i = (lower[index] - phidot_task[index]) / u[index]
+            alpha_high_i = (upper[index] - phidot_task[index]) / u[index]
+        else:
+            alpha_low_i = (upper[index] - phidot_task[index]) / u[index]
+            alpha_high_i = (lower[index] - phidot_task[index]) / u[index]
+        alpha_low = max(alpha_low, alpha_low_i)
+        alpha_high = min(alpha_high, alpha_high_i)
+
+    if alpha_low > alpha_high:
+        alpha_bound = 0.0
+    else:
+        alpha_bound = float(np.clip(alpha_high, 0.0, 1.0))
+
+    distances = np.minimum(phi - q_min, q_max - phi)
+    minimum_distance = float(np.min(distances))
+    if minimum_distance <= d_stop:
+        alpha_proximity = 0.0
+    elif minimum_distance >= d_slow:
+        alpha_proximity = 1.0
+    else:
+        ratio = (minimum_distance - d_stop) / (d_slow - d_stop)
+        alpha_proximity = ratio * ratio * (3.0 - 2.0 * ratio)
+
+    return float(np.clip(min(alpha_bound, alpha_proximity), 0.0, 1.0))
 
 
 class Equation8Controller:
@@ -27,6 +138,13 @@ class Equation8Controller:
         feedback_gain,
         control_pinv_rcond=1e-5,
         grasp_feedback_gain=None,
+        joint_position_lower=None,
+        joint_position_upper=None,
+        joint_velocity_lower=None,
+        joint_velocity_upper=None,
+        joint_limit_margin=0.05,
+        joint_limit_slow_distance=0.25,
+        joint_limit_stop_distance=0.07,
     ):
         self.kinematics = kinematics
         self.control_dt = float(control_dt)
@@ -35,9 +153,39 @@ class Equation8Controller:
         self.grasp_feedback_gain = self._make_grasp_feedback_gain(
             grasp_feedback_gain
         )
+        self.joint_limit_margin = float(joint_limit_margin)
+        self.joint_limit_slow_distance = float(joint_limit_slow_distance)
+        self.joint_limit_stop_distance = float(joint_limit_stop_distance)
         self._grasp_reference = None
         if self.feedback_gain.shape != (6, 6):
             raise ValueError("feedback_gain must be a 6x6 matrix")
+        number_of_joints = self.kinematics.arm_dofs.size
+        supplied_limits = (
+            joint_position_lower,
+            joint_position_upper,
+            joint_velocity_lower,
+            joint_velocity_upper,
+        )
+        if any(value is None for value in supplied_limits) and not all(
+            value is None for value in supplied_limits
+        ):
+            raise ValueError("all joint position and velocity bounds are required")
+        self.joint_limit_scaling_enabled = all(
+            value is not None for value in supplied_limits
+        )
+        if self.joint_limit_scaling_enabled:
+            self.joint_position_lower = _joint_vector(
+                joint_position_lower, number_of_joints, "joint_position_lower"
+            )
+            self.joint_position_upper = _joint_vector(
+                joint_position_upper, number_of_joints, "joint_position_upper"
+            )
+            self.joint_velocity_lower = _joint_vector(
+                joint_velocity_lower, number_of_joints, "joint_velocity_lower"
+            )
+            self.joint_velocity_upper = _joint_vector(
+                joint_velocity_upper, number_of_joints, "joint_velocity_upper"
+            )
 
     @staticmethod
     def _make_grasp_feedback_gain(gain):
@@ -180,19 +328,53 @@ class Equation8Controller:
                 @ (self.grasp_feedback_gain @ grasp_pose_error)
             )
 
+        hand_jacobian = self.kinematics.hand_jacobian(data)
         if phi_dot_opt is None:
-            null_space_joint_velocity = np.zeros(number_of_joints)
+            unscaled_null_space_joint_velocity = np.zeros(number_of_joints)
         else:
             phi_dot_opt = np.asarray(phi_dot_opt, dtype=float)
             if phi_dot_opt.shape != (number_of_joints,):
                 raise ValueError("phi_dot_opt must have the same shape as phi")
-            null_space_joint_velocity = (
+            unscaled_null_space_joint_velocity = (
                 self.kinematics.null_space_projector(data) @ phi_dot_opt
             )
 
-        phi_next = phi + (
+        if self.joint_limit_scaling_enabled:
+            null_space_scale = compute_nullspace_scale(
+                phi,
+                primary_joint_velocity,
+                unscaled_null_space_joint_velocity,
+                self.control_dt,
+                self.joint_position_lower,
+                self.joint_position_upper,
+                self.joint_velocity_lower,
+                self.joint_velocity_upper,
+                self.joint_limit_margin,
+                self.joint_limit_slow_distance,
+                self.joint_limit_stop_distance,
+            )
+            joint_distances = np.minimum(
+                phi - self.joint_position_lower,
+                self.joint_position_upper - phi,
+            )
+            minimum_joint_limit_distance = float(np.min(joint_distances))
+        else:
+            null_space_scale = 1.0
+            minimum_joint_limit_distance = float("inf")
+
+        null_space_joint_velocity = (
+            null_space_scale * unscaled_null_space_joint_velocity
+        )
+        commanded_joint_velocity = (
             primary_joint_velocity + null_space_joint_velocity
-        ) * self.control_dt
+        )
+        phi_next = phi + commanded_joint_velocity * self.control_dt
+        unscaled_null_space_leakage = float(
+            np.linalg.norm(hand_jacobian @ unscaled_null_space_joint_velocity)
+        )
+        scaled_null_space_leakage = float(
+            np.linalg.norm(hand_jacobian @ null_space_joint_velocity)
+        )
         diagnostics = Equation8Diagnostics(
             pose_error=error,
             grasp_pose_error=grasp_pose_error,
@@ -200,5 +382,13 @@ class Equation8Controller:
             condition_tracking_map=float(np.linalg.cond(tracking_map)),
             primary_joint_velocity=primary_joint_velocity,
             null_space_joint_velocity=null_space_joint_velocity,
+            unscaled_null_space_joint_velocity=(
+                unscaled_null_space_joint_velocity
+            ),
+            commanded_joint_velocity=commanded_joint_velocity,
+            null_space_scale=null_space_scale,
+            minimum_joint_limit_distance=minimum_joint_limit_distance,
+            unscaled_null_space_leakage=unscaled_null_space_leakage,
+            scaled_null_space_leakage=scaled_null_space_leakage,
         )
         return phi_next, diagnostics

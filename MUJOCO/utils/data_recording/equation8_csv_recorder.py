@@ -11,6 +11,7 @@ import numpy as np
 CSV_COLUMNS = [
     "time",
     "objective",
+    "collision_version",
     "objective_value",
     "object_x",
     "object_y",
@@ -30,6 +31,11 @@ CSV_COLUMNS = [
     "grasp_error_norm",
     "primary_speed_max",
     "null_speed_max",
+    "null_space_scale",
+    "min_joint_limit_distance",
+    "unscaled_null_space_leakage",
+    "scaled_null_space_leakage",
+    "command_speed_max",
     "phi_dot_opt_max",
     "gradient_norm",
     "min_inter_arm_clearance",
@@ -167,6 +173,7 @@ class Equation8CSVRecorder:
         row = {
             "time": elapsed_time,
             "objective": self.optimizer.objective.value,
+            "collision_version": self.optimizer.collision_version.value,
             "objective_value": self.optimizer.value(data),
             "object_x": object_position[0],
             "object_y": object_position[1],
@@ -191,6 +198,19 @@ class Equation8CSVRecorder:
             ),
             "null_speed_max": np.max(
                 np.abs(diagnostics.null_space_joint_velocity)
+            ),
+            "null_space_scale": diagnostics.null_space_scale,
+            "min_joint_limit_distance": (
+                diagnostics.minimum_joint_limit_distance
+            ),
+            "unscaled_null_space_leakage": (
+                diagnostics.unscaled_null_space_leakage
+            ),
+            "scaled_null_space_leakage": (
+                diagnostics.scaled_null_space_leakage
+            ),
+            "command_speed_max": np.max(
+                np.abs(diagnostics.commanded_joint_velocity)
             ),
             "phi_dot_opt_max": np.max(np.abs(optimization.phi_dot_opt)),
             "gradient_norm": np.linalg.norm(optimization.gradient),

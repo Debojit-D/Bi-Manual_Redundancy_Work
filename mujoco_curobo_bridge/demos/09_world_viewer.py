@@ -1,5 +1,10 @@
 import time
 
+if __package__:
+    from demos import _bootstrap
+else:
+    import _bootstrap
+
 from bridge.mujoco_loader import MujocoRobot
 
 from viewer.world_renderer import WorldRenderer
@@ -9,6 +14,7 @@ from world.obstacle import Obstacle
 
 
 robot = MujocoRobot()
+robot.reset_home()
 
 viewer = robot.launch()
 

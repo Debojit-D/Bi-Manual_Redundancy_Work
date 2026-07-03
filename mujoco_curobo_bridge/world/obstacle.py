@@ -9,7 +9,7 @@ It simply stores obstacle information.
 Later it can be converted into:
 
 - MuJoCo Geoms
-- cuRobo WorldConfig
+- cuRobo v0.8 Scene
 - ROS Collision Objects
 """
 
