@@ -50,10 +50,12 @@ class OptimizationResult:
 
 
 class ManipulabilityOptimizer:
-    """Evaluate paper costs and produce phi_dot_opt=Lambda*dW/dphi.
+    """Evaluate paper objectives and produce phi_dot_opt = Lambda*dS/dphi.
 
-    Velocity and force manipulability are maximized.  Directional-force
-    distance is minimized, so its gradient sign is reversed automatically.
+    All public optimization objectives are maximization scores.  The
+    direction-aware force objective is stored as an alignment score
+    ``-D_dir`` while the raw Frobenius alignment distance remains available
+    for plotting and reporting.
     Gradients are evaluated with central joint-space finite differences.
     """
 
@@ -232,46 +234,30 @@ class ManipulabilityOptimizer:
         velocity_map = self.kinematics.paper_object_velocity_map(data)
         return self._sqrt_determinant(velocity_map @ velocity_map.T)
 
-    def force_manipulability(self, data):
-        """Equation (14): sqrt(det((A A.T)^dagger))."""
+    def force_capability_matrix(self, data):
+        """Return the force-side capability matrix Q_f = (A A.T)^dagger."""
         velocity_map = self.kinematics.paper_object_velocity_map(data)
-        force_matrix = np.linalg.pinv(
-            velocity_map @ velocity_map.T,
-            rcond=self.kinematics.pinv_rcond,
-        )
-        return self._sqrt_determinant(force_matrix)
-
-
-    ## Old Cost (Mostly Incorrect)
-    # def directional_force_cost(self, data):
-    #     """Equation (15): normalized Frobenius directional distance."""
-    #     velocity_map = self.kinematics.paper_object_velocity_map(data)
-    #     capability = velocity_map @ velocity_map.T
-    #     capability_trace = np.trace(capability)
-    #     desired_trace = np.trace(self.desired_force_matrix)
-    #     if capability_trace <= 0.0 or desired_trace <= 0.0:
-    #         return float("inf")
-    #     difference = (
-    #         capability / capability_trace
-    #         - self.desired_force_matrix / desired_trace
-    #     )
-    #     return float(np.linalg.norm(difference, ord="fro"))
-    
-    ## Fixed Cost (Mostly Correct)
-    def directional_force_cost(self, data):
-        """Equation (15): normalized Frobenius directional force-capability distance.
-
-        This uses the same force-side matrix as Eq. (14), namely
-        (A A.T)^dagger. Therefore the objective is minimized in
-        optimization_velocity() for DIRECTIONAL_FORCE.
-        """
-        velocity_map = self.kinematics.paper_object_velocity_map(data)
-
-        # Force-capability matrix, consistent with Eq. (14).
         force_capability = np.linalg.pinv(
             velocity_map @ velocity_map.T,
             rcond=self.kinematics.pinv_rcond,
         )
+        # The pseudoinverse of a symmetric matrix should be symmetric, but
+        # explicit symmetrization prevents tiny numerical asymmetry from
+        # leaking into distance computations and plots.
+        return 0.5 * (force_capability + force_capability.T)
+
+    def force_manipulability(self, data):
+        """Equation (14): sqrt(det((A A.T)^dagger))."""
+        return self._sqrt_determinant(self.force_capability_matrix(data))
+
+    def directional_force_distance(self, data):
+        """Normalized Frobenius distance between force capability and desired shape.
+
+        Smaller values mean better alignment.  This diagnostic is kept for
+        reporting because it has a direct physical interpretation as the
+        force-capability shape mismatch.
+        """
+        force_capability = self.force_capability_matrix(data)
 
         capability_trace = np.trace(force_capability)
         desired_trace = np.trace(self.desired_force_matrix)
@@ -283,8 +269,20 @@ class ManipulabilityOptimizer:
             force_capability / capability_trace
             - self.desired_force_matrix / desired_trace
         )
-
         return float(np.linalg.norm(difference, ord="fro"))
+
+    def directional_force_score(self, data):
+        """Direction-aware force-capability alignment score.
+
+        Larger is better.  The score is the negative alignment distance so the
+        optimizer can use gradient ascent for velocity, force, and
+        direction-aware force objectives without a special sign branch.
+        """
+        return -self.directional_force_distance(data)
+
+    def directional_force_cost(self, data):
+        """Backward-compatible alias for the raw alignment distance."""
+        return self.directional_force_distance(data)
 
     def _inter_arm_clearances(self, data):
         """Return every left–right sphere surface clearance."""
@@ -379,27 +377,21 @@ class ManipulabilityOptimizer:
         return float(max(value, np.sqrt(self.determinant_floor)))
 
     def value(self, data, objective=None):
+        """Return the selected maximization score, including safety penalties."""
         selected = ManipulabilityObjective(objective or self.objective)
         if selected is ManipulabilityObjective.VELOCITY:
             value = self.velocity_manipulability(data)
         elif selected is ManipulabilityObjective.FORCE:
             value = self.force_manipulability(data)
+        elif selected is ManipulabilityObjective.DIRECTIONAL_FORCE:
+            value = self.directional_force_score(data)
         else:
-            # optimization_velocity() reverses this gradient to minimize the
-            # directional distance. Adding collision cost here therefore
-            # minimizes both directional error and collision violations.
-            value = self.directional_force_cost(data)
-            if self.enable_collision_penalty:
-                value += (
-                    self.collision_weight
-                    * self.inter_arm_collision_cost(data)
-                )
-            return value
+            raise ValueError(f"Unknown manipulability objective: {selected}")
 
-        if self.enable_collision_penalty and selected in (
-            ManipulabilityObjective.VELOCITY,
-            ManipulabilityObjective.FORCE,
-        ):
+        # Collision cost is always undesirable, so it is subtracted from every
+        # maximization score.  This keeps the optimizer sign convention
+        # identical for all objectives.
+        if self.enable_collision_penalty:
             value -= self.collision_weight * self.inter_arm_collision_cost(data)
         return value
 
@@ -431,15 +423,10 @@ class ManipulabilityOptimizer:
         return gradient
 
     def optimization_velocity(self, data):
-        """Return the signed and speed-limited phi_dot_opt from Equation (4)."""
+        """Return the speed-limited phi_dot_opt from Equation (4)."""
         objective_value = self.value(data)
         gradient = self.gradient(data)
-        direction_sign = (
-            -1.0
-            if self.objective is ManipulabilityObjective.DIRECTIONAL_FORCE
-            else 1.0
-        )
-        phi_dot_opt = direction_sign * self.gain * gradient
+        phi_dot_opt = self.gain * gradient
 
         peak_speed = np.max(np.abs(phi_dot_opt))
         if peak_speed > self.maximum_joint_speed:
