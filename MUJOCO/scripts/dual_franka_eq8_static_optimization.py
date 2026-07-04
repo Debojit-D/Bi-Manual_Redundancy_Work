@@ -32,6 +32,7 @@ different fitted-sphere MJCF. Run with ``--help`` for the complete reference.
 """
 
 import argparse
+from contextlib import nullcontext
 from pathlib import Path
 
 import numpy as np
@@ -49,6 +50,7 @@ from MUJOCO.utils.redundancy_optimization import (
     draw_detailed_collision_spheres,
 )
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
+from MUJOCO.utils.video_recording import TqdmSimulationRate
 
 
 CONTROL_HZ = 50.0
@@ -242,6 +244,11 @@ def main(
     convergence_speed_threshold=None,
     convergence_hold_duration=0.5,
     minimum_convergence_time=1.0,
+    top_view=False,
+    video_output_dir=None,
+    video_width=1280,
+    video_height=720,
+    video_fps=30,
 ):
     objective = ManipulabilityObjective(objective)
     if duration is not None and duration <= 0.0:
@@ -325,7 +332,26 @@ def main(
     if show_collision_spheres:
         visual_geoms = scene.model.geom_group == 2
         scene.model.geom_rgba[visual_geoms, 3] = 0.25
-    rate = RateLimiter(frequency=CONTROL_HZ, warn=False)
+    video_mode = video_output_dir is not None
+    if video_mode and show_collision_spheres:
+        raise ValueError(
+            "collision-sphere overlays are unavailable with headless video"
+        )
+    if video_mode:
+        viewer_context = scene.launch_video_recorder(
+            video_output_dir,
+            width=video_width,
+            height=video_height,
+            fps=video_fps,
+        )
+        rate_context = TqdmSimulationRate(
+            f"Recording static {optimization_mode}"
+        )
+    else:
+        viewer_context = scene.launch_viewer()
+        rate_context = nullcontext(
+            RateLimiter(frequency=CONTROL_HZ, warn=False)
+        )
     recorder = None
     if record_data or output_csv is not None:
         recorder = Equation8CSVRecorder(
@@ -343,8 +369,9 @@ def main(
         print(f"Recording data to: {recorder.output_path}")
 
     try:
-        with scene.launch_viewer() as viewer:
-            scene.configure_viewer_camera(viewer)
+        with rate_context as rate, viewer_context as viewer:
+            if not video_mode:
+                scene.configure_viewer_camera(viewer, top_view=top_view)
             scene.settle(viewer, rate)
             scene.run_grasp_approach(viewer, rate)
             print("Closing both grippers...")
@@ -376,6 +403,8 @@ def main(
                 f"Saved {recorder.rows_written} rows to: "
                 f"{recorder.output_path}"
             )
+        if video_mode:
+            print(f"Saved perspective and top-view videos to: {video_output_dir}")
 
 
 def parse_arguments():
@@ -449,6 +478,11 @@ def parse_arguments():
         help="draw fitted left/right spheres in the MuJoCo viewer",
     )
     parser.add_argument(
+        "--top-view",
+        action="store_true",
+        help="use a full overhead camera instead of the perspective view",
+    )
+    parser.add_argument(
         "--optimization-gain",
         type=float,
         default=OPTIMIZATION_GAIN,
@@ -500,4 +534,5 @@ if __name__ == "__main__":
         objective=arguments.objective,
         enable_redundancy_optimization=not arguments.baseline,
         duration=arguments.duration,
+        top_view=arguments.top_view,
     )

@@ -27,5 +27,10 @@ rosbag/
 *.bag
 *.log
 
-# Generated MuJoCo experiment CSV files
+# Generated MuJoCo experiment data, figures, and videos
 outputs/mujoco_data/
+outputs/mujoco_videos/
+
+# Native crash dumps
+core
+core.*

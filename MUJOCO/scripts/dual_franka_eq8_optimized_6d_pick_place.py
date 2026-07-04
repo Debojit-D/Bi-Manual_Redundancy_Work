@@ -31,6 +31,7 @@ options.
 """
 
 import argparse
+from contextlib import nullcontext
 from pathlib import Path
 
 import numpy as np
@@ -46,9 +47,11 @@ from MUJOCO.utils.redundancy_optimization import (
     Equation8Controller,
     ManipulabilityObjective,
     ManipulabilityOptimizer,
+    OptimizationResult,
     draw_detailed_collision_spheres,
 )
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
+from MUJOCO.utils.video_recording import TqdmSimulationRate
 
 
 CONTROL_HZ = 50.0
@@ -210,9 +213,19 @@ def optimized_control_step(
     rate,
     recorder=None,
     show_collision_spheres=False,
+    enable_redundancy_optimization=True,
 ):
     """Apply one joint-limit-safe primary-plus-null-space control step."""
-    optimization = optimizer.optimization_velocity(scene.data)
+    if enable_redundancy_optimization:
+        optimization = optimizer.optimization_velocity(scene.data)
+    else:
+        zero_velocity = np.zeros(scene.arm_dofs.size)
+        optimization = OptimizationResult(
+            objective=optimizer.objective,
+            value=optimizer.value(scene.data),
+            gradient=zero_velocity.copy(),
+            phi_dot_opt=zero_velocity,
+        )
     phi, diagnostics = equation_8.update(
         scene.data,
         phi,
@@ -246,6 +259,7 @@ def run_trajectory(
     rate,
     recorder=None,
     show_collision_spheres=False,
+    enable_redundancy_optimization=True,
 ):
     """Execute one continuous start-through-waypoint-to-goal trajectory."""
     number_of_steps = int(trajectory.total_duration * CONTROL_HZ) + 1
@@ -277,6 +291,7 @@ def run_trajectory(
             rate,
             recorder,
             show_collision_spheres,
+            enable_redundancy_optimization,
         )
 
         if step % int(CONTROL_HZ) == 0:
@@ -322,12 +337,18 @@ def hold_goal_pose(
     duration=None,
     recorder=None,
     show_collision_spheres=False,
+    enable_redundancy_optimization=True,
 ):
     """Keep Equation (8) and optimization active at the final grasped pose."""
     goal_position, goal_rotation = goal_pose
     maximum_steps = None if duration is None else int(duration * CONTROL_HZ)
     step = 0
-    print("Goal reached. Holding the grasp with optimization active...")
+    hold_activity = (
+        "optimization active"
+        if enable_redundancy_optimization
+        else "null-space optimization disabled"
+    )
+    print(f"Goal reached. Holding the grasp with {hold_activity}...")
     while viewer.is_running() and (
         maximum_steps is None or step < maximum_steps
     ):
@@ -343,6 +364,7 @@ def hold_goal_pose(
             rate,
             recorder,
             show_collision_spheres,
+            enable_redundancy_optimization,
         )
         if step % int(CONTROL_HZ) == 0:
             print(
@@ -388,6 +410,7 @@ def run_pick_and_place(
     goal_euler_xyz=TABLE_GOAL_EULER_XYZ,
     start_to_intermediate_duration=START_TO_INTERMEDIATE_DURATION,
     intermediate_to_goal_duration=INTERMEDIATE_TO_GOAL_DURATION,
+    enable_redundancy_optimization=True,
 ):
     """Execute start -> intermediate -> goal and continuously hold the grasp."""
     measured_start_pose = kinematics.object_pose(scene.data)
@@ -414,6 +437,7 @@ def run_pick_and_place(
         rate,
         recorder,
         show_collision_spheres,
+        enable_redundancy_optimization,
     )
     hold_goal_pose(
         scene,
@@ -426,6 +450,7 @@ def run_pick_and_place(
         hold_duration,
         recorder,
         show_collision_spheres,
+        enable_redundancy_optimization,
     )
 
     held_position, held_rotation = kinematics.object_pose(scene.data)
@@ -463,7 +488,20 @@ def main(
     start_to_intermediate_duration=START_TO_INTERMEDIATE_DURATION,
     intermediate_to_goal_duration=INTERMEDIATE_TO_GOAL_DURATION,
     hold_duration=None,
+    objective=OBJECTIVE,
+    enable_redundancy_optimization=True,
+    top_view=False,
+    video_output_dir=None,
+    video_width=1280,
+    video_height=720,
+    video_fps=30,
 ):
+    objective = ManipulabilityObjective(objective)
+    if hold_duration is not None and hold_duration < 0.0:
+        raise ValueError("hold_duration cannot be negative")
+    optimization_mode = (
+        objective.value if enable_redundancy_optimization else "baseline"
+    )
     scene = DualFrankaMuJoCoScene(
         control_hz=CONTROL_HZ,
         left_arm_base_position=LEFT_ARM_SPAWN_POSITION,
@@ -507,7 +545,7 @@ def main(
     optimizer = ManipulabilityOptimizer(
         kinematics,
         scene.arm_qpos,
-        objective=OBJECTIVE,
+        objective=objective,
         gain=optimization_gain,
         finite_difference_step=FINITE_DIFFERENCE_STEP,
         maximum_joint_speed=maximum_joint_speed,
@@ -535,7 +573,26 @@ def main(
     if show_collision_spheres:
         visual_geoms = scene.model.geom_group == 2
         scene.model.geom_rgba[visual_geoms, 3] = 0.25
-    rate = RateLimiter(frequency=CONTROL_HZ, warn=False)
+    video_mode = video_output_dir is not None
+    if video_mode and show_collision_spheres:
+        raise ValueError(
+            "collision-sphere overlays are unavailable with headless video"
+        )
+    if video_mode:
+        viewer_context = scene.launch_video_recorder(
+            video_output_dir,
+            width=video_width,
+            height=video_height,
+            fps=video_fps,
+        )
+        rate_context = TqdmSimulationRate(
+            f"Recording 6D pick/place {optimization_mode}"
+        )
+    else:
+        viewer_context = scene.launch_viewer()
+        rate_context = nullcontext(
+            RateLimiter(frequency=CONTROL_HZ, warn=False)
+        )
     recorder = None
     if record_data or output_csv is not None:
         recorder = Equation8CSVRecorder(
@@ -544,15 +601,18 @@ def main(
             equation_8,
             optimizer,
             experiment_name=(
-                "dual_franka_eq8_optimized_6d_pick_place_fitted_spheres"
+                "dual_franka_eq8_6d_pick_place_"
+                f"{optimization_mode}_fitted_spheres"
             ),
             output_path=output_csv,
+            optimization_mode=optimization_mode,
         )
         print(f"Recording data to: {recorder.output_path}")
 
     try:
-        with scene.launch_viewer() as viewer:
-            scene.configure_viewer_camera(viewer)
+        with rate_context as rate, viewer_context as viewer:
+            if not video_mode:
+                scene.configure_viewer_camera(viewer, top_view=top_view)
             scene.settle(viewer, rate)
             scene.run_grasp_approach(viewer, rate)
             print("Closing both grippers...")
@@ -576,6 +636,9 @@ def main(
                     start_to_intermediate_duration
                 ),
                 intermediate_to_goal_duration=intermediate_to_goal_duration,
+                enable_redundancy_optimization=(
+                    enable_redundancy_optimization
+                ),
             )
     except KeyboardInterrupt:
         print("Interrupted by Ctrl+C; preserving recorded samples.")
@@ -587,6 +650,8 @@ def main(
                 f"Saved {recorder.rows_written} rows to: "
                 f"{recorder.output_path}"
             )
+        if video_mode:
+            print(f"Saved perspective and top-view videos to: {video_output_dir}")
 
 
 def parse_arguments():
@@ -598,6 +663,17 @@ def parse_arguments():
         "--record-data",
         action="store_true",
         help="record every Equation (8) control step to CSV",
+    )
+    parser.add_argument(
+        "--objective",
+        choices=[objective.value for objective in ManipulabilityObjective],
+        default=OBJECTIVE.value,
+        help="null-space objective (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--baseline",
+        action="store_true",
+        help="disable null-space optimization while tracking the same path",
     )
     parser.add_argument(
         "--output-csv",
@@ -636,6 +712,11 @@ def parse_arguments():
         "--show-collision-spheres",
         action="store_true",
         help="draw fitted spheres throughout the spatial motion",
+    )
+    parser.add_argument(
+        "--top-view",
+        action="store_true",
+        help="use a full overhead camera instead of the perspective view",
     )
     parser.add_argument(
         "--optimization-gain",
@@ -764,4 +845,7 @@ if __name__ == "__main__":
             arguments.intermediate_to_goal_duration
         ),
         hold_duration=arguments.hold_duration,
+        objective=arguments.objective,
+        enable_redundancy_optimization=not arguments.baseline,
+        top_view=arguments.top_view,
     )

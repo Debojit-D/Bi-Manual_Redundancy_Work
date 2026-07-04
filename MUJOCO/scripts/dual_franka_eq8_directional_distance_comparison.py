@@ -101,6 +101,11 @@ def parse_arguments():
         help="draw fitted collision spheres in every viewer",
     )
     parser.add_argument(
+        "--top-view",
+        action="store_true",
+        help="use a full overhead camera for all four cases",
+    )
+    parser.add_argument(
         "--disable-collision-penalty",
         action="store_true",
         help="disable the shared soft collision term in all four cases",
@@ -230,7 +235,10 @@ def run_case(case, arguments):
 
     try:
         with scene.launch_viewer() as viewer:
-            scene.configure_viewer_camera(viewer)
+            scene.configure_viewer_camera(
+                viewer,
+                top_view=arguments.top_view,
+            )
             scene.settle(viewer, rate)
             scene.run_grasp_approach(viewer, rate)
             print("Closing both grippers...")

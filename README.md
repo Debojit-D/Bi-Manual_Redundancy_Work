@@ -50,21 +50,30 @@ stable physical frictional grasping.
 ```text
 MUJOCO/
 ├── assets/                         Furniture and scene assets
+├── plotting_scripts/
+│   ├── plot_eq8_pick_place_comparison.py
+│   ├── plot_eq8_static_comparison.py
+│   └── plot_eq8_static_optimization.py
 ├── robot_descriptions/             Franka and object MJCF models
 ├── scripts/
 │   ├── dual_franka_eq8_baseline_pick_place.py
+│   ├── dual_franka_eq8_6d_pick_place_comparison.py
 │   ├── dual_franka_eq8_optimized_6d_pick_place.py
 │   ├── dual_franka_eq8_optimized_pick_place.py
+│   ├── dual_franka_eq8_pick_place_comparison.py
+│   ├── dual_franka_eq8_static_comparison.py
 │   ├── dual_franka_eq8_static_optimization.py
 │   └── legacy_code/                Earlier MuJoCo experiments
 └── utils/
+    ├── data_recording/              Equation (8) CSV recording
     ├── grasping_kinematics/
     │   └── cooperative_manipulation_kinematics.py
     ├── redundancy_optimization/
     │   ├── equation_8_controller.py
     │   └── manipulability_optimization.py
-    └── scene_builder/
-        └── dual_franka_mujoco_scene.py
+    ├── scene_builder/
+    │   └── dual_franka_mujoco_scene.py
+    └── video_recording.py           Headless dual-view MP4 recording
 
 src/legacy_code/                    Earlier ROS Python experiments
 src/legacy_gazebo_stack/            Archived ROS/Gazebo packages
@@ -121,8 +130,9 @@ it cannot find `mink==1.1.1`; the release is being hidden because it is not
 compatible with that interpreter.
 
 The last command installs the repository and the pinned dependencies from
-`pyproject.toml`, including MuJoCo, Mink, DAQP, NumPy, SciPy, and the loop-rate
-limiter. The environment is local to this repository; the former workaround
+`pyproject.toml`, including MuJoCo, Mink, DAQP, NumPy, SciPy, tqdm, and the
+loop-rate limiter. The environment is local to this repository; the former
+workaround
 
 ```bash
 source /home/debojit/debojit/Touch2Screw/.venv/bin/activate
@@ -137,6 +147,14 @@ python -c "import importlib.metadata as m, mujoco; from qpsolvers import availab
 ```
 
 `daqp` must appear in the solver list.
+
+Headless MP4 recording also requires the `ffmpeg` executable:
+
+```bash
+ffmpeg -version
+```
+
+On Ubuntu, install it with `sudo apt install ffmpeg` if it is missing.
 
 Whenever opening a new terminal, activate the environment with:
 
@@ -159,6 +177,9 @@ python MUJOCO/utils/scene_builder/dual_franka_mujoco_scene.py
 
 This opens the shared scene at the home configuration, keeps the arm targets
 active, and applies arm bias compensation until the viewer is closed.
+Use `--top-view` for the directly overhead camera. Interactive experiment
+runners support the same flag. The shared scene opens viewers maximized and
+uses separate configurable look-at targets for the perspective and top views.
 
 ### Equation (8) baseline
 
@@ -214,6 +235,27 @@ The following world-frame pose settings are editable near the top of the file:
 Positions are metres. Euler angles are extrinsic XYZ radians and describe the
 controlled `site_top_middle` table frame.
 
+### Four-mode pick-and-place comparisons
+
+Run the baseline, velocity, force, and directional-force modes through the
+same lift-and-return trajectory:
+
+```bash
+python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison
+```
+
+Run the same four modes through the configurable full-SE(3) trajectory:
+
+```bash
+python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison
+```
+
+Both runners use four independent MuJoCo scenes and accept `--record-data`,
+`--hold-duration`, `--top-view`, collision options, and optimizer limits. The
+6D runner additionally exposes all start, intermediate, and goal poses and
+both trajectory-segment durations through its CLI. Run either command with
+`--help` for the complete option list.
+
 ### Static null-space optimization
 
 ```bash
@@ -268,6 +310,35 @@ Recording creates a separately named, timestamped CSV for each mode. The
 `optimization_mode` column distinguishes `baseline`, `velocity`, `force`, and
 `directional_force` samples.
 
+### Headless dual-view video recording
+
+Every four-mode comparison can run without opening the interactive viewer and
+record both the tuned perspective camera and the overhead camera:
+
+```bash
+python -m MUJOCO.scripts.dual_franka_eq8_static_comparison --record-video
+python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison --record-video
+python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison --record-video
+```
+
+Headless recording skips real-time sleeping and displays simulation progress
+with `tqdm`. Each invocation creates a timestamped directory under
+`outputs/mujoco_videos/`, with one directory per mode and two files inside:
+
+```text
+outputs/mujoco_videos/<experiment_timestamp>/
+├── baseline/{perspective.mp4,top_view.mp4}
+├── velocity/{perspective.mp4,top_view.mp4}
+├── force/{perspective.mp4,top_view.mp4}
+└── directional_force/{perspective.mp4,top_view.mp4}
+```
+
+The defaults are 1280x720 at 30 fps. Override them with `--video-width`,
+`--video-height`, and `--video-fps`, or choose another root with
+`--video-output-dir`. Width and height must be positive even numbers. Video
+recording can be combined with `--record-data`, but fitted collision-sphere
+overlays are currently available only in the interactive viewer.
+
 ### Directional-distance 2x2 permutation test
 
 The experimental directional-distance optimizer has a separate four-case
@@ -309,6 +380,18 @@ optimization-progress plot; and actuator effort. For the normalized plot,
 higher-is-better metrics are mapped toward `1`, while the lower-is-better
 directional cost is inverted so progress has the same meaning. Effort is
 computed directly from the 14 recorded joint torques as `sqrt(tau @ tau.T)`.
+
+Plot the newest simple pick-and-place four-mode dataset with:
+
+```bash
+python -m MUJOCO.plotting_scripts.plot_eq8_pick_place_comparison
+```
+
+Use `--experiment 6d` for the newest 6D comparison dataset. This plotter
+creates the measured 3D object path, all three manipulability metrics,
+tracking and grasp errors, null-space speed, actuator effort, inter-arm
+clearance, and joint-limit margin. Use `--format`, `--output-dir`, and `--show`
+to control figure output.
 
 ### CSV data recording
 
@@ -485,6 +568,7 @@ python -m pip install -e .
 
 ### Viewer does not open
 
-The interactive viewer requires a working desktop/OpenGL display. Headless
-simulation can still use MuJoCo with an appropriate EGL or OSMesa setup, but
-the provided entry points launch the interactive passive viewer by default.
+The interactive viewer requires a working desktop/OpenGL display. The
+`--record-video` path opens no visible simulation window, but its invisible
+GLFW rendering context still requires a working OpenGL/display environment on
+the current machine. Confirm `ffmpeg -version` succeeds before recording.
