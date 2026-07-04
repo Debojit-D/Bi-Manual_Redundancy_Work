@@ -10,9 +10,13 @@ import numpy as np
 
 CSV_COLUMNS = [
     "time",
+    "optimization_mode",
     "objective",
     "collision_version",
     "objective_value",
+    "velocity_manipulability",
+    "force_manipulability",
+    "directional_force_cost",
     "object_x",
     "object_y",
     "object_z",
@@ -88,11 +92,17 @@ class Equation8CSVRecorder:
         *,
         experiment_name,
         output_path=None,
+        optimization_mode=None,
     ):
         self.scene = scene
         self.kinematics = kinematics
         self.equation_8 = equation_8
         self.optimizer = optimizer
+        self.optimization_mode = (
+            optimization_mode
+            if optimization_mode is not None
+            else optimizer.objective.value
+        )
         self.output_path = self._make_output_path(
             experiment_name,
             output_path,
@@ -172,9 +182,19 @@ class Equation8CSVRecorder:
 
         row = {
             "time": elapsed_time,
+            "optimization_mode": self.optimization_mode,
             "objective": self.optimizer.objective.value,
             "collision_version": self.optimizer.collision_version.value,
             "objective_value": self.optimizer.value(data),
+            "velocity_manipulability": (
+                self.optimizer.velocity_manipulability(data)
+            ),
+            "force_manipulability": (
+                self.optimizer.force_manipulability(data)
+            ),
+            "directional_force_cost": (
+                self.optimizer.directional_force_cost(data)
+            ),
             "object_x": object_position[0],
             "object_y": object_position[1],
             "object_z": object_position[2],

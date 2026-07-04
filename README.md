@@ -73,14 +73,52 @@ data/legacy_data/                   Earlier recorded results
 
 ## Quick environment setup
 
-The active code is tested with Python 3.12 on Linux. From the repository root:
+The active code is tested with Python 3.12 on Linux. Confirm that Python 3.12
+is installed before creating the environment:
 
 ```bash
-python3 -m venv .venv
+python3.12 --version
+```
+
+From the repository root, create the environment explicitly with Python 3.12:
+
+```bash
+python3.12 -m venv .venv
 source .venv/bin/activate
+python --version  # Must report Python 3.12.x
 python -m pip install --upgrade pip
 python -m pip install -e .
 ```
+
+If `python3.12` is not installed (for example, Ubuntu 20.04 does not provide it
+in its standard repositories), install a user-local Python with
+[uv](https://docs.astral.sh/uv/). This does not replace the operating system's
+Python:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source "$HOME/.local/bin/env"
+uv python install 3.12
+uv venv --python 3.12 .venv
+source .venv/bin/activate
+python --version  # Must report Python 3.12.x
+uv pip install -e .
+```
+
+`uv venv` creates a minimal environment without the `pip` Python module by
+default, so `python -m pip` will report `No module named pip` in this setup.
+Use `uv pip` as shown above. Alternatively, `uv venv --seed --python 3.12
+.venv` creates an environment containing `pip`.
+
+If creating `.venv` fails, stop there: activation and installation cannot work
+until the environment exists. Outside an activated environment, `python` may
+refer to Python 2 on older Linux installations.
+
+Do not substitute an older system `python3` when creating the environment. The
+project requires Python 3.10 or newer, and its pinned dependencies are tested
+with Python 3.12. On Python 3.8, for example, pip may misleadingly report that
+it cannot find `mink==1.1.1`; the release is being hidden because it is not
+compatible with that interpreter.
 
 The last command installs the repository and the pinned dependencies from
 `pyproject.toml`, including MuJoCo, Mink, DAQP, NumPy, SciPy, and the loop-rate
@@ -189,6 +227,61 @@ Sequence:
 3. maintain zero desired object velocity; and
 4. continuously apply `(I - J_H^dagger J_H) phi_dot_opt`.
 
+The standalone runner remains independently usable. Select an objective with
+`--objective velocity`, `--objective force`, or
+`--objective directional_force`; use `--baseline` to suppress the null-space
+term while monitoring the selected metric. It starts immediately after the
+grasp is established and can either run until the viewer closes or for a fixed
+`--duration`.
+
+### Four-mode static comparison
+
+Run baseline and all three paper objectives as four independent viewer
+sessions:
+
+```bash
+python -m MUJOCO.scripts.dual_franka_eq8_static_comparison
+```
+
+The order is baseline, velocity manipulability, force manipulability, and
+directional-force manipulability. Each mode starts immediately after the
+grasp is established. It advances automatically once the maximum applied
+null-space joint speed remains at or below `0.005 rad/s` for `0.5 s` (after a
+minimum run time of `1 s`). Closing a viewer early also advances to the next
+mode. Customize the convergence rule or record the sequence with:
+
+```bash
+python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
+  --convergence-speed 0.005 --convergence-hold 0.5 --record-data
+```
+
+Convergence stopping is the default. For matched, fixed-duration recordings,
+pass `--duration`; this disables convergence stopping and gives every mode the
+same requested recording interval:
+
+```bash
+python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
+  --duration 10 --record-data
+```
+
+Recording creates a separately named, timestamped CSV for each mode. The
+`optimization_mode` column distinguishes `baseline`, `velocity`, `force`, and
+`directional_force` samples.
+
+Plot the newest four-mode dataset with:
+
+```bash
+python -m MUJOCO.plotting_scripts.plot_eq8_static_comparison
+```
+
+This produces five paper-oriented figures in
+`outputs/mujoco_data/static_comparison_figures/`: separate velocity, force,
+and directional-force metric plots; one combined `[0, 1]` min-max normalized
+optimization-progress plot; and actuator effort. For the normalized plot,
+higher-is-better metrics are mapped toward `1`, while the lower-is-better
+directional cost is inverted so progress has the same meaning. Effort is
+computed directly from the 14 recorded joint torques as `sqrt(tau @ tau.T)`.
+
 ### CSV data recording
 
 The static and optimized lift-and-lower experiments can record every Equation
@@ -216,6 +309,30 @@ positions, and actuator/bias/constraint/applied torque diagnostics.
 `tau_total_est_norm` uses
 `qfrc_actuator + qfrc_applied + qfrc_constraint - qfrc_bias` over the 14 arm
 DoFs.
+
+Create publication-oriented plots for a recorded static run with:
+
+```bash
+python -m MUJOCO.plotting_scripts.plot_eq8_static_optimization \
+  outputs/mujoco_data/<recording>.csv
+```
+
+The CSV argument is optional. Running the module without it uses the
+`DEFAULT_INPUT_CSV` path near the top of the plotting script, which can be
+edited for IDE Run/Debug use:
+
+```bash
+python -m MUJOCO.plotting_scripts.plot_eq8_static_optimization
+```
+
+By default, the script creates a sibling `<recording>_figures/` directory with
+PDF and 300 dpi PNG versions of six figure groups: normalized objective
+improvement, pose tracking, controller behavior, collision/joint-limit safety,
+joint-posture evolution, and actuator effort. It also writes `run_summary.txt`
+with headline metrics. Use `--output-dir`, `--format`, `--dpi`, and `--show` to
+customize the output; run the command with `--help` for details. These plots
+describe one representative run, so baseline comparisons and variability
+claims require additional matched recordings.
 
 Both module commands can also be run as file paths after the editable install:
 
