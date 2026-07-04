@@ -12,6 +12,13 @@ from .manipulability_optimization import (
     ManipulabilityOptimizer,
     OptimizationResult,
 )
+from .directional_distance_permutation_optimization import (
+    CapabilityMatrixKind,
+    DirectionalDistanceCase,
+    DirectionalDistanceOptimizationResult,
+    DirectionalDistancePermutationOptimizer,
+    DistanceDirection,
+)
 
 __all__ = [
     "Equation8Controller",
@@ -22,4 +29,9 @@ __all__ = [
     "ManipulabilityObjective",
     "ManipulabilityOptimizer",
     "OptimizationResult",
+    "CapabilityMatrixKind",
+    "DistanceDirection",
+    "DirectionalDistanceCase",
+    "DirectionalDistanceOptimizationResult",
+    "DirectionalDistancePermutationOptimizer",
 ]

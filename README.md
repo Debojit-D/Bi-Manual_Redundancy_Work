@@ -268,6 +268,34 @@ Recording creates a separately named, timestamped CSV for each mode. The
 `optimization_mode` column distinguishes `baseline`, `velocity`, `force`, and
 `directional_force` samples.
 
+### Directional-distance 2x2 permutation test
+
+The experimental directional-distance optimizer has a separate four-case
+runner; it does not replace the paper's static optimizer:
+
+```bash
+python -m MUJOCO.scripts.dual_franka_eq8_directional_distance_comparison
+```
+
+It runs force-capability minimize/maximize followed by velocity-capability
+minimize/maximize in independent viewer sessions. Convergence stopping is the
+default. Use a fixed interval and record all four cases with:
+
+```bash
+python -m MUJOCO.scripts.dual_franka_eq8_directional_distance_comparison \
+  --duration 10 --record-data
+```
+
+Plot the newest four permutation recordings with:
+
+```bash
+python -m MUJOCO.plotting_scripts.plot_eq8_directional_distance_comparison
+```
+
+The plotter creates four separate raw-distance figures, one combined `[0, 1]`
+normalized-progress figure, one actuator-effort figure, and a text summary in
+`outputs/mujoco_data/directional_distance_comparison_figures/`.
+
 Plot the newest four-mode dataset with:
 
 ```bash
