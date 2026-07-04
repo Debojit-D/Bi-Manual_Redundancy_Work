@@ -10,7 +10,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 
 from MUJOCO.plotting_scripts.publication_style import (
     COLORS,
@@ -36,6 +35,8 @@ MODE_COLORS = {
     "force": COLORS[1],
     "directional_force": COLORS[2],
 }
+
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -129,29 +130,37 @@ def selected_metric(run, metric):
     return run["values"]("objective_value")
 
 
+def plot_line(axis, x, y, *, color, label=None, **kwargs):
+    axis.plot(x, y, color=color, label=label, **kwargs)
+
+
 def plot_single_metric(run, metric, ylabel, title, direction):
     fig, axis = plt.subplots(figsize=(7.1, 3.4))
-    sns.lineplot(
-        x=run["values"]("time"),
-        y=selected_metric(run, metric),
-        ax=axis,
+    plot_line(
+        axis,
+        run["values"]("time"),
+        selected_metric(run, metric),
         color=MODE_COLORS[run["mode"]],
-        errorbar=None,
     )
     axis.set(xlabel="Time (s)", ylabel=ylabel, title=f"{title} ({direction})")
     axis.ticklabel_format(axis="y", style="plain", useOffset=False)
+    fig.tight_layout()
     return fig
 
 
 def normalize_progress(values, lower_is_better=False):
-    """Min-max normalize achieved optimization progress to [0, 1]."""
-    minimum = np.min(values)
-    maximum = np.max(values)
-    span = maximum - minimum
-    if np.isclose(span, 0.0):
+    """Normalize progress from the initial value.
+
+    Positive values always mean improvement.  This avoids the earlier
+    directional-force ambiguity where a decreasing distance was plotted as if
+    it were an increasing manipulability index.
+    """
+    start = values[0]
+    progress = start - values if lower_is_better else values - start
+    scale = np.max(np.abs(progress))
+    if np.isclose(scale, 0.0):
         return np.zeros_like(values)
-    normalized = (values - minimum) / span
-    return 1.0 - normalized if lower_is_better else normalized
+    return progress / scale
 
 
 def plot_normalized_progress(runs):
@@ -167,21 +176,19 @@ def plot_normalized_progress(runs):
             selected_metric(run, metric),
             lower_is_better=lower_is_better,
         )
-        sns.lineplot(
-            x=run["values"]("time"),
-            y=progress,
-            ax=axis,
+        plot_line(
+            axis,
+            run["values"]("time"),
+            progress,
             color=MODE_COLORS[mode],
             label=MODE_LABELS[mode],
-            errorbar=None,
         )
     axis.set(
         xlabel="Time (s)",
         ylabel="Normalized optimization progress",
-        title="Normalized manipulability optimization",
-        ylim=(-0.02, 1.02),
+        title="Normalized task-objective progress",
     )
-    axis.set_yticks(np.linspace(0.0, 1.0, 6))
+    axis.axhline(0.0, color="0.35", linewidth=0.8)
     axis.legend(loc="best")
     return fig
 
@@ -199,13 +206,12 @@ def plot_effort(runs):
     fig, axis = plt.subplots(figsize=(7.1, 3.4))
     for mode in MODE_ORDER:
         run = runs[mode]
-        sns.lineplot(
-            x=run["values"]("time"),
-            y=actuator_effort(run),
-            ax=axis,
+        plot_line(
+            axis,
+            run["values"]("time"),
+            actuator_effort(run),
             color=MODE_COLORS[mode],
             label=MODE_LABELS[mode],
-            errorbar=None,
         )
     axis.set(
         xlabel="Time (s)",
@@ -257,7 +263,7 @@ def main():
     directional_figure = plot_single_metric(
         runs["directional_force"],
         "directional_force_cost",
-        "Directional-force cost",
+        "Directional-force alignment distance",
         "Directional-force optimization",
         "lower is better",
     )
@@ -268,8 +274,8 @@ def main():
     figures = (
         ("01_velocity_manipulability", velocity_figure),
         ("02_force_manipulability", force_figure),
-        ("03_directional_force_cost", directional_figure),
-        ("04_normalized_manipulability", normalized_figure),
+        ("03_directional_force_alignment_distance", directional_figure),
+        ("04_normalized_task_objective_progress", normalized_figure),
         ("05_actuator_effort", effort_figure),
     )
     for stem, figure in figures:
