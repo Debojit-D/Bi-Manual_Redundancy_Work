@@ -38,13 +38,13 @@ DEFAULT_INPUT_CSV = REPOSITORY_ROOT / (
 OBJECTIVE_LABELS = {
     "velocity": "Velocity manipulability",
     "force": "Force manipulability",
-    "directional_force": "Directional-force manipulability",
+    "directional_force": "Directional-force alignment distance",
 }
 MODE_LABELS = {
     "baseline": "Baseline (null-space optimization disabled)",
     "velocity": "Velocity-manipulability optimization",
     "force": "Force-manipulability optimization",
-    "directional_force": "Directional-force-manipulability optimization",
+    "directional_force": "Directional-force alignment optimization",
 }
 
 
@@ -137,20 +137,74 @@ def label_panels(axes):
         )
 
 
-def plot_objective(time, values):
-    initial = values[0]
-    relative = 100.0 * (values / initial - 1.0)
+def objective_series(rows, values):
+    """Return the physically meaningful objective curve for this CSV.
+
+    The optimizer now treats every objective as a maximization score.  For the
+    directional-force case, the score is ``-D_dir``.  For plotting and paper
+    reporting, however, the raw alignment distance ``D_dir`` is clearer, so
+    this helper returns that distance and marks it as lower-is-better.
+    """
+    objective_key = rows[0].get("objective", "unknown")
+    if objective_key == "velocity":
+        return {
+            "key": objective_key,
+            "metric": values("velocity_manipulability"),
+            "ylabel": "Velocity manipulability index",
+            "title": "Velocity-manipulability objective",
+            "lower_is_better": False,
+        }
+    if objective_key == "force":
+        return {
+            "key": objective_key,
+            "metric": values("force_manipulability"),
+            "ylabel": "Force manipulability index",
+            "title": "Force-manipulability objective",
+            "lower_is_better": False,
+        }
+    if objective_key == "directional_force":
+        return {
+            "key": objective_key,
+            "metric": values("directional_force_cost"),
+            "ylabel": "Directional-force alignment distance",
+            "title": "Directional-force alignment objective",
+            "lower_is_better": True,
+        }
+    return {
+        "key": objective_key,
+        "metric": values("objective_value"),
+        "ylabel": "Objective value",
+        "title": "Objective evolution",
+        "lower_is_better": False,
+    }
+
+
+def improvement_percent(metric, lower_is_better):
+    initial = metric[0]
+    if np.isclose(initial, 0.0):
+        return np.zeros_like(metric)
+    if lower_is_better:
+        return 100.0 * (1.0 - metric / initial)
+    return 100.0 * (metric / initial - 1.0)
+
+
+def plot_objective(time, rows, values):
+    info = objective_series(rows, values)
+    metric = info["metric"]
+    relative = improvement_percent(metric, info["lower_is_better"])
+    direction_note = "lower is better" if info["lower_is_better"] else "higher is better"
+
     fig, axes = plt.subplots(1, 2, figsize=(PAPER_WIDTH_IN, 2.75))
 
-    axes[0].plot(time, values, color=COLORS[0])
-    axes[0].scatter(time[[0, -1]], values[[0, -1]], color=COLORS[1], zorder=3)
-    axes[0].set(xlabel="Time (s)", ylabel="Force manipulability index")
-    axes[0].set_title("Objective evolution")
+    axes[0].plot(time, metric, color=COLORS[0])
+    axes[0].scatter(time[[0, -1]], metric[[0, -1]], color=COLORS[1], zorder=3)
+    axes[0].set(xlabel="Time (s)", ylabel=info["ylabel"])
+    axes[0].set_title(f"{info['title']} ({direction_note})")
 
     axes[1].plot(time, relative, color=COLORS[2])
     axes[1].axhline(0.0, color="0.35", linewidth=0.8)
     axes[1].set(xlabel="Time (s)", ylabel="Improvement from initial value (%)")
-    axes[1].set_title(f"Normalized improvement: {relative[-1]:.1f}%")
+    axes[1].set_title(f"Net improvement: {relative[-1]:.1f}%")
     label_panels(axes)
     fig.tight_layout()
     return fig
@@ -383,29 +437,39 @@ def plot_actuator_effort(time, values):
 
 def write_summary(path, rows, values, safety_margin):
     time = values("time")
-    objective = values("objective_value")
+    objective_info = objective_series(rows, values)
+    objective = objective_info["metric"]
+    objective_change = improvement_percent(
+        objective,
+        objective_info["lower_is_better"],
+    )
     position_mm = 1000.0 * values("position_error_norm")
     orientation_deg = np.rad2deg(values("orientation_error_norm"))
     clearance_cm = 100.0 * values("min_inter_arm_clearance")
     duration = time[-1] - time[0]
     frequency = (len(time) - 1) / duration if duration > 0.0 else float("nan")
-    improvement = 100.0 * (objective[-1] / objective[0] - 1.0)
     below_margin = np.mean(clearance_cm < 100.0 * safety_margin) * 100.0
     objective_key = rows[0].get("objective", "unknown")
     mode_key = rows[0].get("optimization_mode") or objective_key
+    direction_note = (
+        "lower is better"
+        if objective_info["lower_is_better"]
+        else "higher is better"
+    )
     lines = [
         "Static Equation (8) representative-run summary",
         "================================================",
         f"Optimization mode: {MODE_LABELS.get(mode_key, mode_key)}",
         f"Monitored objective: {OBJECTIVE_LABELS.get(objective_key, objective_key)}",
+        f"Objective direction: {direction_note}",
         f"Mode identifier: {mode_key}",
         f"Collision model: {rows[0].get('collision_version', 'unknown')}",
         f"Samples: {len(time)}",
         f"Duration: {duration:.3f} s",
         f"Nominal sample rate: {frequency:.3f} Hz",
         "",
-        f"Objective value: {objective[0]:.6g} -> {objective[-1]:.6g}",
-        f"Normalized objective improvement: {improvement:.3f} %",
+        f"Objective metric: {objective[0]:.6g} -> {objective[-1]:.6g}",
+        f"Net objective improvement: {objective_change[-1]:.3f} %",
         f"Maximum position error: {np.max(position_mm):.3f} mm",
         f"RMS position error: {np.sqrt(np.mean(position_mm**2)):.3f} mm",
         f"Maximum orientation error: {np.max(orientation_deg):.4f} deg",
@@ -438,7 +502,7 @@ def main():
     configure_style()
 
     figures = [
-        ("01_objective_improvement", plot_objective(time, values("objective_value"))),
+        ("01_objective_improvement", plot_objective(time, rows, values)),
         ("02_pose_tracking", plot_pose_tracking(time, values)),
         ("03_controller_behavior", plot_controller(time, values)),
         ("04_safety_metrics", plot_safety(time, values, arguments.safety_margin)),
