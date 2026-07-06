@@ -78,9 +78,24 @@ MUJOCO/
 src/legacy_code/                    Earlier ROS Python experiments
 src/legacy_gazebo_stack/            Archived ROS/Gazebo packages
 data/legacy_data/                   Earlier recorded results
+mujoco_curobo_bridge/               Pinned external bridge submodule
 ```
 
 ## Quick environment setup
+
+Clone the project together with its external bridge:
+
+```bash
+git clone --recurse-submodules \
+  https://github.com/Debojit-D/Bi-Manual_Redundancy_Work.git
+cd Bi-Manual_Redundancy_Work
+```
+
+For an existing checkout, initialize or refresh the pinned bridge with:
+
+```bash
+git submodule update --init --recursive
+```
 
 The active code is tested with Python 3.12 on Linux. Confirm that Python 3.12
 is installed before creating the environment:

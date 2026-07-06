@@ -1,5 +1,0 @@
-mujoco>=3.1.0
-numpy>=1.24
-
-# Install cuRobo v0.8 and its matching CUDA/PyTorch extra separately with uv.
-# See README.md; an unqualified torch wheel can select the wrong CUDA build.
