@@ -1,0 +1,3 @@
+[submodule "mujoco_curobo_bridge"]
+	path = mujoco_curobo_bridge
+	url = https://github.com/Debojit-D/mujoco_curobo_bridge.git
