@@ -25,6 +25,28 @@ RIGHT_COLLISION_BODIES = (
     "hand_r",
 )
 
+LEFT_TABLE_COLLISION_BODIES = (
+    "link3_l",
+    "link4_l",
+    "link5_l",
+    "link6_l",
+    "link7_l",
+)
+
+RIGHT_TABLE_COLLISION_BODIES = (
+    "link3_r",
+    "link4_r",
+    "link5_r",
+    "link6_r",
+    "link7_r",
+)
+
+TABLE_TOP_HALF_SIZE = np.array([0.202, 0.134, 0.005])
+KNOWN_TABLE_TOP_GEOM_NAMES = (
+    "vention_table_top_collision",
+    "table_top_collision",
+)
+
 
 class ManipulabilityObjective(str, Enum):
     """The three redundancy objectives compared in the paper."""
@@ -76,6 +98,11 @@ class ManipulabilityOptimizer:
         collision_sphere_radius=0.07,
         collision_version=CollisionModelVersion.VERSION1,
         collision_sphere_model_path=None,
+        enable_table_collision_penalty=False,
+        table_collision_weight=3000.0,
+        table_collision_safety_margin=0.04,
+        table_collision_proximity_scale=0.01,
+        table_collision_geom_name=None,
     ):
         self.kinematics = kinematics
         self.model = kinematics.model
@@ -92,6 +119,18 @@ class ManipulabilityOptimizer:
         self.collision_proximity_scale = float(collision_proximity_scale)
         self.collision_sphere_radius = float(collision_sphere_radius)
         self.collision_version = CollisionModelVersion(collision_version)
+        self.enable_table_collision_penalty = bool(
+            enable_table_collision_penalty
+        )
+        self.table_collision_weight = float(table_collision_weight)
+        self.table_collision_safety_margin = float(
+            table_collision_safety_margin
+        )
+        self.table_collision_proximity_scale = float(
+            table_collision_proximity_scale
+        )
+        self.table_collision_geom_name = table_collision_geom_name
+        self.table_collision_geom_id = -1
         # Resolve names once: finite-difference evaluations reuse these IDs.
         self.left_collision_body_ids = np.array(
             [self.model.body(name).id for name in LEFT_COLLISION_BODIES],
@@ -107,8 +146,21 @@ class ManipulabilityOptimizer:
         self.right_detailed_body_ids = np.empty(0, dtype=int)
         self.right_detailed_centers = np.empty((0, 3))
         self.right_detailed_radii = np.empty(0)
-        if self.collision_version is CollisionModelVersion.VERSION2:
+        self.left_table_body_ids = np.empty(0, dtype=int)
+        self.left_table_centers = np.empty((0, 3))
+        self.left_table_radii = np.empty(0)
+        self.right_table_body_ids = np.empty(0, dtype=int)
+        self.right_table_centers = np.empty((0, 3))
+        self.right_table_radii = np.empty(0)
+        if (
+            self.collision_version is CollisionModelVersion.VERSION2
+            or self.enable_table_collision_penalty
+        ):
             self._load_detailed_collision_spheres(collision_sphere_model_path)
+        if self.enable_table_collision_penalty:
+            self.table_collision_geom_id = self._resolve_table_collision_geom(
+                table_collision_geom_name
+            )
         self.desired_force_matrix = self._make_direction_matrix(
             desired_wrench_direction
         )
@@ -127,6 +179,16 @@ class ManipulabilityOptimizer:
             raise ValueError("collision_proximity_scale must be positive")
         if self.collision_sphere_radius < 0.0:
             raise ValueError("collision_sphere_radius must be nonnegative")
+        if self.table_collision_weight < 0.0:
+            raise ValueError("table_collision_weight must be nonnegative")
+        if self.table_collision_safety_margin < 0.0:
+            raise ValueError(
+                "table_collision_safety_margin must be nonnegative"
+            )
+        if self.table_collision_proximity_scale <= 0.0:
+            raise ValueError(
+                "table_collision_proximity_scale must be positive"
+            )
 
     @staticmethod
     def _is_descendant(model, body_id, root_id):
@@ -149,6 +211,7 @@ class ManipulabilityOptimizer:
         # the optimization cost and retain all articulated arm/hand spheres.
         excluded_bodies = {"franka1", "franka2", "link0_l", "link0_r"}
         detailed = {"left": [], "right": []}
+        table = {"left": [], "right": []}
 
         for geom_id in range(sphere_model.ngeom):
             geom_name = sphere_model.geom(geom_id).name
@@ -174,13 +237,19 @@ class ManipulabilityOptimizer:
                 raise ValueError(
                     f"Sphere body {body_name!r} is absent from the target model"
                 )
-            detailed[side].append(
-                (
-                    target_body_id,
-                    sphere_model.geom_pos[geom_id].copy(),
-                    float(sphere_model.geom_size[geom_id, 0]),
-                )
+            entry = (
+                target_body_id,
+                sphere_model.geom_pos[geom_id].copy(),
+                float(sphere_model.geom_size[geom_id, 0]),
             )
+            detailed[side].append(entry)
+            table_bodies = (
+                LEFT_TABLE_COLLISION_BODIES
+                if side == "left"
+                else RIGHT_TABLE_COLLISION_BODIES
+            )
+            if body_name in table_bodies:
+                table[side].append(entry)
 
         if not detailed["left"] or not detailed["right"]:
             raise ValueError(
@@ -204,6 +273,106 @@ class ManipulabilityOptimizer:
                 f"{side}_detailed_radii",
                 np.array([entry[2] for entry in entries], dtype=float),
             )
+
+        self._store_table_collision_spheres(table)
+
+    def _store_table_collision_spheres(self, table):
+        """Store fitted spheres belonging only to non-grasping arm links."""
+        for side, allowed_bodies in (
+            ("left", LEFT_TABLE_COLLISION_BODIES),
+            ("right", RIGHT_TABLE_COLLISION_BODIES),
+        ):
+            entries = table[side]
+            if not entries:
+                raise ValueError(
+                    f"No fitted {side} arm-table collision spheres found"
+                )
+            body_ids = np.array([entry[0] for entry in entries], dtype=int)
+            body_names = {self.model.body(body_id).name for body_id in body_ids}
+            invalid_names = {
+                name
+                for name in body_names
+                if name not in allowed_bodies
+                or "finger" in name.lower()
+                or name in {"hand_l", "hand_r"}
+            }
+            if invalid_names:
+                raise ValueError(
+                    "Invalid grasping bodies in arm-table sphere set: "
+                    f"{sorted(invalid_names)}"
+                )
+            setattr(self, f"{side}_table_body_ids", body_ids)
+            setattr(
+                self,
+                f"{side}_table_centers",
+                np.array([entry[1] for entry in entries], dtype=float),
+            )
+            setattr(
+                self,
+                f"{side}_table_radii",
+                np.array([entry[2] for entry in entries], dtype=float),
+            )
+
+    def _resolve_table_collision_geom(self, requested_name):
+        """Resolve the table top collision box by name or model geometry."""
+        if requested_name is not None:
+            geom_id = mujoco.mj_name2id(
+                self.model,
+                mujoco.mjtObj.mjOBJ_GEOM,
+                str(requested_name),
+            )
+            if geom_id < 0:
+                raise ValueError(
+                    f"Table collision geom {requested_name!r} was not found"
+                )
+            self._validate_table_box_geom(geom_id)
+            return geom_id
+
+        for geom_name in KNOWN_TABLE_TOP_GEOM_NAMES:
+            geom_id = mujoco.mj_name2id(
+                self.model,
+                mujoco.mjtObj.mjOBJ_GEOM,
+                geom_name,
+            )
+            if geom_id >= 0:
+                self._validate_table_box_geom(geom_id)
+                return geom_id
+
+        table_root_id = mujoco.mj_name2id(
+            self.model,
+            mujoco.mjtObj.mjOBJ_BODY,
+            "vention_table",
+        )
+        if table_root_id < 0:
+            raise ValueError(
+                "Could not auto-detect the table top collision geom: "
+                "body 'vention_table' is absent"
+            )
+        candidates = []
+        for geom_id in range(self.model.ngeom):
+            body_id = int(self.model.geom_bodyid[geom_id])
+            if not self._is_descendant(self.model, body_id, table_root_id):
+                continue
+            if self.model.geom_type[geom_id] != mujoco.mjtGeom.mjGEOM_BOX:
+                continue
+            if np.allclose(
+                self.model.geom_size[geom_id],
+                TABLE_TOP_HALF_SIZE,
+                rtol=0.0,
+                atol=1e-4,
+            ):
+                candidates.append(geom_id)
+        if len(candidates) != 1:
+            raise ValueError(
+                "Could not uniquely auto-detect the table top collision box "
+                f"with half-size {TABLE_TOP_HALF_SIZE.tolist()}; found "
+                f"{len(candidates)} candidates. Pass table_collision_geom_name."
+            )
+        return candidates[0]
+
+    def _validate_table_box_geom(self, geom_id):
+        if self.model.geom_type[geom_id] != mujoco.mjtGeom.mjGEOM_BOX:
+            raise ValueError("table_collision_geom_name must identify a box geom")
 
     @staticmethod
     def _sphere_world_positions(data, body_ids, local_centers):
@@ -342,9 +511,96 @@ class ManipulabilityOptimizer:
             np.column_stack((right_positions, self.right_detailed_radii)),
         )
 
+    def table_collision_spheres(self, data):
+        """Return arm-only table spheres as left/right xyz-radius arrays."""
+        if not self.left_table_radii.size or not self.right_table_radii.size:
+            return np.empty((0, 4)), np.empty((0, 4))
+        left_positions = self._sphere_world_positions(
+            data,
+            self.left_table_body_ids,
+            self.left_table_centers,
+        )
+        right_positions = self._sphere_world_positions(
+            data,
+            self.right_table_body_ids,
+            self.right_table_centers,
+        )
+        return (
+            np.column_stack((left_positions, self.left_table_radii)),
+            np.column_stack((right_positions, self.right_table_radii)),
+        )
+
+    def _sphere_to_box_surface_clearances(
+        self,
+        data,
+        sphere_positions,
+        sphere_radii,
+        table_geom_id,
+    ):
+        """Return signed sphere-surface clearances to an oriented box."""
+        sphere_positions = np.asarray(sphere_positions, dtype=float)
+        sphere_radii = np.asarray(sphere_radii, dtype=float)
+        if sphere_positions.ndim != 2 or sphere_positions.shape[1] != 3:
+            raise ValueError("sphere_positions must have shape (n, 3)")
+        if sphere_radii.shape != (sphere_positions.shape[0],):
+            raise ValueError("sphere_radii must have shape (n,)")
+        box_center = data.geom_xpos[table_geom_id]
+        box_rotation = data.geom_xmat[table_geom_id].reshape(3, 3)
+        box_half_size = self.model.geom_size[table_geom_id]
+        local_positions = (sphere_positions - box_center) @ box_rotation
+        q = np.abs(local_positions) - box_half_size
+        outside_distance = np.linalg.norm(np.maximum(q, 0.0), axis=1)
+        inside_distance = np.minimum(np.max(q, axis=1), 0.0)
+        signed_center_distance = outside_distance + inside_distance
+        return signed_center_distance - sphere_radii
+
+    def _arm_table_clearances(self, data):
+        """Return all arm-sphere clearances to the table top box."""
+        if self.table_collision_geom_id < 0:
+            try:
+                self.table_collision_geom_id = (
+                    self._resolve_table_collision_geom(
+                        self.table_collision_geom_name
+                    )
+                )
+            except ValueError:
+                if self.enable_table_collision_penalty:
+                    raise
+                return np.empty(0)
+        left_positions = self._sphere_world_positions(
+            data,
+            self.left_table_body_ids,
+            self.left_table_centers,
+        )
+        right_positions = self._sphere_world_positions(
+            data,
+            self.right_table_body_ids,
+            self.right_table_centers,
+        )
+        left_clearances = self._sphere_to_box_surface_clearances(
+            data,
+            left_positions,
+            self.left_table_radii,
+            self.table_collision_geom_id,
+        )
+        right_clearances = self._sphere_to_box_surface_clearances(
+            data,
+            right_positions,
+            self.right_table_radii,
+            self.table_collision_geom_id,
+        )
+        return np.concatenate((left_clearances, right_clearances))
+
     def minimum_inter_arm_clearance(self, data):
-        """Return the closest coarse-sphere inter-arm clearance in metres."""
+        """Return the closest inter-arm sphere clearance in metres."""
         return float(np.min(self._inter_arm_clearances(data)))
+
+    def minimum_arm_table_clearance(self, data):
+        """Return the closest arm-sphere clearance to the table top box."""
+        clearances = self._arm_table_clearances(data)
+        if not clearances.size:
+            return float("inf")
+        return float(np.min(clearances))
 
     def inter_arm_collision_cost(self, data):
         """Return a distance-weighted inter-arm proximity cost.
@@ -371,6 +627,31 @@ class ManipulabilityOptimizer:
             )
         return float(np.sum(violations**2))
 
+    def arm_table_collision_cost(self, data):
+        """Return the smooth arm-sphere/table-box proximity cost."""
+        clearances = self._arm_table_clearances(data)
+        if not clearances.size:
+            return 0.0
+        signed_violations = self.table_collision_safety_margin - clearances
+        scale = self.table_collision_proximity_scale
+        violations = scale * np.logaddexp(
+            0.0,
+            signed_violations / scale,
+        )
+        return float(np.sum(violations**2))
+
+    def total_collision_cost(self, data):
+        """Return the weighted sum of enabled inter-arm and table costs."""
+        cost = 0.0
+        if self.enable_collision_penalty:
+            cost += self.collision_weight * self.inter_arm_collision_cost(data)
+        if self.enable_table_collision_penalty:
+            cost += (
+                self.table_collision_weight
+                * self.arm_table_collision_cost(data)
+            )
+        return float(cost)
+
     def _sqrt_determinant(self, matrix):
         sign, log_determinant = np.linalg.slogdet(matrix)
         if sign <= 0:
@@ -380,6 +661,7 @@ class ManipulabilityOptimizer:
 
     def value(self, data, objective=None):
         selected = ManipulabilityObjective(objective or self.objective)
+        collision_cost = self.total_collision_cost(data)
         if selected is ManipulabilityObjective.VELOCITY:
             value = self.velocity_manipulability(data)
         elif selected is ManipulabilityObjective.FORCE:
@@ -388,20 +670,9 @@ class ManipulabilityOptimizer:
             # optimization_velocity() reverses this gradient to minimize the
             # directional distance. Adding collision cost here therefore
             # minimizes both directional error and collision violations.
-            value = self.directional_force_cost(data)
-            if self.enable_collision_penalty:
-                value += (
-                    self.collision_weight
-                    * self.inter_arm_collision_cost(data)
-                )
-            return value
+            return self.directional_force_cost(data) + collision_cost
 
-        if self.enable_collision_penalty and selected in (
-            ManipulabilityObjective.VELOCITY,
-            ManipulabilityObjective.FORCE,
-        ):
-            value -= self.collision_weight * self.inter_arm_collision_cost(data)
-        return value
+        return value - collision_cost
 
     def gradient(self, data, objective=None):
         """Return the central-difference derivative with respect to 14 joints."""
