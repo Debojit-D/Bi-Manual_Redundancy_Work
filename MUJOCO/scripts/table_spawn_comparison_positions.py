@@ -1,4 +1,8 @@
-"""Shared table-reference positions for Equation (8) comparison sweeps."""
+"""Shared pickup/start positions for Equation (8) comparison sweeps.
+
+Only pickup positions belong here. Intermediate and final placement poses are
+experiment-specific and remain configurable through their CLI arguments.
+"""
 
 
 TABLE_SPAWN_CASES = (

@@ -63,7 +63,7 @@ class DualFrankaMuJoCoScene:
         approach_timeout=20.0,
         approach_segment_duration=3.0,
         maximum_approach_joint_speed=0.6,
-        pregrasp_distance=0.05,
+        pregrasp_distance=0.10,
         grasp_penetration=0.02,
     ):
         self.model_path = Path(model_path or self.DEFAULT_MODEL_PATH)
@@ -121,6 +121,7 @@ class DualFrankaMuJoCoScene:
         self.arm_dofs = np.concatenate(
             (self.left_arm_dofs, self.right_arm_dofs)
         )
+        self.home_arm_configuration = self.arm_configuration()
         self.left_task, self.right_task, self.posture_task = self._make_tasks()
         self.tasks = [self.left_task, self.right_task, self.posture_task]
 
@@ -374,6 +375,16 @@ class DualFrankaMuJoCoScene:
             self.step(viewer)
             rate.sleep()
 
+    def open_grippers(self, viewer, rate, duration=1.0):
+        """Open both grippers while holding the current arm configuration."""
+        for _ in range(int(duration / self.control_dt)):
+            if not viewer.is_running():
+                return False
+            self.command(self.arm_configuration(), self.gripper_open)
+            self.step(viewer)
+            rate.sleep()
+        return True
+
     def configure_viewer_camera(self, viewer, *, top_view=False):
         """Apply the camera preset and keep the infinite background dark."""
         if viewer.user_scn is not None:
@@ -610,9 +621,16 @@ class DualFrankaMuJoCoScene:
         self.step(viewer)
         rate.sleep()
 
-    def run_grasp_approach(self, viewer, rate):
-        """Move both open grippers through the smooth grasp waypoints."""
-        left_waypoints, right_waypoints = self._approach_waypoints()
+    def _run_gripper_waypoints(
+        self,
+        viewer,
+        rate,
+        left_waypoints,
+        right_waypoints,
+        *,
+        action,
+    ):
+        """Move both open grippers through paired Cartesian waypoints."""
         trajectory_steps = int(
             self.approach_segment_duration * self.control_hz
         )
@@ -621,7 +639,9 @@ class DualFrankaMuJoCoScene:
         for index, (left_target, right_target) in enumerate(
             zip(left_waypoints, right_waypoints), start=1
         ):
-            print(f"Smoothly approaching grasp waypoint {index}...")
+            if not viewer.is_running():
+                return False
+            print(f"{action} waypoint {index}...")
             left_start = (
                 self.data.site_xpos[
                     self.model.site("attachment_site_left").id
@@ -636,6 +656,8 @@ class DualFrankaMuJoCoScene:
             )
 
             for step in range(1, trajectory_steps + 1):
+                if not viewer.is_running():
+                    return False
                 scale = self._quintic_scale(step / trajectory_steps)
                 self._set_mocap_targets(
                     self._interpolate_pose(left_start, left_target, scale),
@@ -647,14 +669,87 @@ class DualFrankaMuJoCoScene:
             self._set_mocap_targets(left_target, right_target)
             self._update_mink_targets()
             for _ in range(maximum_cycles):
+                if not viewer.is_running():
+                    return False
                 if self._target_reached(left_target, right_target):
-                    print(f"Grasp waypoint {index} reached.")
+                    print(f"{action} waypoint {index} reached.")
                     break
                 self._mink_control_step(viewer, rate)
             else:
                 raise RuntimeError(
-                    f"Timed out reaching grasp waypoint {index}."
+                    f"Timed out reaching {action.lower()} waypoint {index}."
                 )
+        return True
+
+    def run_grasp_approach(self, viewer, rate):
+        """Move both open grippers through the smooth grasp waypoints."""
+        left_waypoints, right_waypoints = self._approach_waypoints()
+        return self._run_gripper_waypoints(
+            viewer,
+            rate,
+            left_waypoints,
+            right_waypoints,
+            action="Smoothly approaching grasp",
+        )
+
+    def return_arms_home(
+        self,
+        viewer,
+        rate,
+        *,
+        duration=4.0,
+        settle_duration=0.5,
+    ):
+        """Return both open-gripper arms smoothly to the home1 keyframe."""
+        if duration <= 0.0:
+            raise ValueError("Home-return duration must be positive")
+        if settle_duration < 0.0:
+            raise ValueError("Home settle duration cannot be negative")
+        start = self.arm_configuration()
+        number_of_steps = max(1, int(round(duration * self.control_hz)))
+        print("Returning both arms to the home configuration...")
+        for step in range(1, number_of_steps + 1):
+            if not viewer.is_running():
+                return False
+            scale = self._quintic_scale(step / number_of_steps)
+            target = start + scale * (self.home_arm_configuration - start)
+            self.command(target, self.gripper_open)
+            self.step(viewer)
+            rate.sleep()
+        for _ in range(int(round(settle_duration * self.control_hz))):
+            if not viewer.is_running():
+                return False
+            self.command(self.home_arm_configuration, self.gripper_open)
+            self.step(viewer)
+            rate.sleep()
+        self.configuration.update(self.data.qpos)
+        self.posture_task.set_target_from_configuration(self.configuration)
+        print("Home configuration reached.")
+        return True
+
+    def run_grasp_disengagement(self, viewer, rate):
+        """Release, retreat to a table-relative post-grasp, then go home."""
+        if not viewer.is_running():
+            return False
+        if getattr(viewer, "user_scn", None) is not None:
+            viewer.user_scn.ngeom = 0
+        left_waypoints, right_waypoints = self._approach_waypoints()
+        # The first approach waypoint is the desired outward post-grasp pose.
+        left_postgrasp = [left_waypoints[0]]
+        right_postgrasp = [right_waypoints[0]]
+        print("Opening both grippers at the placed pose...")
+        if not self.open_grippers(viewer, rate):
+            return False
+        completed = self._run_gripper_waypoints(
+            viewer,
+            rate,
+            left_postgrasp,
+            right_postgrasp,
+            action="Retreating to post-grasp",
+        )
+        if not completed:
+            return False
+        return self.return_arms_home(viewer, rate)
 
     def _update_mink_targets(self):
         self.left_task.set_target(

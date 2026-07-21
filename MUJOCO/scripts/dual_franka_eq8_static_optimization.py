@@ -2,7 +2,9 @@
 
 The table is grasped and held at its measured pose; it is not lifted.  The
 selected paper objective generates ``phi_dot_opt``, while Equation (8)'s
-primary term continuously holds the object's position and orientation.
+primary term continuously holds the object's position and orientation. After
+the fixed-duration or converged run, the grippers open, retreat to post-grasp,
+and both arms return home.
 
 Run from the repository root according to what you want to inspect::
 
@@ -121,6 +123,7 @@ COLLISION_SPHERE_MODEL_PATH = (
 # Used only by DIRECTIONAL_FORCE: world-frame [Fx, Fy, Fz, Mx, My, Mz].
 DESIRED_WRENCH_DIRECTION = np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
 CHARACTERISTIC_LENGTH = 0.4
+DEFAULT_CONVERGENCE_SPEED = 0.005
 
 
 def run_static_optimization(
@@ -134,7 +137,7 @@ def run_static_optimization(
     recorder=None,
     show_collision_spheres=False,
     enable_redundancy_optimization=True,
-    convergence_speed_threshold=None,
+    convergence_speed_threshold=DEFAULT_CONVERGENCE_SPEED,
     convergence_hold_duration=0.5,
     minimum_convergence_time=1.0,
 ):
@@ -258,7 +261,7 @@ def main(
     objective=OBJECTIVE,
     enable_redundancy_optimization=True,
     duration=None,
-    convergence_speed_threshold=None,
+    convergence_speed_threshold=DEFAULT_CONVERGENCE_SPEED,
     convergence_hold_duration=0.5,
     minimum_convergence_time=1.0,
     top_view=False,
@@ -414,6 +417,8 @@ def main(
                 convergence_hold_duration=convergence_hold_duration,
                 minimum_convergence_time=minimum_convergence_time,
             )
+            if viewer.is_running():
+                scene.run_grasp_disengagement(viewer, rate)
     except KeyboardInterrupt:
         print("Interrupted by Ctrl+C; preserving recorded samples.")
     finally:
@@ -451,7 +456,7 @@ def parse_arguments():
     parser.add_argument(
         "--duration",
         type=float,
-        help="run duration in seconds; by default run until the viewer closes",
+        help="fixed run duration; by default run until optimization converges",
     )
     parser.add_argument(
         "--output-csv",
@@ -577,6 +582,11 @@ if __name__ == "__main__":
         objective=arguments.objective,
         enable_redundancy_optimization=not arguments.baseline,
         duration=arguments.duration,
+        convergence_speed_threshold=(
+            DEFAULT_CONVERGENCE_SPEED
+            if arguments.duration is None
+            else None
+        ),
         top_view=arguments.top_view,
         table_spawn_position=selected_table_position,
     )

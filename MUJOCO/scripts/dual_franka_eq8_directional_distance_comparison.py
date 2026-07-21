@@ -8,7 +8,8 @@ The runner creates four independent MuJoCo scenes in this order:
 4. ``A A.T`` + maximize distance (velocity avoidance).
 
 Convergence-based stopping is the default. Supplying ``--duration`` runs each
-case for the same fixed interval instead. Close any viewer to advance early.
+case for the same fixed interval instead. Each completed case disengages and
+returns home; close any viewer to advance early.
 """
 
 import argparse
@@ -263,6 +264,8 @@ def run_case(case, arguments):
                 convergence_hold_duration=arguments.convergence_hold,
                 minimum_convergence_time=arguments.minimum_run_time,
             )
+            if viewer.is_running():
+                scene.run_grasp_disengagement(viewer, rate)
     except KeyboardInterrupt:
         print("Interrupted by Ctrl+C; preserving recorded samples.")
         raise

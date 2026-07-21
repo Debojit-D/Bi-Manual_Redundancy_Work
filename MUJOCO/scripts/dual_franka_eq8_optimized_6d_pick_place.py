@@ -5,12 +5,29 @@ from the measured pickup pose through an intermediate pose to a final pose.
 Both translation and orientation vary along the path. Equation (8) preserves
 the primary object motion while the paper objective acts through the
 joint-limit-safe projected null-space term used by the static and simple
-pick-and-place experiments.
+pick-and-place experiments. After the final hold, the grippers open, retreat
+to table-relative post-grasp poses, and both arms return home.
 
 Run from the repository root according to what you want to inspect::
 
     # Default spatial pick-and-place with fitted collision spheres.
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place
+
+    # Select a numbered pickup position, then choose your own place locations.
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
+        --position 1 \\
+        --intermediate-position 0.40 0.00 0.52 \\
+        --goal-position 0.20 0.45 0.269
+
+    # Position map [x, y, z] metres (pickup/start position only):
+    # 1=(0.30, 0.15, 0.28), 2=(0.60, 0.15, 0.28)
+    # 3=(0.30, 0.00, 0.28), 4=(0.60, 0.00, 0.28)
+    # 5=(0.30,-0.15, 0.28), 6=(0.60,-0.15, 0.28)
+
+    # A fully custom pickup position remains available.
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
+        --start-position 0.45 -0.10 0.28 \\
+        --goal-position 0.25 0.35 0.30
 
     # Draw the fitted spheres during the complete SE(3) motion.
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
@@ -56,6 +73,10 @@ from MUJOCO.utils.redundancy_optimization import (
 )
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 from MUJOCO.utils.video_recording import TqdmSimulationRate
+from MUJOCO.scripts.table_spawn_comparison_positions import (
+    TABLE_SPAWN_CASES,
+    table_spawn_position_for_number,
+)
 
 
 CONTROL_HZ = 50.0
@@ -83,6 +104,7 @@ TABLE_GOAL_EULER_XYZ = np.array([0.0, 0.0, np.pi / 2.0 + 0.80])
 
 START_TO_INTERMEDIATE_DURATION = 15.0
 INTERMEDIATE_TO_GOAL_DURATION = 15.0
+FINAL_HOLD_DURATION = 2.0
 
 # Null-space optimization remains active throughout both trajectory segments
 # and continuously at the final goal pose.
@@ -371,7 +393,7 @@ def hold_goal_pose(
     goal_pose,
     viewer,
     rate,
-    duration=None,
+    duration=FINAL_HOLD_DURATION,
     recorder=None,
     show_collision_spheres=False,
     show_table_collision_spheres=False,
@@ -450,7 +472,7 @@ def run_pick_and_place(
     optimizer,
     viewer,
     rate,
-    hold_duration=None,
+    hold_duration=FINAL_HOLD_DURATION,
     recorder=None,
     show_collision_spheres=False,
     show_table_collision_spheres=False,
@@ -552,7 +574,7 @@ def main(
     goal_euler_xyz=TABLE_GOAL_EULER_XYZ,
     start_to_intermediate_duration=START_TO_INTERMEDIATE_DURATION,
     intermediate_to_goal_duration=INTERMEDIATE_TO_GOAL_DURATION,
-    hold_duration=None,
+    hold_duration=FINAL_HOLD_DURATION,
     objective=OBJECTIVE,
     enable_redundancy_optimization=True,
     top_view=False,
@@ -709,7 +731,7 @@ def main(
             print("Closing both grippers...")
             scene.close_grippers(viewer, rate)
             equation_8.capture_grasp_reference(scene.data)
-            return run_pick_and_place(
+            result = run_pick_and_place(
                 scene,
                 kinematics,
                 equation_8,
@@ -732,6 +754,9 @@ def main(
                     enable_redundancy_optimization
                 ),
             )
+            if viewer.is_running():
+                scene.run_grasp_disengagement(viewer, rate)
+            return result
     except KeyboardInterrupt:
         print("Interrupted by Ctrl+C; preserving recorded samples.")
         return None
@@ -896,13 +921,19 @@ def parse_arguments():
         default=JOINT_LIMIT_SLOW_DISTANCE,
         help="distance in radians at which null-space slowing begins",
     )
-    parser.add_argument(
+    start_position_group = parser.add_mutually_exclusive_group()
+    start_position_group.add_argument(
+        "--position",
+        type=int,
+        choices=range(1, len(TABLE_SPAWN_CASES) + 1),
+        help="use predefined pickup/start table position 1 through 6",
+    )
+    start_position_group.add_argument(
         "--start-position",
         type=float,
         nargs=3,
-        default=TABLE_START_POSITION,
         metavar=("X", "Y", "Z"),
-        help="initial table reference position in world metres",
+        help="custom initial table reference position in world metres",
     )
     parser.add_argument(
         "--start-euler-xyz",
@@ -959,13 +990,26 @@ def parse_arguments():
     parser.add_argument(
         "--hold-duration",
         type=float,
-        help="optional final hold duration; otherwise hold until viewer closes",
+        default=FINAL_HOLD_DURATION,
+        help=(
+            "placed-pose hold before disengagement in seconds "
+            "(default: %(default)s)"
+        ),
     )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     arguments = parse_arguments()
+    selected_start_position = (
+        table_spawn_position_for_number(arguments.position)
+        if arguments.position is not None
+        else (
+            arguments.start_position
+            if arguments.start_position is not None
+            else TABLE_START_POSITION
+        )
+    )
     main(
         record_data=arguments.record_data,
         output_csv=arguments.output_csv,
@@ -1004,7 +1048,7 @@ if __name__ == "__main__":
         joint_limit_margin=arguments.joint_limit_margin,
         joint_limit_stop_distance=arguments.joint_limit_stop_distance,
         joint_limit_slow_distance=arguments.joint_limit_slow_distance,
-        start_position=arguments.start_position,
+        start_position=selected_start_position,
         start_euler_xyz=arguments.start_euler_xyz,
         intermediate_position=arguments.intermediate_position,
         intermediate_euler_xyz=arguments.intermediate_euler_xyz,

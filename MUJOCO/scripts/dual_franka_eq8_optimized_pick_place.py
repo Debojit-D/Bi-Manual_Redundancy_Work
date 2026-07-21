@@ -4,8 +4,8 @@ Both Franka arms grasp the table, lift it smoothly, and place it back at its
 measured pickup pose.  Throughout the motion, Equation (8)'s primary term
 tracks the object's position and orientation while the selected paper
 objective generates ``phi_dot_opt`` in the null space.  After placement, the
-controller keeps holding the returned pose and optimizing until the viewer is
-closed.
+controller briefly holds the returned pose, opens both grippers, retreats to
+a table-relative post-grasp pose, and returns both arms home.
 
 Run from the repository root according to what you want to inspect::
 
@@ -85,6 +85,7 @@ CONTROL_HZ = 50.0
 LIFT_HEIGHT = 0.26
 LIFT_DURATION = 12.0
 LOWER_DURATION = 12.0
+FINAL_HOLD_DURATION = 2.0
 SHOW_MOCAP_TARGETS = False
 ENABLE_ARM_BIAS_COMPENSATION = True
 # Robot base poses: world xyz [m] and extrinsic XYZ Euler angles [degrees].
@@ -247,7 +248,7 @@ def run_optimized_lift(
     optimizer,
     viewer,
     rate,
-    hold_duration=None,
+    hold_duration=FINAL_HOLD_DURATION,
     recorder=None,
     show_collision_spheres=False,
     show_table_collision_spheres=False,
@@ -348,10 +349,15 @@ def run_optimized_lift(
             if enable_redundancy_optimization
             else "null-space optimization disabled"
         )
+        hold_description = (
+            "until the viewer closes"
+            if hold_duration is None
+            else f"for {hold_duration:g} s before disengagement"
+        )
         print(
             f"Lift-and-lower complete: objective {initial_objective:.6g} -> "
             f"{returned_objective:.6g}. Holding the returned pose with "
-            f"{hold_activity}; close the viewer to exit."
+            f"{hold_activity} {hold_description}."
         )
     else:
         print("Viewer closed before the lift-and-lower motion completed.")
@@ -449,7 +455,7 @@ def main(
     joint_limit_slow_distance=JOINT_LIMIT_SLOW_DISTANCE,
     objective=OBJECTIVE,
     enable_redundancy_optimization=True,
-    hold_duration=None,
+    hold_duration=FINAL_HOLD_DURATION,
     top_view=False,
     video_output_dir=None,
     video_width=1280,
@@ -620,6 +626,8 @@ def main(
                     enable_redundancy_optimization
                 ),
             )
+            if viewer.is_running():
+                scene.run_grasp_disengagement(viewer, rate)
     except KeyboardInterrupt:
         print("Interrupted by Ctrl+C; preserving recorded samples.")
     finally:
@@ -657,7 +665,11 @@ def parse_arguments():
     parser.add_argument(
         "--hold-duration",
         type=float,
-        help="optional final hold duration; otherwise hold until viewer closes",
+        default=FINAL_HOLD_DURATION,
+        help=(
+            "placed-pose hold before disengagement in seconds "
+            "(default: %(default)s)"
+        ),
     )
     parser.add_argument(
         "--output-csv",
