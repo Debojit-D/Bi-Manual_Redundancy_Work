@@ -74,8 +74,13 @@ RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.25, 0.0])
 LEFT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
 RIGHT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
 
+# # World position [x, y, z] of the table's site_top_middle reference frame.
+# TABLE_SPAWN_POSITION = np.array([0.60, 0.0, 0.28])
+# K_P = np.diag([8.0, 8.0, 8.0, 4.0, 4.0, 4.0])
+# GRASP_K_P = np.diag([8.0, 8.0, 8.0, 6.0, 6.0, 6.0])
+
 # World position [x, y, z] of the table's site_top_middle reference frame.
-TABLE_SPAWN_POSITION = np.array([0.60, 0.0, 0.28])
+TABLE_SPAWN_POSITION = np.array([0.30, 0.0, 0.28])
 K_P = np.diag([8.0, 8.0, 8.0, 4.0, 4.0, 4.0])
 GRASP_K_P = np.diag([8.0, 8.0, 8.0, 6.0, 6.0, 6.0])
 
@@ -97,9 +102,11 @@ ENABLE_TABLE_COLLISION_PENALTY = True
 COLLISION_WEIGHT = 5000.0
 COLLISION_SAFETY_MARGIN = 0.05
 COLLISION_PROXIMITY_SCALE = 0.01
-TABLE_COLLISION_WEIGHT = 3000.0
-TABLE_COLLISION_SAFETY_MARGIN = 0.04
-TABLE_COLLISION_PROXIMITY_SCALE = 0.01
+TABLE_COLLISION_WEIGHT = 20000.0
+# Keep table avoidance local: maintain 1.5 cm clearance and let its smooth
+# influence decay over 3 mm so it does not dominate the paper objective.
+TABLE_COLLISION_SAFETY_MARGIN = 0.015
+TABLE_COLLISION_PROXIMITY_SCALE = 0.003
 TABLE_COLLISION_GEOM_NAME = None
 COLLISION_SPHERE_MODEL_PATH = (
     Path(__file__).resolve().parents[1]

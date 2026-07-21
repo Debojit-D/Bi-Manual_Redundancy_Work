@@ -103,9 +103,9 @@ class ManipulabilityOptimizer:
         collision_version=CollisionModelVersion.VERSION1,
         collision_sphere_model_path=None,
         enable_table_collision_penalty=False,
-        table_collision_weight=3000.0,
-        table_collision_safety_margin=0.04,
-        table_collision_proximity_scale=0.01,
+        table_collision_weight=20000.0,
+        table_collision_safety_margin=0.015,
+        table_collision_proximity_scale=0.003,
         table_collision_geom_name=None,
     ):
         self.kinematics = kinematics
