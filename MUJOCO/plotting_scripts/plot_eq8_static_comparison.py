@@ -6,22 +6,41 @@ directional-force CSVs are discovered in ``outputs/mujoco_data``.
 
 import argparse
 import csv
+import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from MUJOCO.plotting_scripts.publication_style import (
-    COLORS,
-    configure_publication_style,
-    finish_figure,
-)
+try:
+    from MUJOCO.plotting_scripts.publication_style import (
+        COLORS,
+        configure_publication_style,
+        finish_figure,
+    )
+except ModuleNotFoundError as error:
+    # Support direct execution by absolute path from outside the repository.
+    if error.name != "MUJOCO":
+        raise
+    from publication_style import (  # type: ignore[no-redef]
+        COLORS,
+        configure_publication_style,
+        finish_figure,
+    )
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DATA_DIR = REPOSITORY_ROOT / "outputs" / "mujoco_data"
-DEFAULT_OUTPUT_DIR = DEFAULT_DATA_DIR / "static_comparison_figures"
+DATA_DIR_ENVIRONMENT_VARIABLE = "BIMANUAL_MUJOCO_DATA_DIR"
+
+
+def default_data_dir():
+    """Return a portable default, optionally overridden by the environment."""
+    configured = os.environ.get(DATA_DIR_ENVIRONMENT_VARIABLE)
+    if configured:
+        return Path(configured).expanduser()
+    return REPOSITORY_ROOT / "outputs" / "mujoco_data"
+
 
 MODE_ORDER = ("baseline", "velocity", "force", "directional_force")
 MODE_LABELS = {
@@ -47,14 +66,20 @@ def parse_arguments():
     parser.add_argument(
         "--data-dir",
         type=Path,
-        default=DEFAULT_DATA_DIR,
-        help="automatic-discovery directory (default: %(default)s)",
+        default=default_data_dir(),
+        help=(
+            "automatic-discovery directory; defaults to the repository's "
+            "outputs/mujoco_data directory, or $"
+            f"{DATA_DIR_ENVIRONMENT_VARIABLE} when set"
+        ),
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=DEFAULT_OUTPUT_DIR,
-        help="figure directory (default: %(default)s)",
+        help=(
+            "figure directory "
+            "(default: <data directory>/static_comparison_figures)"
+        ),
     )
     parser.add_argument(
         "--format",
@@ -75,6 +100,7 @@ def configure_style():
 
 def discover_files(data_dir):
     files = []
+    missing = []
     for mode in MODE_ORDER:
         matches = sorted(
             data_dir.glob(
@@ -82,10 +108,21 @@ def discover_files(data_dir):
             )
         )
         if not matches:
-            raise FileNotFoundError(
-                f"No {mode!r} comparison CSV found in: {data_dir}"
-            )
-        files.append(matches[-1])
+            missing.append(mode)
+        else:
+            files.append(matches[-1])
+    if missing:
+        patterns = ", ".join(f"{mode!r}" for mode in missing)
+        raise FileNotFoundError(
+            "Static comparison data is incomplete.\n"
+            f"Data directory: {data_dir}\n"
+            f"Missing modes: {patterns}\n"
+            "Generate them with:\n"
+            "  .venv/bin/python -m "
+            "MUJOCO.scripts.dual_franka_eq8_static_comparison --record-data\n"
+            "Alternatively, pass four CSV paths explicitly or select another "
+            f"directory with --data-dir or ${DATA_DIR_ENVIRONMENT_VARIABLE}."
+        )
     return files
 
 
@@ -230,13 +267,18 @@ def save_figure(fig, output_dir, stem, output_format, dpi):
 
 def main():
     arguments = parse_arguments()
+    data_dir = arguments.data_dir.expanduser().resolve()
     paths = (
         arguments.csv_files
         if arguments.csv_files
-        else discover_files(arguments.data_dir.expanduser().resolve())
+        else discover_files(data_dir)
     )
     runs = load_runs(paths)
-    output_dir = arguments.output_dir.expanduser().resolve()
+    output_dir = (
+        arguments.output_dir.expanduser().resolve()
+        if arguments.output_dir is not None
+        else data_dir / "static_comparison_figures"
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     configure_style()
 
@@ -290,4 +332,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except FileNotFoundError as error:
+        raise SystemExit(str(error)) from error

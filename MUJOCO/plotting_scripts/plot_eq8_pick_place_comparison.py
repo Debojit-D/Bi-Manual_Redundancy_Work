@@ -103,11 +103,12 @@ def discover_files(data_dir, experiment):
         matches = sorted(
             data_dir.glob(f"{prefix}_{mode}_fitted_spheres_*.csv")
         )
-        if not matches:
-            raise FileNotFoundError(
-                f"No {mode!r} {experiment} pick-and-place CSV in: {data_dir}"
-            )
-        files.append(matches[-1])
+        if matches:
+            files.append(matches[-1])
+    if not files:
+        raise FileNotFoundError(
+            f"No {experiment!r} pick-and-place CSVs found in: {data_dir}"
+        )
     return files
 
 
@@ -132,24 +133,32 @@ def load_csv(path):
 
 
 def load_runs(paths):
-    if len(paths) != len(MODE_ORDER):
-        raise ValueError("Supply exactly four CSVs, or omit all CSV paths")
+    if not paths:
+        raise ValueError("Supply one or more CSVs, or omit paths for auto-discovery")
     runs = {}
+    skipped = []
     for path in paths:
-        run = load_csv(path.expanduser().resolve())
+        resolved = path.expanduser().resolve()
+        try:
+            run = load_csv(resolved)
+        except (ValueError, KeyError) as error:
+            skipped.append((resolved, str(error)))
+            continue
         mode = run["mode"]
         if mode in runs:
             raise ValueError(f"Duplicate optimization mode supplied: {mode}")
         runs[mode] = run
-    missing = set(MODE_ORDER) - set(runs)
-    if missing:
-        raise ValueError(f"Missing comparison modes: {sorted(missing)}")
-    return runs
+    return runs, skipped
+
+
+def ordered_modes(runs):
+    return tuple(mode for mode in MODE_ORDER if mode in runs)
 
 
 def plot_metric(runs, column, ylabel, title, log_scale=False):
     fig, axis = plt.subplots(figsize=(7.1, 3.5))
-    for mode in MODE_ORDER:
+    modes = ordered_modes(runs)
+    for mode in modes:
         run = runs[mode]
         sns.lineplot(
             x=run["values"]("time"),
@@ -162,7 +171,7 @@ def plot_metric(runs, column, ylabel, title, log_scale=False):
     axis.set(xlabel="Time (s)", ylabel=ylabel, title=title)
     if log_scale:
         axis.set_yscale("log")
-    axis.legend(loc="best", ncol=2)
+    axis.legend(loc="best", ncol=2 if len(modes) > 1 else 1)
     return fig
 
 
@@ -173,7 +182,8 @@ def plot_tracking_errors(runs):
         ("orientation_error_norm", "Orientation error (rad)"),
         ("grasp_error_norm", "Grasp error norm"),
     )
-    for mode in MODE_ORDER:
+    modes = ordered_modes(runs)
+    for mode in modes:
         run = runs[mode]
         time = run["values"]("time")
         for axis, (column, ylabel) in zip(axes, specifications):
@@ -192,14 +202,14 @@ def plot_tracking_errors(runs):
         legend = axis.get_legend()
         if legend is not None:
             legend.remove()
-    axes[0].legend(loc="best", ncol=2)
+    axes[0].legend(loc="best", ncol=2 if len(modes) > 1 else 1)
     return fig
 
 
 def plot_object_path(runs):
     fig = plt.figure(figsize=(7.1, 5.2))
     axis = fig.add_subplot(111, projection="3d")
-    for mode in MODE_ORDER:
+    for mode in ordered_modes(runs):
         run = runs[mode]
         x = run["values"]("object_x")
         y = run["values"]("object_y")
@@ -228,7 +238,8 @@ def actuator_effort(run):
 
 def plot_actuator_effort(runs):
     fig, axis = plt.subplots(figsize=(7.1, 3.5))
-    for mode in MODE_ORDER:
+    modes = ordered_modes(runs)
+    for mode in modes:
         run = runs[mode]
         sns.lineplot(
             x=run["values"]("time"),
@@ -243,7 +254,7 @@ def plot_actuator_effort(runs):
         ylabel=r"Actuator effort $\|\tau\|_2$ (N m)",
         title="Combined actuator torque effort",
     )
-    axis.legend(loc="best", ncol=2)
+    axis.legend(loc="best", ncol=2 if len(modes) > 1 else 1)
     return fig
 
 
@@ -266,7 +277,16 @@ def main():
         if arguments.csv_files
         else discover_files(data_dir, arguments.experiment)
     )
-    runs = load_runs(paths)
+    runs, skipped = load_runs(paths)
+    if skipped:
+        print("Skipped CSV files:")
+        for path, reason in skipped:
+            print(f"  {path}: {reason}")
+    if not runs:
+        print("No plottable CSV data found; nothing to render.")
+        return
+    present_modes = ordered_modes(runs)
+    missing_modes = [mode for mode in MODE_ORDER if mode not in runs]
     output_dir = (
         arguments.output_dir.expanduser().resolve()
         if arguments.output_dir is not None
@@ -348,8 +368,11 @@ def main():
         )
 
     print("Input CSVs:")
-    for mode in MODE_ORDER:
+    for mode in present_modes:
         print(f"  {MODE_LABELS[mode]}: {runs[mode]['path']}")
+    if missing_modes:
+        missing_labels = ", ".join(MODE_LABELS[mode] for mode in missing_modes)
+        print(f"Missing modes (not plotted): {missing_labels}")
     print(f"Saved {len(written)} figure files to: {output_dir}")
 
     if arguments.show:
