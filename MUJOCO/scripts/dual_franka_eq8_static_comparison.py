@@ -1,6 +1,7 @@
 """Run all static Equation (8) modes at six table positions.
 
-At each table position, four independent MuJoCo scenes run in this order:
+By default (sweep option 1), each table position runs four independent MuJoCo
+scenes in this order:
 
 1. baseline (no null-space optimization),
 2. velocity manipulability,
@@ -8,6 +9,9 @@ At each table position, four independent MuJoCo scenes run in this order:
 4. directional-force manipulability.
 
 The six positions therefore produce 24 independent runs.
+
+Use ``--sweep-option 2`` to run each optimization mode at all six positions
+before advancing to the next optimization mode.
 
 Each viewer remains visible until the null-space motion has converged, then
 closes before the next mode starts. A run is converged when its maximum
@@ -19,6 +23,11 @@ Record both camera views for all 24 runs without opening a viewer::
 
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
         --record-video
+
+Run optimization-first instead of position-first::
+
+    .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
+        --sweep-option 2
 """
 
 import argparse
@@ -28,7 +37,11 @@ from pathlib import Path
 from MUJOCO.scripts.dual_franka_eq8_static_optimization import (
     main as run_static_experiment,
 )
-from MUJOCO.scripts.table_spawn_comparison_positions import TABLE_SPAWN_CASES
+from MUJOCO.scripts.table_spawn_comparison_positions import (
+    SWEEP_OPTIONS,
+    TABLE_SPAWN_CASES,
+    ordered_comparison_cases,
+)
 from MUJOCO.utils.redundancy_optimization import ManipulabilityObjective
 
 
@@ -53,6 +66,16 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--sweep-option",
+        type=int,
+        choices=SWEEP_OPTIONS,
+        default=1,
+        help=(
+            "run order: 1 = four modes at each position; "
+            "2 = all six positions for each mode (default: %(default)s)"
+        ),
     )
     parser.add_argument(
         "--duration",
@@ -172,6 +195,14 @@ def main():
         f"{len(TABLE_SPAWN_CASES)} positions x {len(EXPERIMENTS)} modes "
         f"= {total_runs} runs"
     )
+    print(
+        f"Sweep option {arguments.sweep_option}: "
+        + (
+            "position-first (four modes at each position)."
+            if arguments.sweep_option == 1
+            else "optimization-first (all positions for each mode)."
+        )
+    )
     if arguments.record_video:
         print("Running headlessly; recording perspective and top views.")
     else:
@@ -187,48 +218,49 @@ def main():
             f"Stopping rule: fixed {arguments.duration:g} s per mode "
             "(convergence stopping disabled)."
         )
-    run_index = 0
-    for position_name, table_position in TABLE_SPAWN_CASES:
-        print("\n" + "#" * 72)
-        print(f"{position_name}: table site_top_middle = {table_position} m")
-        print("#" * 72)
-        for name, objective, enabled in EXPERIMENTS:
-            run_index += 1
-            print("\n" + "=" * 72)
-            print(f"Run {run_index}/{total_runs}: {position_name} / {name}")
-            print("=" * 72)
-            run_static_experiment(
-                objective=objective,
-                enable_redundancy_optimization=enabled,
-                duration=arguments.duration,
-                convergence_speed_threshold=(
-                    arguments.convergence_speed
-                    if arguments.duration is None
-                    else None
-                ),
-                convergence_hold_duration=arguments.convergence_hold,
-                minimum_convergence_time=arguments.minimum_run_time,
-                table_spawn_position=table_position,
-                record_data=arguments.record_data,
-                output_csv=(
-                    data_run_dir / position_name / f"{name}.csv"
-                    if data_run_dir is not None
-                    else None
-                ),
-                show_collision_spheres=arguments.show_collision_spheres,
-                enable_collision_penalty=(
-                    not arguments.disable_collision_penalty
-                ),
-                top_view=arguments.top_view,
-                video_output_dir=(
-                    video_run_dir / position_name / name
-                    if video_run_dir is not None
-                    else None
-                ),
-                video_width=arguments.video_width,
-                video_height=arguments.video_height,
-                video_fps=arguments.video_fps,
-            )
+    run_cases = ordered_comparison_cases(
+        TABLE_SPAWN_CASES,
+        EXPERIMENTS,
+        arguments.sweep_option,
+    )
+    for run_index, case in enumerate(run_cases, start=1):
+        position_name, table_position, name, objective, enabled = case
+        print("\n" + "=" * 72)
+        print(
+            f"Run {run_index}/{total_runs}: {position_name} / {name}; "
+            f"table site_top_middle = {table_position} m"
+        )
+        print("=" * 72)
+        run_static_experiment(
+            objective=objective,
+            enable_redundancy_optimization=enabled,
+            duration=arguments.duration,
+            convergence_speed_threshold=(
+                arguments.convergence_speed
+                if arguments.duration is None
+                else None
+            ),
+            convergence_hold_duration=arguments.convergence_hold,
+            minimum_convergence_time=arguments.minimum_run_time,
+            table_spawn_position=table_position,
+            record_data=arguments.record_data,
+            output_csv=(
+                data_run_dir / position_name / f"{name}.csv"
+                if data_run_dir is not None
+                else None
+            ),
+            show_collision_spheres=arguments.show_collision_spheres,
+            enable_collision_penalty=(not arguments.disable_collision_penalty),
+            top_view=arguments.top_view,
+            video_output_dir=(
+                video_run_dir / position_name / name
+                if video_run_dir is not None
+                else None
+            ),
+            video_width=arguments.video_width,
+            video_height=arguments.video_height,
+            video_fps=arguments.video_fps,
+        )
 
     print(f"\nCompleted all {total_runs} static comparison runs.")
 

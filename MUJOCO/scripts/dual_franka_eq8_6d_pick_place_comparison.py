@@ -1,15 +1,20 @@
 """Run the spatial Equation (8) comparison from six pickup positions.
 
-By default, each shared pickup position runs baseline, velocity
-manipulability, force manipulability, and directional-force manipulability:
-six positions times four modes, or 24 independent scenes. Every run uses the
-same user-configurable intermediate and goal poses. Close a viewer early to
-advance immediately to the next run.
+With sweep option 1 (the default), each shared pickup position runs baseline,
+velocity manipulability, force manipulability, and directional-force
+manipulability. Sweep option 2 runs each mode at all six pickup positions
+before advancing to the next mode. Both orders produce 24 independent scenes.
+Every run uses the same user-configurable intermediate and goal poses. Close a
+viewer early to advance immediately to the next run.
 
 Run from the repository root with the project virtual environment::
 
     # Run all six pickup positions x all four modes (24 runs).
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison
+
+    # Option 2: run each optimization mode across all six pickup positions.
+    .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
+        --sweep-option 2
 
     # Run only pickup position 2 x all four modes, with your place locations.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
@@ -18,9 +23,9 @@ Run from the repository root with the project virtual environment::
         --goal-position 0.20 0.45 0.269
 
     # Position map [x, y, z] metres (pickup/start position only):
-    # 1=(0.30, 0.15, 0.28), 2=(0.60, 0.15, 0.28)
+    # 1=(0.30, 0.20, 0.28), 2=(0.60, 0.20, 0.28)
     # 3=(0.30, 0.00, 0.28), 4=(0.60, 0.00, 0.28)
-    # 5=(0.30,-0.15, 0.28), 6=(0.60,-0.15, 0.28)
+    # 5=(0.30,-0.20, 0.28), 6=(0.60,-0.20, 0.28)
 
     # Change the final hold duration for every mode.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
@@ -70,7 +75,9 @@ from pathlib import Path
 
 from MUJOCO.scripts import dual_franka_eq8_optimized_6d_pick_place as experiment
 from MUJOCO.scripts.table_spawn_comparison_positions import (
+    SWEEP_OPTIONS,
     TABLE_SPAWN_CASES,
+    ordered_comparison_cases,
     table_spawn_position_for_number,
 )
 from MUJOCO.utils.redundancy_optimization import ManipulabilityObjective
@@ -94,6 +101,16 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--sweep-option",
+        type=int,
+        choices=SWEEP_OPTIONS,
+        default=1,
+        help=(
+            "run order: 1 = four modes at each pickup position; "
+            "2 = all pickup positions for each mode (default: %(default)s)"
+        ),
     )
     parser.add_argument(
         "--hold-duration",
@@ -269,59 +286,68 @@ def main():
         f"{len(pickup_cases)} pickup positions x {len(EXPERIMENTS)} modes "
         f"= {total_runs} runs"
     )
+    print(
+        f"Sweep option {arguments.sweep_option}: "
+        + (
+            "position-first (four modes at each pickup position)."
+            if arguments.sweep_option == 1
+            else "optimization-first (all pickup positions for each mode)."
+        )
+    )
     if arguments.record_video:
         print("Running headlessly; recording perspective and top views.")
     else:
         print("Close a viewer early to advance immediately to the next run.")
 
-    run_index = 0
-    for position_name, start_position in pickup_cases:
-        print("\n" + "#" * 72)
-        print(f"{position_name}: pickup site_top_middle = {start_position} m")
-        print("#" * 72)
-        for name, objective, enabled in EXPERIMENTS:
-            run_index += 1
-            print("\n" + "=" * 72)
-            print(f"Run {run_index}/{total_runs}: {position_name} / {name}")
-            print("=" * 72)
-            experiment.main(
-                objective=objective,
-                enable_redundancy_optimization=enabled,
-                hold_duration=arguments.hold_duration,
-                record_data=arguments.record_data,
-                output_csv=(
-                    data_run_dir / position_name / f"{name}.csv"
-                    if data_run_dir is not None
-                    else None
-                ),
-                show_collision_spheres=arguments.show_collision_spheres,
-                enable_collision_penalty=(
-                    not arguments.disable_collision_penalty
-                ),
-                optimization_gain=arguments.optimization_gain,
-                maximum_joint_speed=arguments.max_joint_speed,
-                start_position=start_position,
-                start_euler_xyz=arguments.start_euler_xyz,
-                intermediate_position=arguments.intermediate_position,
-                intermediate_euler_xyz=arguments.intermediate_euler_xyz,
-                goal_position=arguments.goal_position,
-                goal_euler_xyz=arguments.goal_euler_xyz,
-                start_to_intermediate_duration=(
-                    arguments.start_to_intermediate_duration
-                ),
-                intermediate_to_goal_duration=(
-                    arguments.intermediate_to_goal_duration
-                ),
-                top_view=arguments.top_view,
-                video_output_dir=(
-                    video_run_dir / position_name / name
-                    if video_run_dir is not None
-                    else None
-                ),
-                video_width=arguments.video_width,
-                video_height=arguments.video_height,
-                video_fps=arguments.video_fps,
-            )
+    run_cases = ordered_comparison_cases(
+        pickup_cases,
+        EXPERIMENTS,
+        arguments.sweep_option,
+    )
+    for run_index, case in enumerate(run_cases, start=1):
+        position_name, start_position, name, objective, enabled = case
+        print("\n" + "=" * 72)
+        print(
+            f"Run {run_index}/{total_runs}: {position_name} / {name}; "
+            f"pickup site_top_middle = {start_position} m"
+        )
+        print("=" * 72)
+        experiment.main(
+            objective=objective,
+            enable_redundancy_optimization=enabled,
+            hold_duration=arguments.hold_duration,
+            record_data=arguments.record_data,
+            output_csv=(
+                data_run_dir / position_name / f"{name}.csv"
+                if data_run_dir is not None
+                else None
+            ),
+            show_collision_spheres=arguments.show_collision_spheres,
+            enable_collision_penalty=(not arguments.disable_collision_penalty),
+            optimization_gain=arguments.optimization_gain,
+            maximum_joint_speed=arguments.max_joint_speed,
+            start_position=start_position,
+            start_euler_xyz=arguments.start_euler_xyz,
+            intermediate_position=arguments.intermediate_position,
+            intermediate_euler_xyz=arguments.intermediate_euler_xyz,
+            goal_position=arguments.goal_position,
+            goal_euler_xyz=arguments.goal_euler_xyz,
+            start_to_intermediate_duration=(
+                arguments.start_to_intermediate_duration
+            ),
+            intermediate_to_goal_duration=(
+                arguments.intermediate_to_goal_duration
+            ),
+            top_view=arguments.top_view,
+            video_output_dir=(
+                video_run_dir / position_name / name
+                if video_run_dir is not None
+                else None
+            ),
+            video_width=arguments.video_width,
+            video_height=arguments.video_height,
+            video_fps=arguments.video_fps,
+        )
 
     print(f"\nCompleted all {total_runs} 6D comparison runs.")
 
