@@ -44,6 +44,9 @@ CSV_COLUMNS = [
     "gradient_norm",
     "min_inter_arm_clearance",
     "collision_cost",
+    "min_arm_table_clearance",
+    "arm_table_collision_cost",
+    "total_weighted_collision_cost",
     "q_l1",
     "q_l2",
     "q_l3",
@@ -238,6 +241,15 @@ class Equation8CSVRecorder:
                 self.optimizer.minimum_inter_arm_clearance(data)
             ),
             "collision_cost": self.optimizer.inter_arm_collision_cost(data),
+            "min_arm_table_clearance": (
+                self.optimizer.minimum_arm_table_clearance(data)
+            ),
+            "arm_table_collision_cost": (
+                self.optimizer.arm_table_collision_cost(data)
+            ),
+            "total_weighted_collision_cost": (
+                self.optimizer.total_collision_cost(data)
+            ),
             "tau_actuator_norm": np.linalg.norm(actuator_torque),
             "tau_bias_norm": np.linalg.norm(bias_torque),
             "tau_constraint_norm": np.linalg.norm(constraint_torque),

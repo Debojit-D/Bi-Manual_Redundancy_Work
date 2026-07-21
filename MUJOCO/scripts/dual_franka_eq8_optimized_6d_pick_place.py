@@ -14,7 +14,7 @@ Run from the repository root according to what you want to inspect::
 
     # Draw the fitted spheres during the complete SE(3) motion.
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
-        --show-collision-spheres
+        --show-table-collision-spheres
 
     # Record every Equation (8) step, including the final hold.
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
@@ -25,9 +25,11 @@ Run from the repository root according to what you want to inspect::
         --intermediate-position 0.40 0.00 0.52 \\
         --goal-position 0.20 0.45 0.269
 
-Collision avoidance remains a soft cost, not a hard collision guarantee. Run
-with ``--help`` for all collision, joint-limit, trajectory, and recording
-options.
+Inter-arm collision uses fitted sphere-to-sphere clearance. Table collision
+uses fitted spheres on arm links 1--7 against the oriented tabletop plane;
+hands and fingers are excluded so grasp contact remains possible. Both soft
+costs act only through the Equation (8) null-space objective and are not hard
+collision guarantees. Run with ``--help`` for all options.
 """
 
 import argparse
@@ -49,6 +51,7 @@ from MUJOCO.utils.redundancy_optimization import (
     ManipulabilityOptimizer,
     OptimizationResult,
     draw_detailed_collision_spheres,
+    draw_table_collision_spheres,
 )
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 from MUJOCO.utils.video_recording import TqdmSimulationRate
@@ -91,9 +94,14 @@ JOINT_LIMIT_STOP_DISTANCE = 0.07
 JOINT_LIMIT_SLOW_DISTANCE = 0.25
 
 ENABLE_COLLISION_PENALTY = True
+ENABLE_TABLE_COLLISION_PENALTY = True
 COLLISION_WEIGHT = 5000.0
 COLLISION_SAFETY_MARGIN = 0.05
 COLLISION_PROXIMITY_SCALE = 0.01
+TABLE_COLLISION_WEIGHT = 3000.0
+TABLE_COLLISION_SAFETY_MARGIN = 0.04
+TABLE_COLLISION_PROXIMITY_SCALE = 0.01
+TABLE_COLLISION_GEOM_NAME = None
 COLLISION_SPHERE_MODEL_PATH = (
     Path(__file__).resolve().parents[1]
     / "robot_descriptions"
@@ -213,6 +221,7 @@ def optimized_control_step(
     rate,
     recorder=None,
     show_collision_spheres=False,
+    show_table_collision_spheres=False,
     enable_redundancy_optimization=True,
 ):
     """Apply one joint-limit-safe primary-plus-null-space control step."""
@@ -237,6 +246,13 @@ def optimized_control_step(
     scene.command(phi, scene.gripper_closed)
     if show_collision_spheres:
         draw_detailed_collision_spheres(viewer, optimizer, scene.data)
+    if show_table_collision_spheres:
+        draw_table_collision_spheres(
+            viewer,
+            optimizer,
+            scene.data,
+            reset_scene=not show_collision_spheres,
+        )
     scene.step(viewer)
     if recorder is not None:
         recorder.record(
@@ -259,6 +275,7 @@ def run_trajectory(
     rate,
     recorder=None,
     show_collision_spheres=False,
+    show_table_collision_spheres=False,
     enable_redundancy_optimization=True,
 ):
     """Execute one continuous start-through-waypoint-to-goal trajectory."""
@@ -289,9 +306,10 @@ def run_trajectory(
             desired_twist,
             viewer,
             rate,
-            recorder,
-            show_collision_spheres,
-            enable_redundancy_optimization,
+            recorder=recorder,
+            show_collision_spheres=show_collision_spheres,
+            show_table_collision_spheres=show_table_collision_spheres,
+            enable_redundancy_optimization=enable_redundancy_optimization,
         )
 
         if step % int(CONTROL_HZ) == 0:
@@ -318,10 +336,16 @@ def run_trajectory(
                 f"{diagnostics.unscaled_null_space_leakage:.2e}, "
                 f"command speed="
                 f"{np.max(np.abs(diagnostics.commanded_joint_velocity)):.4f} rad/s, "
-                f"clearance="
+                f"inter-arm clearance="
                 f"{optimizer.minimum_inter_arm_clearance(scene.data):.4f} m, "
-                f"collision cost="
-                f"{optimizer.inter_arm_collision_cost(scene.data):.6f}"
+                f"inter-arm cost="
+                f"{optimizer.inter_arm_collision_cost(scene.data):.6f}, "
+                f"table clearance="
+                f"{optimizer.minimum_arm_table_clearance(scene.data):.4f} m, "
+                f"table cost="
+                f"{optimizer.arm_table_collision_cost(scene.data):.6f}, "
+                f"weighted collision cost="
+                f"{optimizer.total_collision_cost(scene.data):.6f}"
             )
     return phi
 
@@ -337,6 +361,7 @@ def hold_goal_pose(
     duration=None,
     recorder=None,
     show_collision_spheres=False,
+    show_table_collision_spheres=False,
     enable_redundancy_optimization=True,
 ):
     """Keep Equation (8) and optimization active at the final grasped pose."""
@@ -362,9 +387,10 @@ def hold_goal_pose(
             np.zeros(6),
             viewer,
             rate,
-            recorder,
-            show_collision_spheres,
-            enable_redundancy_optimization,
+            recorder=recorder,
+            show_collision_spheres=show_collision_spheres,
+            show_table_collision_spheres=show_table_collision_spheres,
+            enable_redundancy_optimization=enable_redundancy_optimization,
         )
         if step % int(CONTROL_HZ) == 0:
             print(
@@ -385,10 +411,16 @@ def hold_goal_pose(
                 f"{diagnostics.unscaled_null_space_leakage:.2e}, "
                 f"command speed="
                 f"{np.max(np.abs(diagnostics.commanded_joint_velocity)):.4f} rad/s, "
-                f"clearance="
+                f"inter-arm clearance="
                 f"{optimizer.minimum_inter_arm_clearance(scene.data):.4f} m, "
-                f"collision cost="
-                f"{optimizer.inter_arm_collision_cost(scene.data):.6f}"
+                f"inter-arm cost="
+                f"{optimizer.inter_arm_collision_cost(scene.data):.6f}, "
+                f"table clearance="
+                f"{optimizer.minimum_arm_table_clearance(scene.data):.4f} m, "
+                f"table cost="
+                f"{optimizer.arm_table_collision_cost(scene.data):.6f}, "
+                f"weighted collision cost="
+                f"{optimizer.total_collision_cost(scene.data):.6f}"
             )
         step += 1
     return phi
@@ -404,6 +436,7 @@ def run_pick_and_place(
     hold_duration=None,
     recorder=None,
     show_collision_spheres=False,
+    show_table_collision_spheres=False,
     intermediate_position=TABLE_INTERMEDIATE_POSITION,
     intermediate_euler_xyz=TABLE_INTERMEDIATE_EULER_XYZ,
     goal_position=TABLE_GOAL_POSITION,
@@ -435,9 +468,10 @@ def run_pick_and_place(
         trajectory,
         viewer,
         rate,
-        recorder,
-        show_collision_spheres,
-        enable_redundancy_optimization,
+        recorder=recorder,
+        show_collision_spheres=show_collision_spheres,
+        show_table_collision_spheres=show_table_collision_spheres,
+        enable_redundancy_optimization=enable_redundancy_optimization,
     )
     hold_goal_pose(
         scene,
@@ -447,10 +481,11 @@ def run_pick_and_place(
         goal_pose,
         viewer,
         rate,
-        hold_duration,
-        recorder,
-        show_collision_spheres,
-        enable_redundancy_optimization,
+        duration=hold_duration,
+        recorder=recorder,
+        show_collision_spheres=show_collision_spheres,
+        show_table_collision_spheres=show_table_collision_spheres,
+        enable_redundancy_optimization=enable_redundancy_optimization,
     )
 
     held_position, held_rotation = kinematics.object_pose(scene.data)
@@ -461,6 +496,9 @@ def run_pick_and_place(
         "held_rotation": held_rotation,
         "final_objective": optimizer.value(scene.data),
         "minimum_clearance": optimizer.minimum_inter_arm_clearance(scene.data),
+        "minimum_table_clearance": (
+            optimizer.minimum_arm_table_clearance(scene.data)
+        ),
     }
 
 
@@ -473,7 +511,13 @@ def main(
     collision_proximity_scale=COLLISION_PROXIMITY_SCALE,
     collision_sphere_model_path=COLLISION_SPHERE_MODEL_PATH,
     enable_collision_penalty=ENABLE_COLLISION_PENALTY,
+    enable_table_collision_penalty=ENABLE_TABLE_COLLISION_PENALTY,
+    table_collision_weight=TABLE_COLLISION_WEIGHT,
+    table_collision_safety_margin=TABLE_COLLISION_SAFETY_MARGIN,
+    table_collision_proximity_scale=TABLE_COLLISION_PROXIMITY_SCALE,
+    table_collision_geom_name=TABLE_COLLISION_GEOM_NAME,
     show_collision_spheres=False,
+    show_table_collision_spheres=False,
     optimization_gain=OPTIMIZATION_GAIN,
     maximum_joint_speed=MAXIMUM_OPTIMIZATION_JOINT_SPEED,
     joint_limit_margin=JOINT_LIMIT_MARGIN,
@@ -557,6 +601,11 @@ def main(
         collision_proximity_scale=collision_proximity_scale,
         collision_version="version2",
         collision_sphere_model_path=collision_sphere_model_path,
+        enable_table_collision_penalty=enable_table_collision_penalty,
+        table_collision_weight=table_collision_weight,
+        table_collision_safety_margin=table_collision_safety_margin,
+        table_collision_proximity_scale=table_collision_proximity_scale,
+        table_collision_geom_name=table_collision_geom_name,
     )
     print(
         f"Collision model: {optimizer.collision_version.value}, "
@@ -570,7 +619,16 @@ def main(
         f"right={optimizer.right_detailed_radii.size}, "
         f"model={collision_sphere_model_path}"
     )
-    if show_collision_spheres:
+    print(
+        "Table collision spheres: "
+        f"left={optimizer.left_table_radii.size}, "
+        f"right={optimizer.right_table_radii.size}, "
+        f"geom_id={optimizer.table_collision_geom_id}, "
+        f"weight={optimizer.table_collision_weight:g}, "
+        f"safety margin={optimizer.table_collision_safety_margin:.3f} m, "
+        f"proximity scale={optimizer.table_collision_proximity_scale:.3f} m"
+    )
+    if show_collision_spheres or show_table_collision_spheres:
         visual_geoms = scene.model.geom_group == 2
         scene.model.geom_rgba[visual_geoms, 3] = 0.25
     video_mode = video_output_dir is not None
@@ -628,6 +686,7 @@ def main(
                 hold_duration=hold_duration,
                 recorder=recorder,
                 show_collision_spheres=show_collision_spheres,
+                show_table_collision_spheres=show_table_collision_spheres,
                 intermediate_position=intermediate_position,
                 intermediate_euler_xyz=intermediate_euler_xyz,
                 goal_position=goal_position,
@@ -709,9 +768,42 @@ def parse_arguments():
         help="disable the soft inter-arm collision objective",
     )
     parser.add_argument(
+        "--disable-table-collision-penalty",
+        action="store_true",
+        help="disable the arm-to-table soft collision objective",
+    )
+    parser.add_argument(
+        "--table-collision-weight",
+        type=float,
+        default=TABLE_COLLISION_WEIGHT,
+        help="arm-table collision cost weight",
+    )
+    parser.add_argument(
+        "--table-collision-safety-margin",
+        type=float,
+        default=TABLE_COLLISION_SAFETY_MARGIN,
+        help="desired arm-sphere clearance above the table plane in metres",
+    )
+    parser.add_argument(
+        "--table-collision-proximity-scale",
+        type=float,
+        default=TABLE_COLLISION_PROXIMITY_SCALE,
+        help="arm-table softplus transition scale in metres",
+    )
+    parser.add_argument(
+        "--table-collision-geom",
+        default=TABLE_COLLISION_GEOM_NAME,
+        help="optional box geom whose top face defines the table plane",
+    )
+    parser.add_argument(
         "--show-collision-spheres",
         action="store_true",
         help="draw fitted spheres throughout the spatial motion",
+    )
+    parser.add_argument(
+        "--show-table-collision-spheres",
+        action="store_true",
+        help="draw only link1-link7 spheres used against the table",
     )
     parser.add_argument(
         "--top-view",
@@ -826,7 +918,21 @@ if __name__ == "__main__":
         collision_proximity_scale=arguments.collision_proximity_scale,
         collision_sphere_model_path=arguments.collision_sphere_model,
         enable_collision_penalty=not arguments.disable_collision_penalty,
+        enable_table_collision_penalty=(
+            not arguments.disable_table_collision_penalty
+        ),
+        table_collision_weight=arguments.table_collision_weight,
+        table_collision_safety_margin=(
+            arguments.table_collision_safety_margin
+        ),
+        table_collision_proximity_scale=(
+            arguments.table_collision_proximity_scale
+        ),
+        table_collision_geom_name=arguments.table_collision_geom,
         show_collision_spheres=arguments.show_collision_spheres,
+        show_table_collision_spheres=(
+            arguments.show_table_collision_spheres
+        ),
         optimization_gain=arguments.optimization_gain,
         maximum_joint_speed=arguments.max_joint_speed,
         joint_limit_margin=arguments.joint_limit_margin,
