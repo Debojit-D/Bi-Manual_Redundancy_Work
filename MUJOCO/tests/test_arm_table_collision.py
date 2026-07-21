@@ -43,6 +43,19 @@ class ArmTableCollisionTests(unittest.TestCase):
             table_collision_safety_margin=1.0,
             table_collision_proximity_scale=0.01,
         )
+        cls.self_optimizer = ManipulabilityOptimizer(
+            cls.kinematics,
+            cls.scene.arm_qpos,
+            objective=ManipulabilityObjective.FORCE,
+            collision_version="version2",
+            collision_sphere_model_path=SPHERE_MODEL_PATH,
+            enable_collision_penalty=False,
+            enable_table_collision_penalty=False,
+            enable_self_collision_penalty=True,
+            self_collision_weight=2.0,
+            self_collision_safety_margin=0.05,
+            self_collision_proximity_scale=0.01,
+        )
 
     def test_table_sphere_set_excludes_grasping_bodies(self):
         optimizer = self.optimizer
@@ -126,6 +139,83 @@ class ArmTableCollisionTests(unittest.TestCase):
         self.assertTrue(np.isfinite(clearance))
         self.assertTrue(np.isfinite(cost))
         self.assertGreater(cost, 0.0)
+
+    def test_self_collision_pairs_use_full_model_with_gripper_exclusions(self):
+        optimizer = self.self_optimizer
+        model = self.scene.model
+        for side in ("left", "right"):
+            body_ids = getattr(optimizer, f"{side}_detailed_body_ids")
+            pairs = getattr(optimizer, f"{side}_self_collision_pairs")
+            self.assertGreater(pairs.shape[0], 0)
+            includes_gripper_to_nonadjacent_link = False
+            for first, second in pairs:
+                first_body = int(body_ids[first])
+                second_body = int(body_ids[second])
+                first_name = model.body(first_body).name
+                second_name = model.body(second_body).name
+                first_is_gripper = (
+                    "hand" in first_name.lower()
+                    or "finger" in first_name.lower()
+                )
+                second_is_gripper = (
+                    "hand" in second_name.lower()
+                    or "finger" in second_name.lower()
+                )
+                self.assertNotEqual(first_body, second_body)
+                self.assertNotEqual(
+                    int(model.body_parentid[first_body]),
+                    second_body,
+                )
+                self.assertNotEqual(
+                    int(model.body_parentid[second_body]),
+                    first_body,
+                )
+                self.assertFalse(first_is_gripper and second_is_gripper)
+                self.assertFalse(
+                    first_is_gripper and second_name.endswith("link7_l")
+                )
+                self.assertFalse(
+                    first_is_gripper and second_name.endswith("link7_r")
+                )
+                self.assertFalse(
+                    second_is_gripper and first_name.endswith("link7_l")
+                )
+                self.assertFalse(
+                    second_is_gripper and first_name.endswith("link7_r")
+                )
+                if (
+                    first_is_gripper and "link5" in second_name
+                ) or (
+                    second_is_gripper and "link5" in first_name
+                ):
+                    includes_gripper_to_nonadjacent_link = True
+            self.assertTrue(includes_gripper_to_nonadjacent_link)
+
+    def test_self_collision_cost_is_in_the_null_space_objective(self):
+        optimizer = self.self_optimizer
+        data = self.scene.data
+        clearance = optimizer.minimum_self_collision_clearance(data)
+        raw_cost = optimizer.self_collision_cost(data)
+        weighted_cost = optimizer.total_collision_cost(data)
+
+        self.assertTrue(np.isfinite(clearance))
+        self.assertTrue(np.isfinite(raw_cost))
+        self.assertGreater(raw_cost, 0.0)
+        self.assertAlmostEqual(
+            weighted_cost,
+            optimizer.self_collision_weight * raw_cost,
+        )
+
+        force_base = optimizer.force_manipulability(data)
+        self.assertAlmostEqual(
+            optimizer.value(data, ManipulabilityObjective.FORCE),
+            force_base - weighted_cost,
+        )
+        directional_base = optimizer.directional_force_cost(data)
+        self.assertAlmostEqual(
+            optimizer.value(data, ManipulabilityObjective.DIRECTIONAL_FORCE),
+            directional_base + weighted_cost,
+        )
 
     def test_collision_sign_matches_objective_convention(self):
         optimizer = self.optimizer

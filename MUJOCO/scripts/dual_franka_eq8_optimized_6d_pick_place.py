@@ -25,11 +25,12 @@ Run from the repository root according to what you want to inspect::
         --intermediate-position 0.40 0.00 0.52 \\
         --goal-position 0.20 0.45 0.269
 
-Inter-arm collision uses fitted sphere-to-sphere clearance. Table collision
-uses fitted spheres on arm links 1--7 against the oriented tabletop plane;
-hands and fingers are excluded so grasp contact remains possible. Both soft
-costs act only through the Equation (8) null-space objective and are not hard
-collision guarantees. Run with ``--help`` for all options.
+Inter-arm and non-adjacent same-arm collision use fitted sphere-to-sphere
+clearance. Table collision uses fitted spheres on arm links 1--7 against the
+oriented tabletop plane; hands and fingers are excluded so grasp contact
+remains possible. All soft costs act only through the Equation (8) null-space
+objective and are not hard collision guarantees. Run with ``--help`` for all
+options.
 """
 
 import argparse
@@ -95,15 +96,21 @@ JOINT_LIMIT_SLOW_DISTANCE = 0.25
 
 ENABLE_COLLISION_PENALTY = True
 ENABLE_TABLE_COLLISION_PENALTY = True
+ENABLE_SELF_COLLISION_PENALTY = True
 COLLISION_WEIGHT = 5000.0
 COLLISION_SAFETY_MARGIN = 0.05
 COLLISION_PROXIMITY_SCALE = 0.01
 TABLE_COLLISION_WEIGHT = 20000.0
 # Keep table avoidance local: maintain 1.5 cm clearance and let its smooth
 # influence decay over 3 mm so it does not dominate the paper objective.
-TABLE_COLLISION_SAFETY_MARGIN = 0.015
+TABLE_COLLISION_SAFETY_MARGIN = 0.05
 TABLE_COLLISION_PROXIMITY_SCALE = 0.003
 TABLE_COLLISION_GEOM_NAME = None
+# Same-body, directly adjacent, and internal gripper/link7 pairs are excluded
+# from this full-model local cost.
+SELF_COLLISION_WEIGHT = 20000.0
+SELF_COLLISION_SAFETY_MARGIN = 0.01
+SELF_COLLISION_PROXIMITY_SCALE = 0.003
 COLLISION_SPHERE_MODEL_PATH = (
     Path(__file__).resolve().parents[1]
     / "robot_descriptions"
@@ -346,6 +353,10 @@ def run_trajectory(
                 f"{optimizer.minimum_arm_table_clearance(scene.data):.4f} m, "
                 f"table cost="
                 f"{optimizer.arm_table_collision_cost(scene.data):.6f}, "
+                f"self clearance="
+                f"{optimizer.minimum_self_collision_clearance(scene.data):.4f} m, "
+                f"self cost="
+                f"{optimizer.self_collision_cost(scene.data):.6f}, "
                 f"weighted collision cost="
                 f"{optimizer.total_collision_cost(scene.data):.6f}"
             )
@@ -421,6 +432,10 @@ def hold_goal_pose(
                 f"{optimizer.minimum_arm_table_clearance(scene.data):.4f} m, "
                 f"table cost="
                 f"{optimizer.arm_table_collision_cost(scene.data):.6f}, "
+                f"self clearance="
+                f"{optimizer.minimum_self_collision_clearance(scene.data):.4f} m, "
+                f"self cost="
+                f"{optimizer.self_collision_cost(scene.data):.6f}, "
                 f"weighted collision cost="
                 f"{optimizer.total_collision_cost(scene.data):.6f}"
             )
@@ -518,6 +533,10 @@ def main(
     table_collision_safety_margin=TABLE_COLLISION_SAFETY_MARGIN,
     table_collision_proximity_scale=TABLE_COLLISION_PROXIMITY_SCALE,
     table_collision_geom_name=TABLE_COLLISION_GEOM_NAME,
+    enable_self_collision_penalty=ENABLE_SELF_COLLISION_PENALTY,
+    self_collision_weight=SELF_COLLISION_WEIGHT,
+    self_collision_safety_margin=SELF_COLLISION_SAFETY_MARGIN,
+    self_collision_proximity_scale=SELF_COLLISION_PROXIMITY_SCALE,
     show_collision_spheres=False,
     show_table_collision_spheres=False,
     optimization_gain=OPTIMIZATION_GAIN,
@@ -608,6 +627,10 @@ def main(
         table_collision_safety_margin=table_collision_safety_margin,
         table_collision_proximity_scale=table_collision_proximity_scale,
         table_collision_geom_name=table_collision_geom_name,
+        enable_self_collision_penalty=enable_self_collision_penalty,
+        self_collision_weight=self_collision_weight,
+        self_collision_safety_margin=self_collision_safety_margin,
+        self_collision_proximity_scale=self_collision_proximity_scale,
     )
     print(
         f"Collision model: {optimizer.collision_version.value}, "
@@ -629,6 +652,14 @@ def main(
         f"weight={optimizer.table_collision_weight:g}, "
         f"safety margin={optimizer.table_collision_safety_margin:.3f} m, "
         f"proximity scale={optimizer.table_collision_proximity_scale:.3f} m"
+    )
+    print(
+        "Same-arm non-adjacent collision pairs: "
+        f"left={optimizer.left_self_collision_pairs.shape[0]}, "
+        f"right={optimizer.right_self_collision_pairs.shape[0]}, "
+        f"weight={optimizer.self_collision_weight:g}, "
+        f"safety margin={optimizer.self_collision_safety_margin:.3f} m, "
+        f"proximity scale={optimizer.self_collision_proximity_scale:.3f} m"
     )
     if show_collision_spheres or show_table_collision_spheres:
         visual_geoms = scene.model.geom_group == 2
@@ -798,6 +829,29 @@ def parse_arguments():
         help="optional box geom whose top face defines the table plane",
     )
     parser.add_argument(
+        "--disable-self-collision-penalty",
+        action="store_true",
+        help="disable non-adjacent same-arm link collision avoidance",
+    )
+    parser.add_argument(
+        "--self-collision-weight",
+        type=float,
+        default=SELF_COLLISION_WEIGHT,
+        help="same-arm self-collision cost weight",
+    )
+    parser.add_argument(
+        "--self-collision-safety-margin",
+        type=float,
+        default=SELF_COLLISION_SAFETY_MARGIN,
+        help="desired non-adjacent same-arm clearance in metres",
+    )
+    parser.add_argument(
+        "--self-collision-proximity-scale",
+        type=float,
+        default=SELF_COLLISION_PROXIMITY_SCALE,
+        help="same-arm self-collision softplus transition scale in metres",
+    )
+    parser.add_argument(
         "--show-collision-spheres",
         action="store_true",
         help="draw fitted spheres throughout the spatial motion",
@@ -931,6 +985,16 @@ if __name__ == "__main__":
             arguments.table_collision_proximity_scale
         ),
         table_collision_geom_name=arguments.table_collision_geom,
+        enable_self_collision_penalty=(
+            not arguments.disable_self_collision_penalty
+        ),
+        self_collision_weight=arguments.self_collision_weight,
+        self_collision_safety_margin=(
+            arguments.self_collision_safety_margin
+        ),
+        self_collision_proximity_scale=(
+            arguments.self_collision_proximity_scale
+        ),
         show_collision_spheres=arguments.show_collision_spheres,
         show_table_collision_spheres=(
             arguments.show_table_collision_spheres

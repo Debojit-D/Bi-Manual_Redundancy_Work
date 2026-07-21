@@ -46,6 +46,8 @@ CSV_COLUMNS = [
     "collision_cost",
     "min_arm_table_clearance",
     "arm_table_collision_cost",
+    "min_self_collision_clearance",
+    "self_collision_cost",
     "total_weighted_collision_cost",
     "q_l1",
     "q_l2",
@@ -247,6 +249,10 @@ class Equation8CSVRecorder:
             "arm_table_collision_cost": (
                 self.optimizer.arm_table_collision_cost(data)
             ),
+            "min_self_collision_clearance": (
+                self.optimizer.minimum_self_collision_clearance(data)
+            ),
+            "self_collision_cost": self.optimizer.self_collision_cost(data),
             "total_weighted_collision_cost": (
                 self.optimizer.total_collision_cost(data)
             ),
