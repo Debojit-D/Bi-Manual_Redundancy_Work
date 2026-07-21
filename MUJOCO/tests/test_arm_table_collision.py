@@ -56,14 +56,17 @@ class ArmTableCollisionTests(unittest.TestCase):
             for body_id in optimizer.right_table_body_ids
         }
 
-        self.assertEqual(left_names, {f"link{i}_l" for i in range(3, 8)})
-        self.assertEqual(right_names, {f"link{i}_r" for i in range(3, 8)})
+        self.assertEqual(
+            left_names,
+            {"link1_l", "link2", *(f"link{i}_l" for i in range(3, 8))},
+        )
+        self.assertEqual(right_names, {f"link{i}_r" for i in range(1, 8)})
         all_names = left_names | right_names
         self.assertFalse(any("finger" in name.lower() for name in all_names))
         self.assertNotIn("hand_l", all_names)
         self.assertNotIn("hand_r", all_names)
-        self.assertEqual(optimizer.left_table_radii.size, 48)
-        self.assertEqual(optimizer.right_table_radii.size, 58)
+        self.assertEqual(optimizer.left_table_radii.size, 91)
+        self.assertEqual(optimizer.right_table_radii.size, 101)
 
     def test_auto_detects_the_table_top_collision_box(self):
         optimizer = self.optimizer
@@ -76,7 +79,7 @@ class ArmTableCollisionTests(unittest.TestCase):
             [0.202, 0.134, 0.005],
         )
 
-    def test_oriented_box_clearance_has_expected_sign_and_magnitude(self):
+    def test_oriented_top_plane_clearance_has_expected_sign_and_magnitude(self):
         optimizer = self.optimizer
         data = self.scene.data
         geom_id = optimizer.table_collision_geom_id
@@ -88,7 +91,7 @@ class ArmTableCollisionTests(unittest.TestCase):
         sphere_center = center + rotation @ np.array(
             [0.0, 0.0, half_size[2] + radius + gap]
         )
-        clearance = optimizer._sphere_to_box_surface_clearances(
+        clearance = optimizer._sphere_to_table_top_plane_clearances(
             data,
             sphere_center[np.newaxis, :],
             np.array([radius]),
@@ -96,13 +99,26 @@ class ArmTableCollisionTests(unittest.TestCase):
         )
         self.assertAlmostEqual(clearance[0], gap, places=12)
 
-        inside_clearance = optimizer._sphere_to_box_surface_clearances(
+        intersecting_clearance = optimizer._sphere_to_table_top_plane_clearances(
             data,
-            center[np.newaxis, :],
+            (center + rotation @ np.array([0.0, 0.0, half_size[2]]))[
+                np.newaxis, :
+            ],
             np.array([radius]),
             geom_id,
         )
-        self.assertLess(inside_clearance[0], 0.0)
+        self.assertAlmostEqual(intersecting_clearance[0], -radius, places=12)
+
+        # The plane is limited to the tabletop footprint; lower-arm spheres
+        # beside the table must not collide with an infinite plane.
+        translated_center = sphere_center + rotation @ np.array([2.0, -3.0, 0.0])
+        translated_clearance = optimizer._sphere_to_table_top_plane_clearances(
+            data,
+            translated_center[np.newaxis, :],
+            np.array([radius]),
+            geom_id,
+        )
+        self.assertGreater(translated_clearance[0], 1.0)
 
     def test_table_clearance_and_cost_are_finite(self):
         clearance = self.optimizer.minimum_arm_table_clearance(self.scene.data)

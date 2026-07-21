@@ -26,6 +26,8 @@ RIGHT_COLLISION_BODIES = (
 )
 
 LEFT_TABLE_COLLISION_BODIES = (
+    "link1_l",
+    "link2",
     "link3_l",
     "link4_l",
     "link5_l",
@@ -34,6 +36,8 @@ LEFT_TABLE_COLLISION_BODIES = (
 )
 
 RIGHT_TABLE_COLLISION_BODIES = (
+    "link1_r",
+    "link2_r",
     "link3_r",
     "link4_r",
     "link5_r",
@@ -530,14 +534,21 @@ class ManipulabilityOptimizer:
             np.column_stack((right_positions, self.right_table_radii)),
         )
 
-    def _sphere_to_box_surface_clearances(
+    def _sphere_to_table_top_plane_clearances(
         self,
         data,
         sphere_positions,
         sphere_radii,
         table_geom_id,
     ):
-        """Return signed sphere-surface clearances to an oriented box."""
+        """Return sphere clearances from the oriented tabletop plane patch.
+
+        The collision plane is the top face of the detected tabletop box. Its
+        point and normal therefore follow the table's free-joint translation
+        and rotation. The box's x/y half sizes bound the plane patch so arm
+        spheres beside or below the table are not penalized as they would be
+        by an infinite plane. Negative values mean sphere/plane intersection.
+        """
         sphere_positions = np.asarray(sphere_positions, dtype=float)
         sphere_radii = np.asarray(sphere_radii, dtype=float)
         if sphere_positions.ndim != 2 or sphere_positions.shape[1] != 3:
@@ -548,14 +559,18 @@ class ManipulabilityOptimizer:
         box_rotation = data.geom_xmat[table_geom_id].reshape(3, 3)
         box_half_size = self.model.geom_size[table_geom_id]
         local_positions = (sphere_positions - box_center) @ box_rotation
-        q = np.abs(local_positions) - box_half_size
-        outside_distance = np.linalg.norm(np.maximum(q, 0.0), axis=1)
-        inside_distance = np.minimum(np.max(q, axis=1), 0.0)
-        signed_center_distance = outside_distance + inside_distance
-        return signed_center_distance - sphere_radii
+        tangential_offset = np.maximum(
+            np.abs(local_positions[:, :2]) - box_half_size[:2],
+            0.0,
+        )
+        normal_offset = local_positions[:, 2] - box_half_size[2]
+        center_distance = np.sqrt(
+            np.sum(tangential_offset**2, axis=1) + normal_offset**2
+        )
+        return center_distance - sphere_radii
 
     def _arm_table_clearances(self, data):
-        """Return all arm-sphere clearances to the table top box."""
+        """Return all arm-sphere clearances from the tabletop plane patch."""
         if self.table_collision_geom_id < 0:
             try:
                 self.table_collision_geom_id = (
@@ -577,13 +592,13 @@ class ManipulabilityOptimizer:
             self.right_table_body_ids,
             self.right_table_centers,
         )
-        left_clearances = self._sphere_to_box_surface_clearances(
+        left_clearances = self._sphere_to_table_top_plane_clearances(
             data,
             left_positions,
             self.left_table_radii,
             self.table_collision_geom_id,
         )
-        right_clearances = self._sphere_to_box_surface_clearances(
+        right_clearances = self._sphere_to_table_top_plane_clearances(
             data,
             right_positions,
             self.right_table_radii,
@@ -596,7 +611,7 @@ class ManipulabilityOptimizer:
         return float(np.min(self._inter_arm_clearances(data)))
 
     def minimum_arm_table_clearance(self, data):
-        """Return the closest arm-sphere clearance to the table top box."""
+        """Return the closest arm-sphere clearance to the tabletop plane."""
         clearances = self._arm_table_clearances(data)
         if not clearances.size:
             return float("inf")
@@ -628,7 +643,7 @@ class ManipulabilityOptimizer:
         return float(np.sum(violations**2))
 
     def arm_table_collision_cost(self, data):
-        """Return the smooth arm-sphere/table-box proximity cost."""
+        """Return the smooth arm-sphere/table-plane proximity cost."""
         clearances = self._arm_table_clearances(data)
         if not clearances.size:
             return 0.0

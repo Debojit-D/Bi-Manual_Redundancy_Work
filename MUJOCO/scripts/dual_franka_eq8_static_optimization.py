@@ -32,6 +32,7 @@ different fitted-sphere MJCF. Run with ``--help`` for the complete reference.
 """
 
 import argparse
+from contextlib import nullcontext
 from pathlib import Path
 
 import numpy as np
@@ -45,9 +46,11 @@ from MUJOCO.utils.redundancy_optimization import (
     Equation8Controller,
     ManipulabilityObjective,
     ManipulabilityOptimizer,
+    OptimizationResult,
     draw_detailed_collision_spheres,
 )
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
+from MUJOCO.utils.video_recording import TqdmSimulationRate
 
 
 CONTROL_HZ = 50.0
@@ -113,22 +116,41 @@ def run_static_optimization(
     duration=None,
     recorder=None,
     show_collision_spheres=False,
+    enable_redundancy_optimization=True,
+    convergence_speed_threshold=None,
+    convergence_hold_duration=0.5,
+    minimum_convergence_time=1.0,
 ):
     """Hold q_d constant while continuously applying the null-space term."""
     desired_position, desired_rotation = kinematics.object_pose(scene.data)
     phi = scene.arm_configuration()
     initial_value = optimizer.value(scene.data)
     maximum_steps = None if duration is None else int(duration * CONTROL_HZ)
+    convergence_steps = max(
+        1, int(round(convergence_hold_duration * CONTROL_HZ))
+    )
+    below_threshold_steps = 0
     step = 0
 
-    print(
-        f"Starting static {optimizer.objective.value} optimization: "
-        f"initial objective={initial_value:.6g}"
+    mode = (
+        optimizer.objective.value
+        if enable_redundancy_optimization
+        else "baseline"
     )
+    print(f"Starting static {mode} run: initial objective={initial_value:.6g}")
     while viewer.is_running() and (
         maximum_steps is None or step < maximum_steps
     ):
-        optimization = optimizer.optimization_velocity(scene.data)
+        if enable_redundancy_optimization:
+            optimization = optimizer.optimization_velocity(scene.data)
+        else:
+            zero_velocity = np.zeros(scene.arm_dofs.size)
+            optimization = OptimizationResult(
+                objective=optimizer.objective,
+                value=optimizer.value(scene.data),
+                gradient=zero_velocity.copy(),
+                phi_dot_opt=zero_velocity,
+            )
 
         # Equation (8), now including (I-J_H^dagger J_H) phi_dot_opt.
         phi, diagnostics = equation_8.update(
@@ -152,6 +174,25 @@ def run_static_optimization(
             )
         rate.sleep()
 
+        null_speed = np.max(
+            np.abs(diagnostics.null_space_joint_velocity)
+        )
+        if (
+            convergence_speed_threshold is not None
+            and step / CONTROL_HZ >= minimum_convergence_time
+        ):
+            if null_speed <= convergence_speed_threshold:
+                below_threshold_steps += 1
+            else:
+                below_threshold_steps = 0
+            if below_threshold_steps >= convergence_steps:
+                print(
+                    f"Converged: null-space speed remained <= "
+                    f"{convergence_speed_threshold:.4g} rad/s for "
+                    f"{convergence_hold_duration:.2f} s."
+                )
+                break
+
         if step % int(CONTROL_HZ) == 0:
             print(
                 f"  t={step / CONTROL_HZ:5.1f}s, "
@@ -161,7 +202,7 @@ def run_static_optimization(
                 f"grasp error="
                 f"{np.linalg.norm(diagnostics.grasp_pose_error):.5f}, "
                 f"null speed="
-                f"{np.max(np.abs(diagnostics.null_space_joint_velocity)):.4f} rad/s, "
+                f"{null_speed:.4f} rad/s, "
                 f"alpha={diagnostics.null_space_scale:.3f}, "
                 f"joint margin="
                 f"{diagnostics.minimum_joint_limit_distance:.4f} rad, "
@@ -178,10 +219,7 @@ def run_static_optimization(
         step += 1
 
     final_value = optimizer.value(scene.data)
-    print(
-        f"Static optimization finished: {initial_value:.6g} -> "
-        f"{final_value:.6g}"
-    )
+    print(f"Static {mode} run finished: {initial_value:.6g} -> {final_value:.6g}")
     return initial_value, final_value
 
 
@@ -200,7 +238,33 @@ def main(
     joint_limit_margin=JOINT_LIMIT_MARGIN,
     joint_limit_stop_distance=JOINT_LIMIT_STOP_DISTANCE,
     joint_limit_slow_distance=JOINT_LIMIT_SLOW_DISTANCE,
+    objective=OBJECTIVE,
+    enable_redundancy_optimization=True,
+    duration=None,
+    convergence_speed_threshold=None,
+    convergence_hold_duration=0.5,
+    minimum_convergence_time=1.0,
+    top_view=False,
+    video_output_dir=None,
+    video_width=1280,
+    video_height=720,
+    video_fps=30,
 ):
+    objective = ManipulabilityObjective(objective)
+    if duration is not None and duration <= 0.0:
+        raise ValueError("duration must be greater than zero")
+    if (
+        convergence_speed_threshold is not None
+        and convergence_speed_threshold < 0.0
+    ):
+        raise ValueError("convergence_speed_threshold cannot be negative")
+    if convergence_hold_duration <= 0.0:
+        raise ValueError("convergence_hold_duration must be greater than zero")
+    if minimum_convergence_time < 0.0:
+        raise ValueError("minimum_convergence_time cannot be negative")
+    optimization_mode = (
+        objective.value if enable_redundancy_optimization else "baseline"
+    )
     scene = DualFrankaMuJoCoScene(
         control_hz=CONTROL_HZ,
         left_arm_base_position=LEFT_ARM_SPAWN_POSITION,
@@ -240,7 +304,7 @@ def main(
     optimizer = ManipulabilityOptimizer(
         kinematics,
         scene.arm_qpos,
-        objective=OBJECTIVE,
+        objective=objective,
         gain=optimization_gain,
         finite_difference_step=FINITE_DIFFERENCE_STEP,
         maximum_joint_speed=maximum_joint_speed,
@@ -268,7 +332,26 @@ def main(
     if show_collision_spheres:
         visual_geoms = scene.model.geom_group == 2
         scene.model.geom_rgba[visual_geoms, 3] = 0.25
-    rate = RateLimiter(frequency=CONTROL_HZ, warn=False)
+    video_mode = video_output_dir is not None
+    if video_mode and show_collision_spheres:
+        raise ValueError(
+            "collision-sphere overlays are unavailable with headless video"
+        )
+    if video_mode:
+        viewer_context = scene.launch_video_recorder(
+            video_output_dir,
+            width=video_width,
+            height=video_height,
+            fps=video_fps,
+        )
+        rate_context = TqdmSimulationRate(
+            f"Recording static {optimization_mode}"
+        )
+    else:
+        viewer_context = scene.launch_viewer()
+        rate_context = nullcontext(
+            RateLimiter(frequency=CONTROL_HZ, warn=False)
+        )
     recorder = None
     if record_data or output_csv is not None:
         recorder = Equation8CSVRecorder(
@@ -276,14 +359,19 @@ def main(
             kinematics,
             equation_8,
             optimizer,
-            experiment_name="dual_franka_eq8_static_optimization_fitted_spheres",
+            experiment_name=(
+                "dual_franka_eq8_static_"
+                f"{optimization_mode}_fitted_spheres"
+            ),
             output_path=output_csv,
+            optimization_mode=optimization_mode,
         )
         print(f"Recording data to: {recorder.output_path}")
 
     try:
-        with scene.launch_viewer() as viewer:
-            scene.configure_viewer_camera(viewer)
+        with rate_context as rate, viewer_context as viewer:
+            if not video_mode:
+                scene.configure_viewer_camera(viewer, top_view=top_view)
             scene.settle(viewer, rate)
             scene.run_grasp_approach(viewer, rate)
             print("Closing both grippers...")
@@ -298,6 +386,13 @@ def main(
                 rate,
                 recorder=recorder,
                 show_collision_spheres=show_collision_spheres,
+                enable_redundancy_optimization=(
+                    enable_redundancy_optimization
+                ),
+                duration=duration,
+                convergence_speed_threshold=convergence_speed_threshold,
+                convergence_hold_duration=convergence_hold_duration,
+                minimum_convergence_time=minimum_convergence_time,
             )
     except KeyboardInterrupt:
         print("Interrupted by Ctrl+C; preserving recorded samples.")
@@ -308,6 +403,8 @@ def main(
                 f"Saved {recorder.rows_written} rows to: "
                 f"{recorder.output_path}"
             )
+        if video_mode:
+            print(f"Saved perspective and top-view videos to: {video_output_dir}")
 
 
 def parse_arguments():
@@ -319,6 +416,22 @@ def parse_arguments():
         "--record-data",
         action="store_true",
         help="Record every Equation (8) control step to CSV.",
+    )
+    parser.add_argument(
+        "--objective",
+        choices=[objective.value for objective in ManipulabilityObjective],
+        default=OBJECTIVE.value,
+        help="null-space objective (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--baseline",
+        action="store_true",
+        help="disable the null-space term while monitoring the selected metric",
+    )
+    parser.add_argument(
+        "--duration",
+        type=float,
+        help="run duration in seconds; by default run until the viewer closes",
     )
     parser.add_argument(
         "--output-csv",
@@ -363,6 +476,11 @@ def parse_arguments():
         "--show-collision-spheres",
         action="store_true",
         help="draw fitted left/right spheres in the MuJoCo viewer",
+    )
+    parser.add_argument(
+        "--top-view",
+        action="store_true",
+        help="use a full overhead camera instead of the perspective view",
     )
     parser.add_argument(
         "--optimization-gain",
@@ -413,4 +531,8 @@ if __name__ == "__main__":
         joint_limit_margin=arguments.joint_limit_margin,
         joint_limit_stop_distance=arguments.joint_limit_stop_distance,
         joint_limit_slow_distance=arguments.joint_limit_slow_distance,
+        objective=arguments.objective,
+        enable_redundancy_optimization=not arguments.baseline,
+        duration=arguments.duration,
+        top_view=arguments.top_view,
     )

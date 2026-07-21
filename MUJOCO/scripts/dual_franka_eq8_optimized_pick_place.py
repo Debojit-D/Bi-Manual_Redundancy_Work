@@ -29,7 +29,7 @@ Run from the repository root according to what you want to inspect::
         --show-collision-spheres
 
 Inter-arm collision uses fitted sphere-to-sphere clearance. Table collision
-uses fitted spheres on arm links 3--7 against the table top oriented box;
+uses fitted spheres on arm links 1--7 against the oriented tabletop plane;
 hands and fingers are excluded so grasp contact remains possible. Both costs
 act only through the Equation (8) null-space objective. A different fitted-
 sphere MJCF can be supplied with ``--collision-sphere-model``.
@@ -39,6 +39,7 @@ guarantee. Run with ``--help`` for the complete option reference.
 """
 
 import argparse
+from contextlib import nullcontext
 from pathlib import Path
 
 import numpy as np
@@ -54,8 +55,10 @@ from MUJOCO.utils.redundancy_optimization import (
     Equation8Controller,
     ManipulabilityObjective,
     ManipulabilityOptimizer,
+    OptimizationResult,
 )
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
+from MUJOCO.utils.video_recording import TqdmSimulationRate
 
 
 # Match the baseline experiment so the null-space term is the main difference.
@@ -167,9 +170,19 @@ def optimized_equation_8_step(
     recorder=None,
     show_collision_spheres=False,
     show_table_collision_spheres=False,
+    enable_redundancy_optimization=True,
 ):
     """Apply one primary-plus-null-space Equation (8) control step."""
-    optimization = optimizer.optimization_velocity(scene.data)
+    if enable_redundancy_optimization:
+        optimization = optimizer.optimization_velocity(scene.data)
+    else:
+        zero_velocity = np.zeros(scene.arm_dofs.size)
+        optimization = OptimizationResult(
+            objective=optimizer.objective,
+            value=optimizer.value(scene.data),
+            gradient=zero_velocity.copy(),
+            phi_dot_opt=zero_velocity,
+        )
     phi, diagnostics = equation_8.update(
         scene.data,
         phi,
@@ -211,6 +224,7 @@ def run_optimized_lift(
     recorder=None,
     show_collision_spheres=False,
     show_table_collision_spheres=False,
+    enable_redundancy_optimization=True,
 ):
     """Lift, lower, then keep optimizing at the returned grasped pose."""
     initial_position, desired_rotation = kinematics.object_pose(scene.data)
@@ -218,9 +232,13 @@ def run_optimized_lift(
     phi = scene.arm_configuration()
     initial_objective = optimizer.value(scene.data)
 
+    mode = (
+        optimizer.objective.value
+        if enable_redundancy_optimization
+        else "baseline"
+    )
     print(
-        f"Starting optimized Equation (8) lift-and-lower "
-        f"({optimizer.objective.value}): "
+        f"Starting Equation (8) lift-and-lower ({mode}): "
         f"initial objective={initial_objective:.6g}"
     )
     total_duration = LIFT_DURATION + LOWER_DURATION
@@ -248,9 +266,10 @@ def run_optimized_lift(
             desired_twist,
             viewer,
             rate,
-            recorder,
-            show_collision_spheres,
-            show_table_collision_spheres,
+            recorder=recorder,
+            show_collision_spheres=show_collision_spheres,
+            show_table_collision_spheres=show_table_collision_spheres,
+            enable_redundancy_optimization=enable_redundancy_optimization,
         )
 
         if apex_objective is None and time >= LIFT_DURATION:
@@ -293,10 +312,15 @@ def run_optimized_lift(
 
     returned_objective = optimizer.value(scene.data)
     if motion_completed:
+        hold_activity = (
+            "optimization active"
+            if enable_redundancy_optimization
+            else "null-space optimization disabled"
+        )
         print(
             f"Lift-and-lower complete: objective {initial_objective:.6g} -> "
             f"{returned_objective:.6g}. Holding the returned pose with "
-            "optimization active; close the viewer to exit."
+            f"{hold_activity}; close the viewer to exit."
         )
     else:
         print("Viewer closed before the lift-and-lower motion completed.")
@@ -320,9 +344,10 @@ def run_optimized_lift(
             np.zeros(6),
             viewer,
             rate,
-            recorder,
-            show_collision_spheres,
-            show_table_collision_spheres,
+            recorder=recorder,
+            show_collision_spheres=show_collision_spheres,
+            show_table_collision_spheres=show_table_collision_spheres,
+            enable_redundancy_optimization=enable_redundancy_optimization,
         )
         if hold_step % int(CONTROL_HZ) == 0:
             print(
@@ -383,7 +408,21 @@ def main(
     joint_limit_margin=JOINT_LIMIT_MARGIN,
     joint_limit_stop_distance=JOINT_LIMIT_STOP_DISTANCE,
     joint_limit_slow_distance=JOINT_LIMIT_SLOW_DISTANCE,
+    objective=OBJECTIVE,
+    enable_redundancy_optimization=True,
+    hold_duration=None,
+    top_view=False,
+    video_output_dir=None,
+    video_width=1280,
+    video_height=720,
+    video_fps=30,
 ):
+    objective = ManipulabilityObjective(objective)
+    if hold_duration is not None and hold_duration < 0.0:
+        raise ValueError("hold_duration cannot be negative")
+    optimization_mode = (
+        objective.value if enable_redundancy_optimization else "baseline"
+    )
     scene = DualFrankaMuJoCoScene(
         control_hz=CONTROL_HZ,
         left_arm_base_position=LEFT_ARM_SPAWN_POSITION,
@@ -423,7 +462,7 @@ def main(
     optimizer = ManipulabilityOptimizer(
         kinematics,
         scene.arm_qpos,
-        objective=OBJECTIVE,
+        objective=objective,
         gain=optimization_gain,
         finite_difference_step=FINITE_DIFFERENCE_STEP,
         maximum_joint_speed=maximum_joint_speed,
@@ -467,7 +506,26 @@ def main(
         # remain visible in the overlay. This does not affect contacts.
         visual_geoms = scene.model.geom_group == 2
         scene.model.geom_rgba[visual_geoms, 3] = 0.25
-    rate = RateLimiter(frequency=CONTROL_HZ, warn=False)
+    video_mode = video_output_dir is not None
+    if video_mode and show_collision_spheres:
+        raise ValueError(
+            "collision-sphere overlays are unavailable with headless video"
+        )
+    if video_mode:
+        viewer_context = scene.launch_video_recorder(
+            video_output_dir,
+            width=video_width,
+            height=video_height,
+            fps=video_fps,
+        )
+        rate_context = TqdmSimulationRate(
+            f"Recording pick/place {optimization_mode}"
+        )
+    else:
+        viewer_context = scene.launch_viewer()
+        rate_context = nullcontext(
+            RateLimiter(frequency=CONTROL_HZ, warn=False)
+        )
     recorder = None
     if record_data or output_csv is not None:
         recorder = Equation8CSVRecorder(
@@ -476,15 +534,18 @@ def main(
             equation_8,
             optimizer,
             experiment_name=(
-                "dual_franka_eq8_optimized_lift_lower_fitted_spheres"
+                "dual_franka_eq8_pick_place_"
+                f"{optimization_mode}_fitted_spheres"
             ),
             output_path=output_csv,
+            optimization_mode=optimization_mode,
         )
         print(f"Recording data to: {recorder.output_path}")
 
     try:
-        with scene.launch_viewer() as viewer:
-            scene.configure_viewer_camera(viewer)
+        with rate_context as rate, viewer_context as viewer:
+            if not video_mode:
+                scene.configure_viewer_camera(viewer, top_view=top_view)
             scene.settle(viewer, rate)
             scene.run_grasp_approach(viewer, rate)
             print("Closing both grippers...")
@@ -500,6 +561,10 @@ def main(
                 recorder=recorder,
                 show_collision_spheres=show_collision_spheres,
                 show_table_collision_spheres=show_table_collision_spheres,
+                hold_duration=hold_duration,
+                enable_redundancy_optimization=(
+                    enable_redundancy_optimization
+                ),
             )
     except KeyboardInterrupt:
         print("Interrupted by Ctrl+C; preserving recorded samples.")
@@ -510,6 +575,8 @@ def main(
                 f"Saved {recorder.rows_written} rows to: "
                 f"{recorder.output_path}"
             )
+        if video_mode:
+            print(f"Saved perspective and top-view videos to: {video_output_dir}")
 
 
 def parse_arguments():
@@ -521,6 +588,22 @@ def parse_arguments():
         "--record-data",
         action="store_true",
         help="Record every Equation (8) control step to CSV.",
+    )
+    parser.add_argument(
+        "--objective",
+        choices=[objective.value for objective in ManipulabilityObjective],
+        default=OBJECTIVE.value,
+        help="null-space objective (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--baseline",
+        action="store_true",
+        help="disable null-space optimization while tracking the same motion",
+    )
+    parser.add_argument(
+        "--hold-duration",
+        type=float,
+        help="optional final hold duration; otherwise hold until viewer closes",
     )
     parser.add_argument(
         "--output-csv",
@@ -576,7 +659,7 @@ def parse_arguments():
         "--table-collision-safety-margin",
         type=float,
         default=TABLE_COLLISION_SAFETY_MARGIN,
-        help="desired arm-sphere clearance from the table box in metres",
+        help="desired arm-sphere clearance above the table plane in metres",
     )
     parser.add_argument(
         "--table-collision-proximity-scale",
@@ -587,7 +670,7 @@ def parse_arguments():
     parser.add_argument(
         "--table-collision-geom",
         default=TABLE_COLLISION_GEOM_NAME,
-        help="optional explicit table top box geom name",
+        help="optional box geom whose top face defines the table plane",
     )
     parser.add_argument(
         "--show-collision-spheres",
@@ -597,7 +680,12 @@ def parse_arguments():
     parser.add_argument(
         "--show-table-collision-spheres",
         action="store_true",
-        help="draw only the link3-link7 spheres used against the table",
+        help="draw only the link1-link7 spheres used against the table",
+    )
+    parser.add_argument(
+        "--top-view",
+        action="store_true",
+        help="use a full overhead camera instead of the perspective view",
     )
     parser.add_argument(
         "--optimization-gain",
@@ -662,4 +750,8 @@ if __name__ == "__main__":
         joint_limit_margin=arguments.joint_limit_margin,
         joint_limit_stop_distance=arguments.joint_limit_stop_distance,
         joint_limit_slow_distance=arguments.joint_limit_slow_distance,
+        objective=arguments.objective,
+        enable_redundancy_optimization=not arguments.baseline,
+        hold_duration=arguments.hold_duration,
+        top_view=arguments.top_view,
     )

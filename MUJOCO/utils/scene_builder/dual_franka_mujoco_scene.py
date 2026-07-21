@@ -1,7 +1,9 @@
 """MuJoCo scene and robot-control utilities for the dual-Franka demo."""
 
+import argparse
 from pathlib import Path
 
+import glfw
 import mink
 import mujoco
 import mujoco.viewer
@@ -9,9 +11,22 @@ import numpy as np
 from loop_rate_limiters import RateLimiter
 from scipy.spatial.transform import Rotation
 
+from MUJOCO.utils.video_recording import HeadlessDualViewRecorder
+
 
 class DualFrankaMuJoCoScene:
     """Own the MuJoCo model, actuators, viewer targets, and grasp approach."""
+
+    PERSPECTIVE_CAMERA_LOOKAT = np.array([0.1, 0.0, 0.1])
+    TOP_CAMERA_LOOKAT = np.array([0.3, 0.0, 0.15])
+    PERSPECTIVE_CAMERA_AZIMUTH = 140
+    PERSPECTIVE_CAMERA_ELEVATION = -30
+    TOP_CAMERA_AZIMUTH = 180
+    TOP_CAMERA_ELEVATION = -90
+    CAMERA_DISTANCE = 2.0
+    HEADLIGHT_AMBIENT = np.array([0.27, 0.27, 0.27])
+    HEADLIGHT_DIFFUSE = np.array([0.55, 0.55, 0.55])
+    MODEL_LIGHT_INTENSITY_SCALE = 0.90
 
     DEFAULT_MODEL_PATH = (
         Path(__file__).resolve().parents[2]
@@ -71,6 +86,7 @@ class DualFrankaMuJoCoScene:
             )
 
         self.model = mujoco.MjModel.from_xml_path(self.model_path.as_posix())
+        self._configure_lighting()
         self._set_arm_base_poses(
             left_arm_base_position,
             right_arm_base_position,
@@ -358,19 +374,75 @@ class DualFrankaMuJoCoScene:
             self.step(viewer)
             rate.sleep()
 
-    def configure_viewer_camera(self, viewer):
-        viewer.cam.lookat[:] = [0.1, 0.0, 0.1]
-        viewer.cam.azimuth = 70
-        viewer.cam.elevation = -20
-        viewer.cam.distance = 2.5
+    def configure_viewer_camera(self, viewer, *, top_view=False):
+        """Apply the camera preset and keep the infinite background dark."""
+        if viewer.user_scn is not None:
+            viewer.user_scn.flags[mujoco.mjtRndFlag.mjRND_SKYBOX] = 0
+        viewer.cam.distance = self.CAMERA_DISTANCE
+        if top_view:
+            viewer.cam.lookat[:] = self.TOP_CAMERA_LOOKAT
+            # Rotate the overhead image 90 degrees anticlockwise in-plane.
+            viewer.cam.azimuth = self.TOP_CAMERA_AZIMUTH
+            viewer.cam.elevation = self.TOP_CAMERA_ELEVATION
+        else:
+            viewer.cam.lookat[:] = self.PERSPECTIVE_CAMERA_LOOKAT
+            viewer.cam.azimuth = self.PERSPECTIVE_CAMERA_AZIMUTH
+            viewer.cam.elevation = self.PERSPECTIVE_CAMERA_ELEVATION
 
-    def launch_viewer(self):
-        """Create the passive viewer used by the demonstration."""
-        return mujoco.viewer.launch_passive(
-            model=self.model,
-            data=self.data,
-            show_left_ui=False,
-            show_right_ui=False,
+    def _configure_lighting(self):
+        """Apply one slightly dimmer lighting treatment to every scene."""
+        self.model.vis.headlight.ambient[:] = self.HEADLIGHT_AMBIENT
+        self.model.vis.headlight.diffuse[:] = self.HEADLIGHT_DIFFUSE
+        self.model.light_diffuse[:] *= self.MODEL_LIGHT_INTENSITY_SCALE
+        self.model.light_specular[:] *= self.MODEL_LIGHT_INTENSITY_SCALE
+
+    def launch_viewer(self, *, maximized=True):
+        """Create the passive viewer, maximized by default.
+
+        MuJoCo's passive-viewer handle does not expose its native window, so
+        the initial window state must be requested through GLFW before the
+        viewer creates it. ``launch_passive`` returns only after that window
+        exists, allowing the global hint to be reset safely afterwards.
+        """
+        if maximized:
+            if not glfw.init():
+                raise RuntimeError("GLFW initialization failed")
+            glfw.window_hint(glfw.MAXIMIZED, glfw.TRUE)
+        try:
+            return mujoco.viewer.launch_passive(
+                model=self.model,
+                data=self.data,
+                show_left_ui=False,
+                show_right_ui=False,
+            )
+        finally:
+            if maximized:
+                glfw.default_window_hints()
+
+    def launch_video_recorder(
+        self,
+        output_dir,
+        *,
+        width=1280,
+        height=720,
+        fps=30,
+    ):
+        """Create a headless recorder for perspective and overhead views."""
+        return HeadlessDualViewRecorder(
+            self.model,
+            self.data,
+            output_dir,
+            perspective_lookat=self.PERSPECTIVE_CAMERA_LOOKAT,
+            top_lookat=self.TOP_CAMERA_LOOKAT,
+            perspective_azimuth=self.PERSPECTIVE_CAMERA_AZIMUTH,
+            perspective_elevation=self.PERSPECTIVE_CAMERA_ELEVATION,
+            top_azimuth=self.TOP_CAMERA_AZIMUTH,
+            top_elevation=self.TOP_CAMERA_ELEVATION,
+            distance=self.CAMERA_DISTANCE,
+            control_hz=self.control_hz,
+            width=width,
+            height=height,
+            fps=fps,
         )
 
     def _site_quaternion(self, site_name):
@@ -604,8 +676,23 @@ PREVIEW_SHOW_MOCAP_TARGETS = False
 PREVIEW_CONTROL_HZ = 50.0
 
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description=(
+            "Preview the shared dual-Franka scene until the viewer closes."
+        )
+    )
+    parser.add_argument(
+        "--top-view",
+        action="store_true",
+        help="use the directly overhead camera instead of the perspective view",
+    )
+    return parser.parse_args()
+
+
 def main():
     """Open the shared scene at home and keep it active until viewer closure."""
+    arguments = parse_arguments()
     scene = DualFrankaMuJoCoScene(
         control_hz=PREVIEW_CONTROL_HZ,
         left_arm_base_position=PREVIEW_LEFT_ARM_SPAWN_POSITION,
@@ -617,7 +704,7 @@ def main():
     home_configuration = scene.arm_configuration()
 
     with scene.launch_viewer() as viewer:
-        scene.configure_viewer_camera(viewer)
+        scene.configure_viewer_camera(viewer, top_view=arguments.top_view)
         while viewer.is_running():
             scene.command(home_configuration, scene.gripper_open)
             scene.step(viewer)
