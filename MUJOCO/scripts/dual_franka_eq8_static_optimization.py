@@ -9,6 +9,19 @@ Run from the repository root according to what you want to inspect::
     # Default experiment: fitted spheres and collision penalty.
     python -m MUJOCO.scripts.dual_franka_eq8_static_optimization
 
+    # Run one of the six predefined comparison positions.
+    python -m MUJOCO.scripts.dual_franka_eq8_static_optimization --position 1
+    python -m MUJOCO.scripts.dual_franka_eq8_static_optimization --position 2
+
+    # Position map [x, y, z] metres:
+    # 1=(0.30, 0.15, 0.28), 2=(0.60, 0.15, 0.28)
+    # 3=(0.30, 0.00, 0.28), 4=(0.60, 0.00, 0.28)
+    # 5=(0.30,-0.15, 0.28), 6=(0.60,-0.15, 0.28)
+
+    # Or supply any custom site_top_middle world position [x y z] in metres.
+    python -m MUJOCO.scripts.dual_franka_eq8_static_optimization \\
+        --table-spawn-position 0.45 -0.10 0.28
+
     # See the fitted collision spheres in the viewer.
     python -m MUJOCO.scripts.dual_franka_eq8_static_optimization \\
         --show-collision-spheres
@@ -51,6 +64,10 @@ from MUJOCO.utils.redundancy_optimization import (
 )
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 from MUJOCO.utils.video_recording import TqdmSimulationRate
+from MUJOCO.scripts.table_spawn_comparison_positions import (
+    TABLE_SPAWN_CASES,
+    table_spawn_position_for_number,
+)
 
 
 CONTROL_HZ = 50.0
@@ -443,13 +460,19 @@ def parse_arguments():
             "files receive a collision-safe numeric suffix."
         ),
     )
-    parser.add_argument(
+    position_group = parser.add_mutually_exclusive_group()
+    position_group.add_argument(
+        "--position",
+        type=int,
+        choices=range(1, len(TABLE_SPAWN_CASES) + 1),
+        help="use predefined table position 1 through 6",
+    )
+    position_group.add_argument(
         "--table-spawn-position",
         type=float,
         nargs=3,
-        default=TABLE_SPAWN_POSITION,
         metavar=("X", "Y", "Z"),
-        help="table site_top_middle world position in metres",
+        help="custom table site_top_middle world position in metres",
     )
     parser.add_argument(
         "--collision-weight",
@@ -528,6 +551,15 @@ def parse_arguments():
 
 if __name__ == "__main__":
     arguments = parse_arguments()
+    selected_table_position = (
+        table_spawn_position_for_number(arguments.position)
+        if arguments.position is not None
+        else (
+            arguments.table_spawn_position
+            if arguments.table_spawn_position is not None
+            else TABLE_SPAWN_POSITION
+        )
+    )
     main(
         record_data=arguments.record_data,
         output_csv=arguments.output_csv,
@@ -546,5 +578,5 @@ if __name__ == "__main__":
         enable_redundancy_optimization=not arguments.baseline,
         duration=arguments.duration,
         top_view=arguments.top_view,
-        table_spawn_position=arguments.table_spawn_position,
+        table_spawn_position=selected_table_position,
     )
