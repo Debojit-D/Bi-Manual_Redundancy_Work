@@ -1,20 +1,21 @@
-"""Run the simple Equation (8) pick-and-place task in all four modes.
+"""Run the simple Equation (8) pick-and-place comparison at six positions.
 
-Four independent MuJoCo scenes run sequentially: baseline, velocity
-manipulability, force manipulability, and directional-force manipulability.
-Each scene performs the same lift-and-return trajectory and then holds for the
-configured interval. Close a viewer early to advance to the next mode.
+At each configured table position, four independent MuJoCo scenes run
+sequentially: baseline, velocity manipulability, force manipulability, and
+directional-force manipulability. This produces 24 runs in total. Each scene
+performs the same lift-and-return trajectory and then holds for the configured
+interval. Close a viewer early to advance to the next run.
 
 Run from the repository root with the project virtual environment::
 
-    # Run all four modes and hold the returned pose for 2 seconds per mode.
+    # Run all 24 position/mode cases; hold 2 seconds per run.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison
 
     # Change the final hold duration for every mode.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison \
         --hold-duration 5
 
-    # Record every control step to a separate timestamped CSV per mode.
+    # Record every control step to a labeled CSV per position and mode.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison \
         --record-data
 
@@ -46,6 +47,7 @@ from datetime import datetime
 from pathlib import Path
 
 from MUJOCO.scripts import dual_franka_eq8_optimized_pick_place as experiment
+from MUJOCO.scripts.table_spawn_comparison_positions import TABLE_SPAWN_CASES
 from MUJOCO.utils.redundancy_optimization import ManipulabilityObjective
 
 
@@ -57,6 +59,9 @@ EXPERIMENTS = (
 )
 DEFAULT_VIDEO_ROOT = (
     Path(__file__).resolve().parents[2] / "outputs" / "mujoco_videos"
+)
+DEFAULT_DATA_ROOT = (
+    Path(__file__).resolve().parents[2] / "outputs" / "mujoco_data"
 )
 
 
@@ -74,7 +79,13 @@ def parse_arguments():
     parser.add_argument(
         "--record-data",
         action="store_true",
-        help="record every mode to its own timestamped CSV",
+        help="record every position/mode run to a labeled CSV",
+    )
+    parser.add_argument(
+        "--data-output-dir",
+        type=Path,
+        default=DEFAULT_DATA_ROOT,
+        help="root directory for timestamped comparison CSVs",
     )
     parser.add_argument(
         "--show-collision-spheres",
@@ -84,7 +95,7 @@ def parse_arguments():
     parser.add_argument(
         "--top-view",
         action="store_true",
-        help="use a full overhead camera for all four runs",
+        help="use a full overhead camera for all comparison runs",
     )
     parser.add_argument(
         "--record-video",
@@ -143,9 +154,9 @@ def main():
     arguments = parse_arguments()
     validate_arguments(arguments)
 
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     video_run_dir = None
     if arguments.record_video:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         video_run_dir = (
             arguments.video_output_dir.expanduser().resolve()
             / f"pick_place_comparison_{timestamp}"
@@ -153,36 +164,64 @@ def main():
         video_run_dir.mkdir(parents=True, exist_ok=False)
         print(f"Headless dual-view video output: {video_run_dir}")
 
-    print("Equation (8) pick-and-place four-mode comparison")
+    data_run_dir = None
+    if arguments.record_data:
+        data_run_dir = (
+            arguments.data_output_dir.expanduser().resolve()
+            / f"pick_place_comparison_{timestamp}"
+        )
+        data_run_dir.mkdir(parents=True, exist_ok=False)
+        print(f"Comparison CSV output: {data_run_dir}")
+
+    total_runs = len(TABLE_SPAWN_CASES) * len(EXPERIMENTS)
+    print(
+        "Equation (8) pick-and-place comparison: "
+        f"{len(TABLE_SPAWN_CASES)} positions x {len(EXPERIMENTS)} modes "
+        f"= {total_runs} runs"
+    )
     if arguments.record_video:
         print("Running headlessly; recording perspective and top views.")
     else:
-        print("Close a viewer early to advance immediately to the next mode.")
-    for index, (name, objective, enabled) in enumerate(EXPERIMENTS, start=1):
-        print("\n" + "=" * 72)
-        print(f"Run {index}/{len(EXPERIMENTS)}: {name}")
-        print("=" * 72)
-        experiment.main(
-            objective=objective,
-            enable_redundancy_optimization=enabled,
-            hold_duration=arguments.hold_duration,
-            record_data=arguments.record_data,
-            show_collision_spheres=arguments.show_collision_spheres,
-            enable_collision_penalty=(
-                not arguments.disable_collision_penalty
-            ),
-            optimization_gain=arguments.optimization_gain,
-            maximum_joint_speed=arguments.max_joint_speed,
-            top_view=arguments.top_view,
-            video_output_dir=(
-                video_run_dir / name if video_run_dir is not None else None
-            ),
-            video_width=arguments.video_width,
-            video_height=arguments.video_height,
-            video_fps=arguments.video_fps,
-        )
+        print("Close a viewer early to advance immediately to the next run.")
+    run_index = 0
+    for position_name, table_position in TABLE_SPAWN_CASES:
+        print("\n" + "#" * 72)
+        print(f"{position_name}: table site_top_middle = {table_position} m")
+        print("#" * 72)
+        for name, objective, enabled in EXPERIMENTS:
+            run_index += 1
+            print("\n" + "=" * 72)
+            print(f"Run {run_index}/{total_runs}: {position_name} / {name}")
+            print("=" * 72)
+            experiment.main(
+                objective=objective,
+                enable_redundancy_optimization=enabled,
+                hold_duration=arguments.hold_duration,
+                table_spawn_position=table_position,
+                record_data=arguments.record_data,
+                output_csv=(
+                    data_run_dir / position_name / f"{name}.csv"
+                    if data_run_dir is not None
+                    else None
+                ),
+                show_collision_spheres=arguments.show_collision_spheres,
+                enable_collision_penalty=(
+                    not arguments.disable_collision_penalty
+                ),
+                optimization_gain=arguments.optimization_gain,
+                maximum_joint_speed=arguments.max_joint_speed,
+                top_view=arguments.top_view,
+                video_output_dir=(
+                    video_run_dir / position_name / name
+                    if video_run_dir is not None
+                    else None
+                ),
+                video_width=arguments.video_width,
+                video_height=arguments.video_height,
+                video_fps=arguments.video_fps,
+            )
 
-    print("\nCompleted all four pick-and-place comparison runs.")
+    print(f"\nCompleted all {total_runs} pick-and-place comparison runs.")
 
 
 if __name__ == "__main__":

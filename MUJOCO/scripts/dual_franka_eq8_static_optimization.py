@@ -249,6 +249,7 @@ def main(
     video_width=1280,
     video_height=720,
     video_fps=30,
+    table_spawn_position=TABLE_SPAWN_POSITION,
 ):
     objective = ManipulabilityObjective(objective)
     if duration is not None and duration <= 0.0:
@@ -274,7 +275,9 @@ def main(
         show_mocap_targets=SHOW_MOCAP_TARGETS,
         enable_bias_compensation=ENABLE_ARM_BIAS_COMPENSATION,
     )
-    scene.set_table_reference_pose(TABLE_SPAWN_POSITION)
+    scene.set_table_reference_pose(
+        np.asarray(table_spawn_position, dtype=float)
+    )
     kinematics = CooperativeManipulationKinematics(
         scene.model,
         scene.left_arm_dofs,
@@ -441,6 +444,14 @@ def parse_arguments():
         ),
     )
     parser.add_argument(
+        "--table-spawn-position",
+        type=float,
+        nargs=3,
+        default=TABLE_SPAWN_POSITION,
+        metavar=("X", "Y", "Z"),
+        help="table site_top_middle world position in metres",
+    )
+    parser.add_argument(
         "--collision-weight",
         type=float,
         default=COLLISION_WEIGHT,
@@ -535,4 +546,5 @@ if __name__ == "__main__":
         enable_redundancy_optimization=not arguments.baseline,
         duration=arguments.duration,
         top_view=arguments.top_view,
+        table_spawn_position=arguments.table_spawn_position,
     )

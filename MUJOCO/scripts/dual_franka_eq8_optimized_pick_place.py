@@ -76,13 +76,8 @@ RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.25, 0.0])
 LEFT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
 RIGHT_ARM_SPAWN_EULER_XYZ_DEGREES = np.array([0.0, 0.0, 0.0])
 
-# # World position [x, y, z] of the table's site_top_middle reference frame.
-# TABLE_SPAWN_POSITION = np.array([0.60, 0.0, 0.28])
-# K_P = np.diag([8.0, 8.0, 8.0, 4.0, 4.0, 4.0])
-# GRASP_K_P = np.diag([8.0, 8.0, 8.0, 6.0, 6.0, 6.0])
-
-# World position [x, y, z] of the table's site_top_middle reference frame.
-TABLE_SPAWN_POSITION = np.array([0.30, 0.0, 0.28])
+# Default world position [x, y, z] of the table's site_top_middle frame.
+TABLE_SPAWN_POSITION = np.array([0.30, 0.15, 0.28])
 K_P = np.diag([8.0, 8.0, 8.0, 4.0, 4.0, 4.0])
 GRASP_K_P = np.diag([8.0, 8.0, 8.0, 6.0, 6.0, 6.0])
 
@@ -443,6 +438,7 @@ def main(
     video_width=1280,
     video_height=720,
     video_fps=30,
+    table_spawn_position=TABLE_SPAWN_POSITION,
 ):
     objective = ManipulabilityObjective(objective)
     if hold_duration is not None and hold_duration < 0.0:
@@ -459,7 +455,9 @@ def main(
         show_mocap_targets=SHOW_MOCAP_TARGETS,
         enable_bias_compensation=ENABLE_ARM_BIAS_COMPENSATION,
     )
-    scene.set_table_reference_pose(TABLE_SPAWN_POSITION)
+    scene.set_table_reference_pose(
+        np.asarray(table_spawn_position, dtype=float)
+    )
     kinematics = CooperativeManipulationKinematics(
         scene.model,
         scene.left_arm_dofs,
@@ -652,6 +650,14 @@ def parse_arguments():
         ),
     )
     parser.add_argument(
+        "--table-spawn-position",
+        type=float,
+        nargs=3,
+        default=TABLE_SPAWN_POSITION,
+        metavar=("X", "Y", "Z"),
+        help="table site_top_middle world position in metres",
+    )
+    parser.add_argument(
         "--collision-weight",
         type=float,
         default=COLLISION_WEIGHT,
@@ -826,4 +832,5 @@ if __name__ == "__main__":
         enable_redundancy_optimization=not arguments.baseline,
         hold_duration=arguments.hold_duration,
         top_view=arguments.top_view,
+        table_spawn_position=arguments.table_spawn_position,
     )
