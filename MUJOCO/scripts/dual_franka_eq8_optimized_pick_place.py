@@ -17,9 +17,9 @@ Run from the repository root according to what you want to inspect::
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place --position 2
 
     # Position map [x, y, z] metres:
-    # 1=(0.30, 0.15, 0.28), 2=(0.60, 0.15, 0.28)
+    # 1=(0.30, 0.20, 0.28), 2=(0.60, 0.20, 0.28)
     # 3=(0.30, 0.00, 0.28), 4=(0.60, 0.00, 0.28)
-    # 5=(0.30,-0.15, 0.28), 6=(0.60,-0.15, 0.28)
+    # 5=(0.30,-0.20, 0.28), 6=(0.60,-0.20, 0.28)
 
     # Or supply any custom site_top_middle world position [x y z] in metres.
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place \\
@@ -28,6 +28,10 @@ Run from the repository root according to what you want to inspect::
     # Visualize the fitted collision spheres throughout pick and place.
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place \\
         --show-table-collision-spheres
+
+    # Select a front or overhead interactive camera.
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place --front-view
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place --top-view
 
     # Compare against optimization without the soft collision penalty.
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place \\
@@ -49,7 +53,8 @@ objective. A different fitted-sphere MJCF can be supplied with
 ``--collision-sphere-model``.
 
 The collision term is a soft optimization cost, not a hard collision
-guarantee. Run with ``--help`` for the complete option reference.
+guarantee. Press Ctrl+C at any time to close active resources and stop cleanly.
+Run with ``--help`` for the complete option reference.
 """
 
 import argparse
@@ -63,6 +68,7 @@ from MUJOCO.utils.grasping_kinematics import (
     CooperativeManipulationKinematics,
 )
 from MUJOCO.utils.data_recording import Equation8CSVRecorder
+from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 from MUJOCO.utils.redundancy_optimization import (
     draw_detailed_collision_spheres,
     draw_table_collision_spheres,
@@ -457,6 +463,7 @@ def main(
     enable_redundancy_optimization=True,
     hold_duration=FINAL_HOLD_DURATION,
     top_view=False,
+    front_view=False,
     video_output_dir=None,
     video_width=1280,
     video_height=720,
@@ -605,7 +612,11 @@ def main(
     try:
         with rate_context as rate, viewer_context as viewer:
             if not video_mode:
-                scene.configure_viewer_camera(viewer, top_view=top_view)
+                scene.configure_viewer_camera(
+                    viewer,
+                    top_view=top_view,
+                    front_view=front_view,
+                )
             scene.settle(viewer, rate)
             scene.run_grasp_approach(viewer, rate)
             print("Closing both grippers...")
@@ -628,8 +639,6 @@ def main(
             )
             if viewer.is_running():
                 scene.run_grasp_disengagement(viewer, rate)
-    except KeyboardInterrupt:
-        print("Interrupted by Ctrl+C; preserving recorded samples.")
     finally:
         if recorder is not None:
             recorder.close()
@@ -785,11 +794,7 @@ def parse_arguments():
         action="store_true",
         help="draw only the link1-link7 spheres used against the table",
     )
-    parser.add_argument(
-        "--top-view",
-        action="store_true",
-        help="use a full overhead camera instead of the perspective view",
-    )
+    add_camera_view_arguments(parser, scope="interactive run")
     parser.add_argument(
         "--optimization-gain",
         type=float,
@@ -823,7 +828,8 @@ def parse_arguments():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
+def cli():
+    """Parse CLI arguments and run one optimized pick-and-place task."""
     arguments = parse_arguments()
     selected_table_position = (
         table_spawn_position_for_number(arguments.position)
@@ -876,5 +882,10 @@ if __name__ == "__main__":
         enable_redundancy_optimization=not arguments.baseline,
         hold_duration=arguments.hold_duration,
         top_view=arguments.top_view,
+        front_view=arguments.front_view,
         table_spawn_position=selected_table_position,
     )
+
+
+if __name__ == "__main__":
+    run_cli(cli)

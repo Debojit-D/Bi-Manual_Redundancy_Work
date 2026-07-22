@@ -40,6 +40,10 @@ Run from the repository root with the project virtual environment::
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
         --top-view
 
+    # Use a straight-on front camera for every mode.
+    .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
+        --front-view
+
     # Run headlessly and record both camera views for every mode.
     .venv/bin/python -m \\
         MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
@@ -67,7 +71,8 @@ Run from the repository root with the project virtual environment::
         --intermediate-to-goal-duration 12 \\
         --optimization-gain 3000 --max-joint-speed 3
 
-Options can be combined. Run with ``--help`` for the complete option list.
+Options can be combined. Press Ctrl+C to close the active run and stop the
+entire sweep cleanly. Run with ``--help`` for the complete option list.
 """
 
 import argparse
@@ -81,6 +86,7 @@ from MUJOCO.scripts.table_spawn_comparison_positions import (
     ordered_comparison_cases,
     table_spawn_position_for_number,
 )
+from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 from MUJOCO.utils.redundancy_optimization import ManipulabilityObjective
 
 
@@ -131,11 +137,7 @@ def parse_arguments():
         help="root directory for timestamped comparison CSVs",
     )
     parser.add_argument("--show-collision-spheres", action="store_true")
-    parser.add_argument(
-        "--top-view",
-        action="store_true",
-        help="use a full overhead camera for all comparison runs",
-    )
+    add_camera_view_arguments(parser, scope="comparison runs")
     parser.add_argument(
         "--record-video",
         action="store_true",
@@ -340,6 +342,7 @@ def main():
                 arguments.intermediate_to_goal_duration
             ),
             top_view=arguments.top_view,
+            front_view=arguments.front_view,
             video_output_dir=(
                 video_run_dir / position_name / name
                 if video_run_dir is not None
@@ -354,4 +357,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)

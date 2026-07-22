@@ -21,9 +21,18 @@ the next permutation. Both options produce 24 runs::
         MUJOCO.scripts.dual_franka_eq8_directional_distance_comparison \
         --sweep-option 2
 
+    # Select a front or overhead interactive camera.
+    .venv/bin/python -m \
+        MUJOCO.scripts.dual_franka_eq8_directional_distance_comparison \
+        --front-view
+    .venv/bin/python -m \
+        MUJOCO.scripts.dual_franka_eq8_directional_distance_comparison \
+        --top-view
+
 Convergence-based stopping is the default. Supplying ``--duration`` runs each
 case for the same fixed interval instead. Each completed static case ends with
 the grippers closed and does not disengage; close any viewer to advance early.
+Press Ctrl+C to close the active viewer and stop the entire sweep cleanly.
 """
 
 import argparse
@@ -37,6 +46,7 @@ from MUJOCO.scripts.table_spawn_comparison_positions import (
     TABLE_SPAWN_CASES,
     ordered_comparison_cases,
 )
+from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 from MUJOCO.utils.data_recording import Equation8CSVRecorder
 from MUJOCO.utils.grasping_kinematics import (
     CooperativeManipulationKinematics,
@@ -131,11 +141,7 @@ def parse_arguments():
         action="store_true",
         help="draw fitted collision spheres in every viewer",
     )
-    parser.add_argument(
-        "--top-view",
-        action="store_true",
-        help="use a full overhead camera for all comparison runs",
-    )
+    add_camera_view_arguments(parser, scope="comparison runs")
     parser.add_argument(
         "--disable-collision-penalty",
         action="store_true",
@@ -271,6 +277,7 @@ def run_case(case, arguments, position_name, table_position):
             scene.configure_viewer_camera(
                 viewer,
                 top_view=arguments.top_view,
+                front_view=arguments.front_view,
             )
             scene.settle(viewer, rate)
             scene.run_grasp_approach(viewer, rate)
@@ -296,9 +303,6 @@ def run_case(case, arguments, position_name, table_position):
                 convergence_hold_duration=arguments.convergence_hold,
                 minimum_convergence_time=arguments.minimum_run_time,
             )
-    except KeyboardInterrupt:
-        print("Interrupted by Ctrl+C; preserving recorded samples.")
-        raise
     finally:
         if recorder is not None:
             recorder.close()
@@ -345,14 +349,9 @@ def main():
         print("\n" + "=" * 76)
         print(f"Run {index}/{total_runs}: {position_name} / {case.value}")
         print("=" * 76)
-        try:
-            run_case(case, arguments, position_name, table_position)
-        except KeyboardInterrupt:
-            print("Comparison interrupted; remaining cases were not run.")
-            break
-    else:
-        print(f"\nCompleted all {total_runs} directional-distance runs.")
+        run_case(case, arguments, position_name, table_position)
+    print(f"\nCompleted all {total_runs} directional-distance runs.")
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)

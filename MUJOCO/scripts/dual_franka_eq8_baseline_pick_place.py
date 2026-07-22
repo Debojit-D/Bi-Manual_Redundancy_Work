@@ -1,11 +1,22 @@
-"""Baseline Equation (8) lift, replace, disengage, and return-home demo."""
+"""Baseline Equation (8) lift, replace, disengage, and return-home demo.
 
+Run with the default perspective, front, or overhead camera::
+
+    python -m MUJOCO.scripts.dual_franka_eq8_baseline_pick_place
+    python -m MUJOCO.scripts.dual_franka_eq8_baseline_pick_place --front-view
+    python -m MUJOCO.scripts.dual_franka_eq8_baseline_pick_place --top-view
+
+Press Ctrl+C at any time to close the viewer and shut down cleanly.
+"""
+
+import argparse
 import numpy as np
 from loop_rate_limiters import RateLimiter
 
 from MUJOCO.utils.grasping_kinematics import (
     CooperativeManipulationKinematics,
 )
+from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 from MUJOCO.utils.redundancy_optimization import Equation8Controller
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 
@@ -131,7 +142,16 @@ def run_equation_8(scene, kinematics, equation_8, viewer, rate):
     return True
 
 
-def main():
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    add_camera_view_arguments(parser, scope="interactive run")
+    return parser.parse_args()
+
+
+def main(*, top_view=False, front_view=False):
     scene = DualFrankaMuJoCoScene(
         control_hz=CONTROL_HZ,
         left_arm_base_position=LEFT_ARM_SPAWN_POSITION,
@@ -154,7 +174,11 @@ def main():
     rate = RateLimiter(frequency=CONTROL_HZ, warn=False)
 
     with scene.launch_viewer() as viewer:
-        scene.configure_viewer_camera(viewer)
+        scene.configure_viewer_camera(
+            viewer,
+            top_view=top_view,
+            front_view=front_view,
+        )
         scene.settle(viewer, rate)
         scene.run_grasp_approach(viewer, rate)
         print("Closing both grippers...")
@@ -170,5 +194,13 @@ def main():
             scene.run_grasp_disengagement(viewer, rate)
 
 
+def cli():
+    arguments = parse_arguments()
+    main(
+        top_view=arguments.top_view,
+        front_view=arguments.front_view,
+    )
+
+
 if __name__ == "__main__":
-    main()
+    run_cli(cli)

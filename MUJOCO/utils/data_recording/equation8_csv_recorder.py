@@ -14,9 +14,30 @@ CSV_COLUMNS = [
     "objective",
     "collision_version",
     "objective_value",
+    "characteristic_length_m",
+    "paper_objective_raw",
+    "paper_objective_scaled",
     "velocity_manipulability",
+    "velocity_manipulability_raw",
+    "velocity_manipulability_scaled",
     "force_manipulability",
+    "force_manipulability_raw",
+    "force_manipulability_scaled",
     "directional_force_cost",
+    "directional_force_cost_raw",
+    "directional_force_cost_scaled",
+    "velocity_capability_trace_raw",
+    "velocity_capability_trace_scaled",
+    "force_capability_trace_raw",
+    "force_capability_trace_scaled",
+    "velocity_map_rank_raw",
+    "velocity_map_rank_scaled",
+    "velocity_map_sigma_min_raw",
+    "velocity_map_sigma_max_raw",
+    "velocity_map_condition_raw",
+    "velocity_map_sigma_min_scaled",
+    "velocity_map_sigma_max_scaled",
+    "velocity_map_condition_scaled",
     "object_x",
     "object_y",
     "object_z",
@@ -185,21 +206,93 @@ class Equation8CSVRecorder:
             - bias_torque
         )
 
+        (
+            velocity_map_raw,
+            velocity_map_scaled,
+            velocity_capability_raw,
+            velocity_capability_scaled,
+            force_capability_raw,
+            force_capability_scaled,
+        ) = self.optimizer.spatial_capability_matrices(data)
+        (
+            velocity_map_rank_raw,
+            velocity_map_sigma_min_raw,
+            velocity_map_sigma_max_raw,
+            velocity_map_condition_raw,
+        ) = self.optimizer.velocity_map_diagnostics(velocity_map_raw)
+        (
+            velocity_map_rank_scaled,
+            velocity_map_sigma_min_scaled,
+            velocity_map_sigma_max_scaled,
+            velocity_map_condition_scaled,
+        ) = self.optimizer.velocity_map_diagnostics(velocity_map_scaled)
+        velocity_manipulability_raw = (
+            self.optimizer.velocity_manipulability_raw(data)
+        )
+        velocity_manipulability_scaled = (
+            self.optimizer.velocity_manipulability_scaled(data)
+        )
+        force_manipulability_raw = (
+            self.optimizer.force_manipulability_raw(data)
+        )
+        force_manipulability_scaled = (
+            self.optimizer.force_manipulability_scaled(data)
+        )
+        directional_force_cost_raw = (
+            self.optimizer.directional_force_cost_raw(data)
+        )
+        directional_force_cost_scaled = (
+            self.optimizer.directional_force_cost_scaled(data)
+        )
+        paper_objective_raw, paper_objective_scaled = (
+            self.optimizer.paper_objective_values(data)
+        )
+
         row = {
             "time": elapsed_time,
             "optimization_mode": self.optimization_mode,
             "objective": self.optimizer.objective.value,
             "collision_version": self.optimizer.collision_version.value,
             "objective_value": self.optimizer.value(data),
-            "velocity_manipulability": (
-                self.optimizer.velocity_manipulability(data)
+            "characteristic_length_m": (
+                self.optimizer.characteristic_length
             ),
-            "force_manipulability": (
-                self.optimizer.force_manipulability(data)
+            "paper_objective_raw": paper_objective_raw,
+            "paper_objective_scaled": paper_objective_scaled,
+            # Unsuffixed columns remain stable aliases of active scaled metrics.
+            "velocity_manipulability": velocity_manipulability_scaled,
+            "velocity_manipulability_raw": velocity_manipulability_raw,
+            "velocity_manipulability_scaled": (
+                velocity_manipulability_scaled
             ),
-            "directional_force_cost": (
-                self.optimizer.directional_force_cost(data)
+            "force_manipulability": force_manipulability_scaled,
+            "force_manipulability_raw": force_manipulability_raw,
+            "force_manipulability_scaled": force_manipulability_scaled,
+            "directional_force_cost": directional_force_cost_scaled,
+            "directional_force_cost_raw": directional_force_cost_raw,
+            "directional_force_cost_scaled": directional_force_cost_scaled,
+            "velocity_capability_trace_raw": np.trace(
+                velocity_capability_raw
             ),
+            "velocity_capability_trace_scaled": np.trace(
+                velocity_capability_scaled
+            ),
+            "force_capability_trace_raw": np.trace(force_capability_raw),
+            "force_capability_trace_scaled": np.trace(
+                force_capability_scaled
+            ),
+            "velocity_map_rank_raw": velocity_map_rank_raw,
+            "velocity_map_rank_scaled": velocity_map_rank_scaled,
+            "velocity_map_sigma_min_raw": velocity_map_sigma_min_raw,
+            "velocity_map_sigma_max_raw": velocity_map_sigma_max_raw,
+            "velocity_map_condition_raw": velocity_map_condition_raw,
+            "velocity_map_sigma_min_scaled": (
+                velocity_map_sigma_min_scaled
+            ),
+            "velocity_map_sigma_max_scaled": (
+                velocity_map_sigma_max_scaled
+            ),
+            "velocity_map_condition_scaled": velocity_map_condition_scaled,
             "object_x": object_position[0],
             "object_y": object_position[1],
             "object_z": object_position[2],

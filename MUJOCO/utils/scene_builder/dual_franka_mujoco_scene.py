@@ -1,4 +1,13 @@
-"""MuJoCo scene and robot-control utilities for the dual-Franka demo."""
+"""MuJoCo scene and robot-control utilities for the dual-Franka demo.
+
+Standalone preview examples::
+
+    python -m MUJOCO.utils.scene_builder.dual_franka_mujoco_scene
+    python -m MUJOCO.utils.scene_builder.dual_franka_mujoco_scene --front-view
+    python -m MUJOCO.utils.scene_builder.dual_franka_mujoco_scene --top-view
+
+Press Ctrl+C at any time to close the viewer and stop cleanly.
+"""
 
 import argparse
 from pathlib import Path
@@ -11,6 +20,7 @@ import numpy as np
 from loop_rate_limiters import RateLimiter
 from scipy.spatial.transform import Rotation
 
+from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 from MUJOCO.utils.video_recording import HeadlessDualViewRecorder
 
 
@@ -18,9 +28,12 @@ class DualFrankaMuJoCoScene:
     """Own the MuJoCo model, actuators, viewer targets, and grasp approach."""
 
     PERSPECTIVE_CAMERA_LOOKAT = np.array([0.1, 0.0, 0.1])
+    FRONT_CAMERA_LOOKAT = np.array([0.3, 0.0, 0.25])
     TOP_CAMERA_LOOKAT = np.array([0.3, 0.0, 0.15])
     PERSPECTIVE_CAMERA_AZIMUTH = 140
     PERSPECTIVE_CAMERA_ELEVATION = -30
+    FRONT_CAMERA_AZIMUTH = 180
+    FRONT_CAMERA_ELEVATION = 0
     TOP_CAMERA_AZIMUTH = 180
     TOP_CAMERA_ELEVATION = -90
     CAMERA_DISTANCE = 2.0
@@ -385,8 +398,16 @@ class DualFrankaMuJoCoScene:
             rate.sleep()
         return True
 
-    def configure_viewer_camera(self, viewer, *, top_view=False):
+    def configure_viewer_camera(
+        self,
+        viewer,
+        *,
+        top_view=False,
+        front_view=False,
+    ):
         """Apply the camera preset and keep the infinite background dark."""
+        if top_view and front_view:
+            raise ValueError("top_view and front_view are mutually exclusive")
         if viewer.user_scn is not None:
             viewer.user_scn.flags[mujoco.mjtRndFlag.mjRND_SKYBOX] = 0
         viewer.cam.distance = self.CAMERA_DISTANCE
@@ -395,6 +416,10 @@ class DualFrankaMuJoCoScene:
             # Rotate the overhead image 90 degrees anticlockwise in-plane.
             viewer.cam.azimuth = self.TOP_CAMERA_AZIMUTH
             viewer.cam.elevation = self.TOP_CAMERA_ELEVATION
+        elif front_view:
+            viewer.cam.lookat[:] = self.FRONT_CAMERA_LOOKAT
+            viewer.cam.azimuth = self.FRONT_CAMERA_AZIMUTH
+            viewer.cam.elevation = self.FRONT_CAMERA_ELEVATION
         else:
             viewer.cam.lookat[:] = self.PERSPECTIVE_CAMERA_LOOKAT
             viewer.cam.azimuth = self.PERSPECTIVE_CAMERA_AZIMUTH
@@ -777,11 +802,7 @@ def parse_arguments():
             "Preview the shared dual-Franka scene until the viewer closes."
         )
     )
-    parser.add_argument(
-        "--top-view",
-        action="store_true",
-        help="use the directly overhead camera instead of the perspective view",
-    )
+    add_camera_view_arguments(parser, scope="scene preview")
     return parser.parse_args()
 
 
@@ -799,7 +820,11 @@ def main():
     home_configuration = scene.arm_configuration()
 
     with scene.launch_viewer() as viewer:
-        scene.configure_viewer_camera(viewer, top_view=arguments.top_view)
+        scene.configure_viewer_camera(
+            viewer,
+            top_view=arguments.top_view,
+            front_view=arguments.front_view,
+        )
         while viewer.is_running():
             scene.command(home_configuration, scene.gripper_open)
             scene.step(viewer)
@@ -807,4 +832,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)

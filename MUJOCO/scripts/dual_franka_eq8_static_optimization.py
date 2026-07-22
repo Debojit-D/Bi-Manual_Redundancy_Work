@@ -34,6 +34,10 @@ Run from the repository root according to what you want to inspect::
     python -m MUJOCO.scripts.dual_franka_eq8_static_optimization \\
         --show-collision-spheres --show-table-collision-spheres
 
+    # Use a straight-on front camera instead of the default perspective view.
+    python -m MUJOCO.scripts.dual_franka_eq8_static_optimization \\
+        --position 1 --objective force --front-view
+
     # Disable individual collision objectives for ablation runs.
     python -m MUJOCO.scripts.dual_franka_eq8_static_optimization \\
         --disable-collision-penalty
@@ -55,6 +59,7 @@ enabled by default. The collision response can be explored with
 ``--collision-weight``, ``--collision-safety-margin``, and
 ``--collision-proximity-scale``. Use ``--collision-sphere-model`` to load a
 different fitted-sphere MJCF. Run with ``--help`` for the complete reference.
+Press Ctrl+C at any time to close active resources and stop cleanly.
 """
 
 import argparse
@@ -67,6 +72,7 @@ from loop_rate_limiters import RateLimiter
 from MUJOCO.utils.grasping_kinematics import (
     CooperativeManipulationKinematics,
 )
+from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 from MUJOCO.utils.data_recording import Equation8CSVRecorder
 from MUJOCO.utils.redundancy_optimization import (
     Equation8Controller,
@@ -307,6 +313,7 @@ def main(
     convergence_hold_duration=0.5,
     minimum_convergence_time=1.0,
     top_view=False,
+    front_view=False,
     video_output_dir=None,
     video_width=1280,
     video_height=720,
@@ -462,7 +469,11 @@ def main(
     try:
         with rate_context as rate, viewer_context as viewer:
             if not video_mode:
-                scene.configure_viewer_camera(viewer, top_view=top_view)
+                scene.configure_viewer_camera(
+                    viewer,
+                    top_view=top_view,
+                    front_view=front_view,
+                )
             scene.settle(viewer, rate)
             scene.run_grasp_approach(viewer, rate)
             print("Closing both grippers...")
@@ -486,8 +497,6 @@ def main(
                 convergence_hold_duration=convergence_hold_duration,
                 minimum_convergence_time=minimum_convergence_time,
             )
-    except KeyboardInterrupt:
-        print("Interrupted by Ctrl+C; preserving recorded samples.")
     finally:
         if recorder is not None:
             recorder.close()
@@ -639,11 +648,7 @@ def parse_arguments():
         action="store_true",
         help="draw only the link1-link7 spheres used against the table",
     )
-    parser.add_argument(
-        "--top-view",
-        action="store_true",
-        help="use a full overhead camera instead of the perspective view",
-    )
+    add_camera_view_arguments(parser, scope="interactive run")
     parser.add_argument(
         "--optimization-gain",
         type=float,
@@ -677,7 +682,8 @@ def parse_arguments():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
+def cli():
+    """Parse CLI arguments and run one static experiment."""
     arguments = parse_arguments()
     selected_table_position = (
         table_spawn_position_for_number(arguments.position)
@@ -735,5 +741,10 @@ if __name__ == "__main__":
             else None
         ),
         top_view=arguments.top_view,
+        front_view=arguments.front_view,
         table_spawn_position=selected_table_position,
     )
+
+
+if __name__ == "__main__":
+    run_cli(cli)

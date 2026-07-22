@@ -11,6 +11,11 @@ Normal launch (generate once, then reuse the cached sphere XML)::
 
     python MUJOCO/scripts/load_dual_franka_robots_only.py
 
+Select a straight-on front or overhead camera::
+
+    python MUJOCO/scripts/load_dual_franka_robots_only.py --front-view
+    python MUJOCO/scripts/load_dual_franka_robots_only.py --top-view
+
 Refit with denser spheres or exact per-body counts::
 
     python MUJOCO/scripts/load_dual_franka_robots_only.py \
@@ -25,6 +30,7 @@ model without generating or drawing spheres.
 
 Use ``--sphere-view spheres-only`` when you want an unobstructed inspection of
 the fitted spheres instead of the default transparent-robot overlay.
+Press Ctrl+C at any time to close the viewer and stop cleanly.
 """
 
 import argparse
@@ -37,6 +43,8 @@ import mujoco.viewer
 import numpy as np
 from loop_rate_limiters import RateLimiter
 from scipy.spatial.transform import Rotation
+
+from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 
 
 SOURCE_MODEL_PATH = (
@@ -57,6 +65,16 @@ SPHERE_GENERATOR_PATH = (
 
 CONTROL_HZ = 50.0
 ENABLE_ARM_BIAS_COMPENSATION = True
+PERSPECTIVE_CAMERA_LOOKAT = np.array([0.1, 0.0, 0.35])
+FRONT_CAMERA_LOOKAT = np.array([0.0, 0.0, 0.35])
+TOP_CAMERA_LOOKAT = np.array([0.0, 0.0, 0.15])
+PERSPECTIVE_CAMERA_AZIMUTH = 70
+PERSPECTIVE_CAMERA_ELEVATION = -20
+FRONT_CAMERA_AZIMUTH = 180
+FRONT_CAMERA_ELEVATION = 0
+TOP_CAMERA_AZIMUTH = 180
+TOP_CAMERA_ELEVATION = -90
+CAMERA_DISTANCE = 2.5
 
 # World-frame base poses, matching the baseline script by default.
 LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.2, 0.0])
@@ -147,6 +165,7 @@ def parse_args():
         help="visual-mesh opacity in overlay mode (0 to 1)",
     )
     parser.add_argument("--control-hz", type=float, default=CONTROL_HZ)
+    add_camera_view_arguments(parser, scope="robots-only preview")
     parser.add_argument(
         "--left-position",
         type=float,
@@ -290,7 +309,10 @@ def main():
     print(f"Loaded robots-only model: {model_path}")
     print(f"Bodies: {model.nbody}, joints: {model.njnt}, actuators: {model.nu}")
     print(f"Generated collision spheres: {sphere_count}")
-    print("Holding both robots at the home keyframe; close the viewer to exit.")
+    print(
+        "Holding both robots at the home keyframe; "
+        "close the viewer or press Ctrl+C to exit."
+    )
 
     with mujoco.viewer.launch_passive(
         model,
@@ -303,10 +325,19 @@ def main():
         viewer.opt.geomgroup[3] = 0
         viewer.opt.geomgroup[4] = 1
         viewer.opt.geomgroup[2] = int(args.sphere_view == "overlay")
-        viewer.cam.lookat[:] = [0.1, 0.0, 0.35]
-        viewer.cam.azimuth = 70
-        viewer.cam.elevation = -20
-        viewer.cam.distance = 2.5
+        if args.top_view:
+            viewer.cam.lookat[:] = TOP_CAMERA_LOOKAT
+            viewer.cam.azimuth = TOP_CAMERA_AZIMUTH
+            viewer.cam.elevation = TOP_CAMERA_ELEVATION
+        elif args.front_view:
+            viewer.cam.lookat[:] = FRONT_CAMERA_LOOKAT
+            viewer.cam.azimuth = FRONT_CAMERA_AZIMUTH
+            viewer.cam.elevation = FRONT_CAMERA_ELEVATION
+        else:
+            viewer.cam.lookat[:] = PERSPECTIVE_CAMERA_LOOKAT
+            viewer.cam.azimuth = PERSPECTIVE_CAMERA_AZIMUTH
+            viewer.cam.elevation = PERSPECTIVE_CAMERA_ELEVATION
+        viewer.cam.distance = CAMERA_DISTANCE
 
         while viewer.is_running():
             for _ in range(substeps):
@@ -318,4 +349,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)

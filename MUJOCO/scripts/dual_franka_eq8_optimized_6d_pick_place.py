@@ -20,9 +20,9 @@ Run from the repository root according to what you want to inspect::
         --goal-position 0.20 0.45 0.269
 
     # Position map [x, y, z] metres (pickup/start position only):
-    # 1=(0.30, 0.15, 0.28), 2=(0.60, 0.15, 0.28)
+    # 1=(0.30, 0.20, 0.28), 2=(0.60, 0.20, 0.28)
     # 3=(0.30, 0.00, 0.28), 4=(0.60, 0.00, 0.28)
-    # 5=(0.30,-0.15, 0.28), 6=(0.60,-0.15, 0.28)
+    # 5=(0.30,-0.20, 0.28), 6=(0.60,-0.20, 0.28)
 
     # A fully custom pickup position remains available.
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
@@ -32,6 +32,10 @@ Run from the repository root according to what you want to inspect::
     # Draw the fitted spheres during the complete SE(3) motion.
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
         --show-table-collision-spheres
+
+    # Select a front or overhead interactive camera.
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place --front-view
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place --top-view
 
     # Record every Equation (8) step, including the final hold.
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
@@ -47,7 +51,7 @@ clearance. Table collision uses fitted spheres on arm links 1--7 against the
 oriented tabletop plane; hands and fingers are excluded so grasp contact
 remains possible. All soft costs act only through the Equation (8) null-space
 objective and are not hard collision guarantees. Run with ``--help`` for all
-options.
+options. Press Ctrl+C at any time to close active resources and stop cleanly.
 """
 
 import argparse
@@ -63,6 +67,7 @@ from MUJOCO.utils.grasping_kinematics import (
     CooperativeManipulationKinematics,
 )
 from MUJOCO.utils.data_recording import Equation8CSVRecorder
+from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 from MUJOCO.utils.redundancy_optimization import (
     Equation8Controller,
     ManipulabilityObjective,
@@ -578,6 +583,7 @@ def main(
     objective=OBJECTIVE,
     enable_redundancy_optimization=True,
     top_view=False,
+    front_view=False,
     video_output_dir=None,
     video_width=1280,
     video_height=720,
@@ -725,7 +731,11 @@ def main(
     try:
         with rate_context as rate, viewer_context as viewer:
             if not video_mode:
-                scene.configure_viewer_camera(viewer, top_view=top_view)
+                scene.configure_viewer_camera(
+                    viewer,
+                    top_view=top_view,
+                    front_view=front_view,
+                )
             scene.settle(viewer, rate)
             scene.run_grasp_approach(viewer, rate)
             print("Closing both grippers...")
@@ -757,9 +767,6 @@ def main(
             if viewer.is_running():
                 scene.run_grasp_disengagement(viewer, rate)
             return result
-    except KeyboardInterrupt:
-        print("Interrupted by Ctrl+C; preserving recorded samples.")
-        return None
     finally:
         if recorder is not None:
             recorder.close()
@@ -886,11 +893,7 @@ def parse_arguments():
         action="store_true",
         help="draw only link1-link7 spheres used against the table",
     )
-    parser.add_argument(
-        "--top-view",
-        action="store_true",
-        help="use a full overhead camera instead of the perspective view",
-    )
+    add_camera_view_arguments(parser, scope="interactive run")
     parser.add_argument(
         "--optimization-gain",
         type=float,
@@ -999,7 +1002,8 @@ def parse_arguments():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
+def cli():
+    """Parse CLI arguments and run one spatial pick-and-place task."""
     arguments = parse_arguments()
     selected_start_position = (
         table_spawn_position_for_number(arguments.position)
@@ -1064,4 +1068,9 @@ if __name__ == "__main__":
         objective=arguments.objective,
         enable_redundancy_optimization=not arguments.baseline,
         top_view=arguments.top_view,
+        front_view=arguments.front_view,
     )
+
+
+if __name__ == "__main__":
+    run_cli(cli)

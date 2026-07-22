@@ -3,7 +3,7 @@
 This module intentionally lives beside, rather than inside, the paper's
 ``ManipulabilityOptimizer``. It tests two independent choices:
 
-1. capability matrix: ``A A.T`` or ``(A A.T)^dagger``;
+1. capability matrix: ``A_scaled A_scaled.T`` or its pseudoinverse;
 2. distance direction: minimize or maximize the normalized Frobenius distance.
 
 All four cases maximize one signed score internally::
@@ -30,8 +30,8 @@ from .manipulability_optimization import (
 class CapabilityMatrixKind(str, Enum):
     """Matrix normalized before comparison with the desired direction."""
 
-    VELOCITY = "velocity"  # C_v = A A.T
-    FORCE = "force"  # C_f = (A A.T)^dagger
+    VELOCITY = "velocity"  # C_v = A_scaled A_scaled.T
+    FORCE = "force"  # C_f = (A_scaled A_scaled.T)^dagger
 
 
 class DistanceDirection(str, Enum):
@@ -137,16 +137,16 @@ class DirectionalDistancePermutationOptimizer(ManipulabilityOptimizer):
         # Preserve the ``optimizer.objective.value`` interface used by recorders.
         self.objective = self.case
 
-    def capability_matrix(self, data):
-        """Return C_v=A A.T or C_f=(A A.T)^dagger for the selected case."""
-        velocity_map = self.kinematics.paper_object_velocity_map(data)
-        velocity_capability = velocity_map @ velocity_map.T
+    def capability_matrices(self, data):
+        """Return raw/scaled capabilities for the selected matrix kind."""
         if self.case.capability_kind is CapabilityMatrixKind.FORCE:
-            return np.linalg.pinv(
-                velocity_capability,
-                rcond=self.kinematics.pinv_rcond,
-            )
-        return velocity_capability
+            return self.force_capability_matrices(data)
+        return self.velocity_capability_matrices(data)
+
+    def capability_matrix(self, data):
+        """Return the selected dimensionally scaled capability matrix."""
+        _, scaled = self.capability_matrices(data)
+        return scaled
 
     @staticmethod
     def normalized_frobenius_distance(capability, desired):
@@ -164,16 +164,39 @@ class DirectionalDistancePermutationOptimizer(ManipulabilityOptimizer):
         )
         return float(np.linalg.norm(difference, ord="fro"))
 
-    def directional_distance(self, data):
-        """Return the raw, unsigned distance D(q) for the selected matrix."""
+    def directional_distance_raw(self, data):
+        """Return the selected distance in original unscaled coordinates."""
+        raw, _ = self.capability_matrices(data)
         return self.normalized_frobenius_distance(
-            self.capability_matrix(data),
-            self.desired_force_matrix,
+            raw,
+            self.desired_force_matrix_raw,
+        )
+
+    def directional_distance_scaled(self, data):
+        """Return the selected distance in scaled spatial coordinates."""
+        _, scaled = self.capability_matrices(data)
+        return self.normalized_frobenius_distance(
+            scaled,
+            self.desired_force_matrix_scaled,
+        )
+
+    def directional_distance(self, data):
+        """Return the scaled unsigned distance D(q) for the selected matrix."""
+        return self.directional_distance_scaled(data)
+
+    def paper_objective_values(self, data):
+        """Return selected raw/scaled distance before collision penalties."""
+        return (
+            self.directional_distance_raw(data),
+            self.directional_distance_scaled(data),
         )
 
     def value(self, data, objective=None):
-        """Return raw D(q); ``objective`` is rejected to avoid ambiguity."""
-        if objective is not None and DirectionalDistanceCase(objective) is not self.case:
+        """Return scaled D(q); ``objective`` is rejected to avoid ambiguity."""
+        if (
+            objective is not None
+            and DirectionalDistanceCase(objective) is not self.case
+        ):
             raise ValueError(
                 "Create a separate optimizer instance to evaluate another case"
             )
@@ -188,7 +211,10 @@ class DirectionalDistancePermutationOptimizer(ManipulabilityOptimizer):
 
     def gradient(self, data, objective=None):
         """Central-difference gradient of the signed optimization score."""
-        if objective is not None and DirectionalDistanceCase(objective) is not self.case:
+        if (
+            objective is not None
+            and DirectionalDistanceCase(objective) is not self.case
+        ):
             raise ValueError(
                 "Create a separate optimizer instance to evaluate another case"
             )

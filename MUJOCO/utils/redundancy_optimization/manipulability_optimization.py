@@ -76,11 +76,19 @@ class OptimizationResult:
 
 
 class ManipulabilityOptimizer:
-    """Evaluate paper costs and produce phi_dot_opt=Lambda*dW/dphi.
+    """Evaluate dimensionally scaled paper costs and produce null motion.
+
+    The raw spatial map is ``A_raw = A``.  With characteristic length ``l``,
+    ``S_l = diag(1, 1, 1, l, l, l)`` and ``A_scaled = S_l A_raw``.  The active
+    spatial capabilities are ``Mv_scaled = A_scaled A_scaled.T`` and
+    ``Mf_scaled = pinv(Mv_scaled)``.
 
     Velocity and force manipulability are maximized.  Directional-force
     distance is minimized, so its gradient sign is reversed automatically.
     Gradients are evaluated with central joint-space finite differences.
+
+    The unsuffixed public objective methods return the scaled quantities.
+    Explicit ``*_raw`` methods retain the original unscaled diagnostics.
     """
 
     def __init__(
@@ -120,6 +128,8 @@ class ManipulabilityOptimizer:
         self.finite_difference_step = float(finite_difference_step)
         self.maximum_joint_speed = float(maximum_joint_speed)
         self.characteristic_length = float(characteristic_length)
+        if self.characteristic_length <= 0.0:
+            raise ValueError("characteristic_length must be positive")
         self.determinant_floor = float(determinant_floor)
         self.enable_collision_penalty = bool(enable_collision_penalty)
         self.collision_weight = float(collision_weight)
@@ -182,16 +192,19 @@ class ManipulabilityOptimizer:
             self.table_collision_geom_id = self._resolve_table_collision_geom(
                 table_collision_geom_name
             )
-        self.desired_force_matrix = self._make_direction_matrix(
+        (
+            self.desired_force_matrix_raw,
+            self.desired_force_matrix_scaled,
+        ) = self._make_direction_matrices(
             desired_wrench_direction
         )
+        # Backward-compatible name: active objectives use scaled coordinates.
+        self.desired_force_matrix = self.desired_force_matrix_scaled
 
         if self.arm_qpos_indices.size != self.kinematics.arm_dofs.size:
             raise ValueError("Expected one qpos index for every controlled DoF")
         if self.finite_difference_step <= 0.0:
             raise ValueError("finite_difference_step must be positive")
-        if self.characteristic_length <= 0.0:
-            raise ValueError("characteristic_length must be positive")
         if self.collision_weight < 0.0:
             raise ValueError("collision_weight must be nonnegative")
         if self.collision_safety_margin < 0.0:
@@ -463,77 +476,178 @@ class ManipulabilityOptimizer:
             local_centers,
         )
 
-    def _make_direction_matrix(self, wrench_direction):
-        weights = np.asarray(wrench_direction, dtype=float).copy()
-        if weights.shape != (6,):
+    def _make_direction_matrices(self, wrench_direction):
+        """Return raw and dual-scaled diagonal wrench weighting matrices."""
+        raw_weights = np.asarray(wrench_direction, dtype=float).copy()
+        if raw_weights.shape != (6,):
             raise ValueError("desired_wrench_direction must contain six values")
         # Equation (15) defines F=diag(Fx,Fy,Fz,Mx,My,Mz).  Manipulability
         # ellipsoids are sign-symmetric, so load-axis weights are nonnegative.
-        # Spatial moment entries are converted to force-equivalent units first.
-        weights = np.abs(weights)
-        weights[3:] /= self.characteristic_length
-        if np.sum(weights) <= 0.0:
+        raw_weights = np.abs(raw_weights)
+        if np.sum(raw_weights) <= 0.0:
             raise ValueError("desired_wrench_direction cannot be zero")
-        return np.diag(weights)
+        # q_dot_scaled=S_l q_dot implies w_scaled=S_l^-T w.  Divide moment
+        # entries exactly once by l while preserving the diagonal convention.
+        scaled_weights = raw_weights.copy()
+        scaled_weights[3:] /= self.characteristic_length
+        return np.diag(raw_weights), np.diag(scaled_weights)
+
+    def spatial_scaling_matrix(self):
+        """Return ``S_l = diag(1, 1, 1, l, l, l)``."""
+        return np.diag(
+            [1.0, 1.0, 1.0]
+            + [self.characteristic_length] * 3
+        )
+
+    def object_velocity_maps(self, data):
+        """Return ``A_raw=A`` and ``A_scaled=S_l A_raw``."""
+        raw_map = np.asarray(
+            self.kinematics.paper_object_velocity_map(data),
+            dtype=float,
+        )
+        scaled_map = self.spatial_scaling_matrix() @ raw_map
+        return raw_map, scaled_map
+
+    @staticmethod
+    def _velocity_capabilities_from_maps(raw_map, scaled_map):
+        return raw_map @ raw_map.T, scaled_map @ scaled_map.T
+
+    def velocity_capability_matrices(self, data):
+        """Return raw and scaled velocity capabilities ``A A.T``."""
+        return self._velocity_capabilities_from_maps(
+            *self.object_velocity_maps(data)
+        )
+
+    def _force_capabilities_from_velocity(self, raw_matrix, scaled_matrix):
+        rcond = self.kinematics.pinv_rcond
+        return (
+            np.linalg.pinv(raw_matrix, rcond=rcond),
+            np.linalg.pinv(scaled_matrix, rcond=rcond),
+        )
+
+    def force_capability_matrices(self, data):
+        """Return ``Mf_raw=pinv(Mv_raw)`` and ``Mf_scaled=pinv(Mv_scaled)``."""
+        return self._force_capabilities_from_velocity(
+            *self.velocity_capability_matrices(data)
+        )
+
+    def spatial_capability_matrices(self, data):
+        """Return ``A_raw, A_scaled, Mv_raw, Mv_scaled, Mf_raw, Mf_scaled``."""
+        raw_map, scaled_map = self.object_velocity_maps(data)
+        velocity_raw, velocity_scaled = (
+            self._velocity_capabilities_from_maps(raw_map, scaled_map)
+        )
+        force_raw, force_scaled = self._force_capabilities_from_velocity(
+            velocity_raw,
+            velocity_scaled,
+        )
+        return (
+            raw_map,
+            scaled_map,
+            velocity_raw,
+            velocity_scaled,
+            force_raw,
+            force_scaled,
+        )
+
+    @staticmethod
+    def velocity_map_diagnostics(velocity_map):
+        """Return rank, extrema of singular values, and a safe condition number."""
+        velocity_map = np.asarray(velocity_map, dtype=float)
+        singular_values = np.linalg.svd(velocity_map, compute_uv=False)
+        rank = int(np.linalg.matrix_rank(velocity_map))
+        if singular_values.size == 0:
+            return rank, 0.0, 0.0, float("inf")
+        sigma_max = float(singular_values[0])
+        sigma_min = float(singular_values[-1])
+        tolerance = (
+            np.finfo(float).eps
+            * max(velocity_map.shape, default=0)
+            * sigma_max
+        )
+        condition = (
+            float("inf")
+            if sigma_min <= tolerance
+            else sigma_max / sigma_min
+        )
+        return rank, sigma_min, sigma_max, float(condition)
+
+    def velocity_manipulability_raw(self, data):
+        """Return the original diagnostic ``sqrt(det(Mv_raw))``."""
+        raw_matrix, _ = self.velocity_capability_matrices(data)
+        return self._sqrt_determinant(raw_matrix)
+
+    def velocity_manipulability_scaled(self, data):
+        """Return the active ``sqrt(det(Mv_scaled))``."""
+        _, scaled_matrix = self.velocity_capability_matrices(data)
+        return self._sqrt_determinant(scaled_matrix)
 
     def velocity_manipulability(self, data):
-        """Equation (13): sqrt(det(A A.T))."""
-        velocity_map = self.kinematics.paper_object_velocity_map(data)
-        return self._sqrt_determinant(velocity_map @ velocity_map.T)
+        """Return scaled velocity manipulability used by the optimizer."""
+        return self.velocity_manipulability_scaled(data)
+
+    def force_manipulability_raw(self, data):
+        """Return the original diagnostic ``sqrt(det(Mf_raw))``."""
+        raw_matrix, _ = self.force_capability_matrices(data)
+        return self._sqrt_determinant(raw_matrix)
+
+    def force_manipulability_scaled(self, data):
+        """Return the active ``sqrt(det(Mf_scaled))``."""
+        _, scaled_matrix = self.force_capability_matrices(data)
+        return self._sqrt_determinant(scaled_matrix)
 
     def force_manipulability(self, data):
-        """Equation (14): sqrt(det((A A.T)^dagger))."""
-        velocity_map = self.kinematics.paper_object_velocity_map(data)
-        force_matrix = np.linalg.pinv(
-            velocity_map @ velocity_map.T,
-            rcond=self.kinematics.pinv_rcond,
-        )
-        return self._sqrt_determinant(force_matrix)
+        """Return scaled force manipulability used by the optimizer."""
+        return self.force_manipulability_scaled(data)
 
-
-    ## Old Cost (Mostly Incorrect)
-    # def directional_force_cost(self, data):
-    #     """Equation (15): normalized Frobenius directional distance."""
-    #     velocity_map = self.kinematics.paper_object_velocity_map(data)
-    #     capability = velocity_map @ velocity_map.T
-    #     capability_trace = np.trace(capability)
-    #     desired_trace = np.trace(self.desired_force_matrix)
-    #     if capability_trace <= 0.0 or desired_trace <= 0.0:
-    #         return float("inf")
-    #     difference = (
-    #         capability / capability_trace
-    #         - self.desired_force_matrix / desired_trace
-    #     )
-    #     return float(np.linalg.norm(difference, ord="fro"))
-    
-    ## Fixed Cost (Mostly Correct)
-    def directional_force_cost(self, data):
-        """Equation (15): normalized Frobenius directional force-capability distance.
-
-        This uses the same force-side matrix as Eq. (14), namely
-        (A A.T)^dagger. Therefore the objective is minimized in
-        optimization_velocity() for DIRECTIONAL_FORCE.
-        """
-        velocity_map = self.kinematics.paper_object_velocity_map(data)
-
-        # Force-capability matrix, consistent with Eq. (14).
-        force_capability = np.linalg.pinv(
-            velocity_map @ velocity_map.T,
-            rcond=self.kinematics.pinv_rcond,
-        )
-
-        capability_trace = np.trace(force_capability)
-        desired_trace = np.trace(self.desired_force_matrix)
-
+    @staticmethod
+    def _normalized_frobenius_distance(capability, desired):
+        capability_trace = float(np.trace(capability))
+        desired_trace = float(np.trace(desired))
         if capability_trace <= 0.0 or desired_trace <= 0.0:
             return float("inf")
-
         difference = (
-            force_capability / capability_trace
-            - self.desired_force_matrix / desired_trace
+            capability / capability_trace
+            - desired / desired_trace
+        )
+        return float(np.linalg.norm(difference, ord="fro"))
+
+    def directional_force_cost_raw(self, data):
+        """Return force-direction distance in original unscaled coordinates."""
+        force_raw, _ = self.force_capability_matrices(data)
+        return self._normalized_frobenius_distance(
+            force_raw,
+            self.desired_force_matrix_raw,
         )
 
-        return float(np.linalg.norm(difference, ord="fro"))
+    def directional_force_cost_scaled(self, data):
+        """Return active force-direction distance in scaled coordinates."""
+        _, force_scaled = self.force_capability_matrices(data)
+        return self._normalized_frobenius_distance(
+            force_scaled,
+            self.desired_force_matrix_scaled,
+        )
+
+    def directional_force_cost(self, data):
+        """Return scaled directional-force distance minimized by the optimizer."""
+        return self.directional_force_cost_scaled(data)
+
+    def paper_objective_values(self, data):
+        """Return raw and scaled selected paper metrics before collision costs."""
+        if self.objective is ManipulabilityObjective.VELOCITY:
+            return (
+                self.velocity_manipulability_raw(data),
+                self.velocity_manipulability_scaled(data),
+            )
+        if self.objective is ManipulabilityObjective.FORCE:
+            return (
+                self.force_manipulability_raw(data),
+                self.force_manipulability_scaled(data),
+            )
+        return (
+            self.directional_force_cost_raw(data),
+            self.directional_force_cost_scaled(data),
+        )
 
     def _inter_arm_clearances(self, data):
         """Return every left–right sphere surface clearance."""

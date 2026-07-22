@@ -34,6 +34,10 @@ Run from the repository root with the project virtual environment::
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison \
         --top-view
 
+    # Use a straight-on front camera for every mode.
+    .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison \
+        --front-view
+
     # Run headlessly and record both camera views for every mode.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison \
         --record-video
@@ -46,7 +50,8 @@ Run from the repository root with the project virtual environment::
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison \
         --optimization-gain 3000 --max-joint-speed 3
 
-Options can be combined. Run with ``--help`` for the complete option list.
+Options can be combined. Press Ctrl+C to close the active run and stop the
+entire sweep cleanly. Run with ``--help`` for the complete option list.
 """
 
 import argparse
@@ -59,6 +64,7 @@ from MUJOCO.scripts.table_spawn_comparison_positions import (
     TABLE_SPAWN_CASES,
     ordered_comparison_cases,
 )
+from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 from MUJOCO.utils.redundancy_optimization import ManipulabilityObjective
 
 
@@ -113,11 +119,7 @@ def parse_arguments():
         action="store_true",
         help="draw fitted collision spheres in every viewer",
     )
-    parser.add_argument(
-        "--top-view",
-        action="store_true",
-        help="use a full overhead camera for all comparison runs",
-    )
+    add_camera_view_arguments(parser, scope="comparison runs")
     parser.add_argument(
         "--record-video",
         action="store_true",
@@ -241,6 +243,7 @@ def main():
             optimization_gain=arguments.optimization_gain,
             maximum_joint_speed=arguments.max_joint_speed,
             top_view=arguments.top_view,
+            front_view=arguments.front_view,
             video_output_dir=(
                 video_run_dir / position_name / name
                 if video_run_dir is not None
@@ -255,4 +258,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)
