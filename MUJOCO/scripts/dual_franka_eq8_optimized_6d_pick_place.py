@@ -13,16 +13,25 @@ Run from the repository root according to what you want to inspect::
     # Default spatial pick-and-place with fitted collision spheres.
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place
 
-    # Select a numbered pickup position, then choose your own place locations.
+    # Run the complete predefined 6D path for pose 1.
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
-        --position 1 \\
-        --intermediate-position 0.40 0.00 0.52 \\
-        --goal-position 0.20 0.45 0.269
+        --pose 1
 
-    # Position map [x, y, z] metres (pickup/start position only):
-    # 1=(0.30, 0.20, 0.28), 2=(0.60, 0.20, 0.28)
+    # Pose map (each entry includes position + XYZ Euler orientation):
+    # poses 1, 2, 5, and 6 are complete; poses 3 and 4 are editable
+    # placeholders.
+    # Pickup positions [x, y, z] metres:
+    # 1=(0.30, 0.18, 0.28), 2=(0.60, 0.18, 0.28)
     # 3=(0.30, 0.00, 0.28), 4=(0.60, 0.00, 0.28)
-    # 5=(0.30,-0.20, 0.28), 6=(0.60,-0.20, 0.28)
+    # 5=(0.30,-0.18, 0.28), 6=(0.60,-0.18, 0.28)
+
+    # Complete a blank pose from the CLI (orientations are radians).
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
+        --pose 2 \\
+        --intermediate-position 0.40 0.00 0.52 \\
+        --intermediate-euler-xyz 0 0 1.9708 \\
+        --goal-position 0.20 0.45 0.269 \\
+        --goal-euler-xyz 0 0 2.3708
 
     # A fully custom pickup position remains available.
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
@@ -68,6 +77,11 @@ from MUJOCO.utils.grasping_kinematics import (
 )
 from MUJOCO.utils.data_recording import Equation8CSVRecorder
 from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
+from MUJOCO.utils.grasp_safety import (
+    finish_after_grasped_motion,
+    object_grasp_loss_status,
+    print_grasp_loss,
+)
 from MUJOCO.utils.redundancy_optimization import (
     Equation8Controller,
     ManipulabilityObjective,
@@ -79,8 +93,8 @@ from MUJOCO.utils.redundancy_optimization import (
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 from MUJOCO.utils.video_recording import TqdmSimulationRate
 from MUJOCO.scripts.table_spawn_comparison_positions import (
-    TABLE_SPAWN_CASES,
-    table_spawn_position_for_number,
+    SIX_D_TRAJECTORY_CASES,
+    six_d_trajectory_case_for_number,
 )
 
 
@@ -323,6 +337,7 @@ def run_trajectory(
         f"angular speed={np.linalg.norm(waypoint_twist[3:]):.4f} rad/s"
     )
 
+    grasp_lost = False
     for step in range(number_of_steps):
         if not viewer.is_running():
             print("Viewer closed before the spatial trajectory completed.")
@@ -346,6 +361,13 @@ def run_trajectory(
             show_table_collision_spheres=show_table_collision_spheres,
             enable_redundancy_optimization=enable_redundancy_optimization,
         )
+        loss_status = object_grasp_loss_status(
+            diagnostics.grasp_pose_error,
+        )
+        if loss_status is not None:
+            print_grasp_loss(loss_status)
+            grasp_lost = True
+            break
 
         if step % int(CONTROL_HZ) == 0:
             phase = (
@@ -386,7 +408,7 @@ def run_trajectory(
                 f"weighted collision cost="
                 f"{optimizer.total_collision_cost(scene.data):.6f}"
             )
-    return phi
+    return phi, grasp_lost
 
 
 def hold_goal_pose(
@@ -413,6 +435,7 @@ def hold_goal_pose(
         else "null-space optimization disabled"
     )
     print(f"Goal reached. Holding the grasp with {hold_activity}...")
+    grasp_lost = False
     while viewer.is_running() and (
         maximum_steps is None or step < maximum_steps
     ):
@@ -431,6 +454,13 @@ def hold_goal_pose(
             show_table_collision_spheres=show_table_collision_spheres,
             enable_redundancy_optimization=enable_redundancy_optimization,
         )
+        loss_status = object_grasp_loss_status(
+            diagnostics.grasp_pose_error,
+        )
+        if loss_status is not None:
+            print_grasp_loss(loss_status)
+            grasp_lost = True
+            break
         if step % int(CONTROL_HZ) == 0:
             print(
                 f"  hold={step / CONTROL_HZ:5.1f}s, "
@@ -466,7 +496,7 @@ def hold_goal_pose(
                 f"{optimizer.total_collision_cost(scene.data):.6f}"
             )
         step += 1
-    return phi
+    return phi, grasp_lost
 
 
 def run_pick_and_place(
@@ -503,7 +533,7 @@ def run_pick_and_place(
         (measured_start_pose, intermediate_pose, goal_pose),
         (start_to_intermediate_duration, intermediate_to_goal_duration),
     )
-    phi = run_trajectory(
+    phi, grasp_lost = run_trajectory(
         scene,
         equation_8,
         optimizer,
@@ -516,20 +546,21 @@ def run_pick_and_place(
         show_table_collision_spheres=show_table_collision_spheres,
         enable_redundancy_optimization=enable_redundancy_optimization,
     )
-    hold_goal_pose(
-        scene,
-        equation_8,
-        optimizer,
-        phi,
-        goal_pose,
-        viewer,
-        rate,
-        duration=hold_duration,
-        recorder=recorder,
-        show_collision_spheres=show_collision_spheres,
-        show_table_collision_spheres=show_table_collision_spheres,
-        enable_redundancy_optimization=enable_redundancy_optimization,
-    )
+    if not grasp_lost:
+        phi, grasp_lost = hold_goal_pose(
+            scene,
+            equation_8,
+            optimizer,
+            phi,
+            goal_pose,
+            viewer,
+            rate,
+            duration=hold_duration,
+            recorder=recorder,
+            show_collision_spheres=show_collision_spheres,
+            show_table_collision_spheres=show_table_collision_spheres,
+            enable_redundancy_optimization=enable_redundancy_optimization,
+        )
 
     held_position, held_rotation = kinematics.object_pose(scene.data)
     return {
@@ -542,6 +573,7 @@ def run_pick_and_place(
         "minimum_table_clearance": (
             optimizer.minimum_arm_table_clearance(scene.data)
         ),
+        "grasp_lost": grasp_lost,
     }
 
 
@@ -588,6 +620,7 @@ def main(
     video_width=1280,
     video_height=720,
     video_fps=30,
+    keep_viewer_open=False,
 ):
     objective = ManipulabilityObjective(objective)
     if hold_duration is not None and hold_duration < 0.0:
@@ -788,8 +821,25 @@ def main(
                     enable_redundancy_optimization
                 ),
             )
-            if viewer.is_running():
-                scene.run_grasp_disengagement(viewer, rate)
+            finish_after_grasped_motion(
+                scene,
+                viewer,
+                rate,
+                grasp_lost=result["grasp_lost"],
+            )
+            if (
+                keep_viewer_open
+                and enable_redundancy_optimization
+                and not video_mode
+                and viewer.is_running()
+            ):
+                print(
+                    "Run complete. Keeping the viewer open; close it or "
+                    "press Ctrl+C to exit."
+                )
+                while viewer.is_running():
+                    viewer.sync()
+                    rate.sleep()
             return result
     finally:
         if recorder is not None:
@@ -959,10 +1009,15 @@ def parse_arguments():
     )
     start_position_group = parser.add_mutually_exclusive_group()
     start_position_group.add_argument(
+        "--pose",
         "--position",
+        dest="pose",
         type=int,
-        choices=range(1, len(TABLE_SPAWN_CASES) + 1),
-        help="use predefined pickup/start table position 1 through 6",
+        choices=range(1, len(SIX_D_TRAJECTORY_CASES) + 1),
+        help=(
+            "use predefined complete 6D pose path 1 through 6; --position "
+            "is retained as a compatibility alias"
+        ),
     )
     start_position_group.add_argument(
         "--start-position",
@@ -975,7 +1030,7 @@ def parse_arguments():
         "--start-euler-xyz",
         type=float,
         nargs=3,
-        default=TABLE_START_EULER_XYZ,
+        default=None,
         metavar=("RX", "RY", "RZ"),
         help="initial extrinsic XYZ orientation in radians",
     )
@@ -983,7 +1038,7 @@ def parse_arguments():
         "--intermediate-position",
         type=float,
         nargs=3,
-        default=TABLE_INTERMEDIATE_POSITION,
+        default=None,
         metavar=("X", "Y", "Z"),
         help="intermediate table reference position in world metres",
     )
@@ -991,7 +1046,7 @@ def parse_arguments():
         "--intermediate-euler-xyz",
         type=float,
         nargs=3,
-        default=TABLE_INTERMEDIATE_EULER_XYZ,
+        default=None,
         metavar=("RX", "RY", "RZ"),
         help="intermediate extrinsic XYZ orientation in radians",
     )
@@ -999,7 +1054,7 @@ def parse_arguments():
         "--goal-position",
         type=float,
         nargs=3,
-        default=TABLE_GOAL_POSITION,
+        default=None,
         metavar=("X", "Y", "Z"),
         help="final table reference position in world metres",
     )
@@ -1007,7 +1062,7 @@ def parse_arguments():
         "--goal-euler-xyz",
         type=float,
         nargs=3,
-        default=TABLE_GOAL_EULER_XYZ,
+        default=None,
         metavar=("RX", "RY", "RZ"),
         help="final extrinsic XYZ orientation in radians",
     )
@@ -1032,21 +1087,75 @@ def parse_arguments():
             "(default: %(default)s)"
         ),
     )
+    parser.add_argument(
+        "--close-on-completion",
+        action="store_true",
+        help=(
+            "close the standalone viewer when the run ends instead of "
+            "keeping the default optimized result visible"
+        ),
+    )
     return parser.parse_args()
+
+
+def resolve_cli_trajectory(arguments):
+    """Resolve one complete 6D path from a numbered pose or CLI values."""
+    if arguments.pose is not None:
+        configured = six_d_trajectory_case_for_number(arguments.pose)
+        pose_name = configured[0]
+        configured_values = configured[1:]
+    else:
+        pose_name = "custom_pose"
+        configured_values = (
+            TABLE_START_POSITION,
+            TABLE_START_EULER_XYZ,
+            TABLE_INTERMEDIATE_POSITION,
+            TABLE_INTERMEDIATE_EULER_XYZ,
+            TABLE_GOAL_POSITION,
+            TABLE_GOAL_EULER_XYZ,
+        )
+
+    overrides = (
+        arguments.start_position,
+        arguments.start_euler_xyz,
+        arguments.intermediate_position,
+        arguments.intermediate_euler_xyz,
+        arguments.goal_position,
+        arguments.goal_euler_xyz,
+    )
+    values = tuple(
+        override if override is not None else configured_value
+        for override, configured_value in zip(overrides, configured_values)
+    )
+    component_names = (
+        "start position",
+        "start orientation",
+        "intermediate position",
+        "intermediate orientation",
+        "goal position",
+        "goal orientation",
+    )
+    missing = [
+        name for name, value in zip(component_names, values) if value is None
+    ]
+    if missing:
+        raise ValueError(
+            f"{pose_name} is incomplete; provide " + ", ".join(missing)
+        )
+    return values
 
 
 def cli():
     """Parse CLI arguments and run one spatial pick-and-place task."""
     arguments = parse_arguments()
-    selected_start_position = (
-        table_spawn_position_for_number(arguments.position)
-        if arguments.position is not None
-        else (
-            arguments.start_position
-            if arguments.start_position is not None
-            else TABLE_START_POSITION
-        )
-    )
+    (
+        start_position,
+        start_euler_xyz,
+        intermediate_position,
+        intermediate_euler_xyz,
+        goal_position,
+        goal_euler_xyz,
+    ) = resolve_cli_trajectory(arguments)
     main(
         record_data=arguments.record_data,
         output_csv=arguments.output_csv,
@@ -1085,12 +1194,12 @@ def cli():
         joint_limit_margin=arguments.joint_limit_margin,
         joint_limit_stop_distance=arguments.joint_limit_stop_distance,
         joint_limit_slow_distance=arguments.joint_limit_slow_distance,
-        start_position=selected_start_position,
-        start_euler_xyz=arguments.start_euler_xyz,
-        intermediate_position=arguments.intermediate_position,
-        intermediate_euler_xyz=arguments.intermediate_euler_xyz,
-        goal_position=arguments.goal_position,
-        goal_euler_xyz=arguments.goal_euler_xyz,
+        start_position=start_position,
+        start_euler_xyz=start_euler_xyz,
+        intermediate_position=intermediate_position,
+        intermediate_euler_xyz=intermediate_euler_xyz,
+        goal_position=goal_position,
+        goal_euler_xyz=goal_euler_xyz,
         start_to_intermediate_duration=(
             arguments.start_to_intermediate_duration
         ),
@@ -1103,6 +1212,7 @@ def cli():
         enable_redundancy_optimization=not arguments.baseline,
         top_view=arguments.top_view,
         front_view=arguments.front_view,
+        keep_viewer_open=not arguments.close_on_completion,
     )
 
 

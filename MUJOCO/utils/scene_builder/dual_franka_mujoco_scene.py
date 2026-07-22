@@ -78,6 +78,8 @@ class DualFrankaMuJoCoScene:
         maximum_approach_joint_speed=0.6,
         pregrasp_distance=0.10,
         grasp_penetration=0.02,
+        postgrasp_outward_distance=0.14,
+        postgrasp_vertical_offset=0.09,
     ):
         self.model_path = Path(model_path or self.DEFAULT_MODEL_PATH)
         self.control_hz = float(control_hz)
@@ -93,9 +95,19 @@ class DualFrankaMuJoCoScene:
         )
         self.pregrasp_distance = float(pregrasp_distance)
         self.grasp_penetration = float(grasp_penetration)
-        if self.pregrasp_distance < 0.0 or self.grasp_penetration < 0.0:
+        self.postgrasp_outward_distance = float(
+            postgrasp_outward_distance
+        )
+        self.postgrasp_vertical_offset = float(postgrasp_vertical_offset)
+        if (
+            self.pregrasp_distance < 0.0
+            or self.grasp_penetration < 0.0
+            or self.postgrasp_outward_distance < 0.0
+            or self.postgrasp_vertical_offset < 0.0
+        ):
             raise ValueError(
-                "pregrasp_distance and grasp_penetration must be nonnegative"
+                "pregrasp_distance, grasp_penetration, and "
+                "postgrasp offsets must be nonnegative"
             )
 
         self.model = mujoco.MjModel.from_xml_path(self.model_path.as_posix())
@@ -753,15 +765,46 @@ class DualFrankaMuJoCoScene:
         return True
 
     def run_grasp_disengagement(self, viewer, rate):
-        """Release, retreat to a table-relative post-grasp, then go home."""
+        """Release, retreat outward and upward, then return both arms home."""
         if not viewer.is_running():
             return False
         if getattr(viewer, "user_scn", None) is not None:
             viewer.user_scn.ngeom = 0
         left_waypoints, right_waypoints = self._approach_waypoints()
-        # The first approach waypoint is the desired outward post-grasp pose.
-        left_postgrasp = [left_waypoints[0]]
-        right_postgrasp = [right_waypoints[0]]
+        # Build a distinct post-grasp target from the live contact geometry,
+        # then lift both grippers in world Z to clear the tabletop.
+        vertical_offset = np.array(
+            [0.0, 0.0, self.postgrasp_vertical_offset]
+        )
+        object_position = self.data.site_xpos[
+            self.model.site("site_top_middle").id
+        ]
+        left_contact = self.data.site_xpos[self.model.site("site_left").id]
+        right_contact = self.data.site_xpos[
+            self.model.site("site_right").id
+        ]
+        left_outward = left_contact - object_position
+        right_outward = right_contact - object_position
+        left_outward /= np.linalg.norm(left_outward)
+        right_outward /= np.linalg.norm(right_outward)
+        _, left_quaternion = left_waypoints[0]
+        _, right_quaternion = right_waypoints[0]
+        left_postgrasp = [
+            (
+                left_contact
+                + self.postgrasp_outward_distance * left_outward
+                + vertical_offset,
+                left_quaternion.copy(),
+            )
+        ]
+        right_postgrasp = [
+            (
+                right_contact
+                + self.postgrasp_outward_distance * right_outward
+                + vertical_offset,
+                right_quaternion.copy(),
+            )
+        ]
         print("Opening both grippers at the placed pose...")
         if not self.open_grippers(viewer, rate):
             return False

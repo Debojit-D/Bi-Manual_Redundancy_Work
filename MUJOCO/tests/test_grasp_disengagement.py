@@ -62,8 +62,35 @@ class GraspDisengagementTests(unittest.TestCase):
 
         self.assertTrue(completed)
         self.assertEqual(events, ["open", "retreat", "home"])
-        self.assertIs(retreat.call_args.args[2][0], left_postgrasp)
-        self.assertIs(retreat.call_args.args[3][0], right_postgrasp)
+        resolved_left = retreat.call_args.args[2][0]
+        resolved_right = retreat.call_args.args[3][0]
+        object_position = self.scene.data.site_xpos[
+            self.scene.model.site("site_top_middle").id
+        ]
+        left_contact = self.scene.data.site_xpos[
+            self.scene.model.site("site_left").id
+        ]
+        right_contact = self.scene.data.site_xpos[
+            self.scene.model.site("site_right").id
+        ]
+        left_outward = left_contact - object_position
+        left_outward /= np.linalg.norm(left_outward)
+        right_outward = right_contact - object_position
+        right_outward /= np.linalg.norm(right_outward)
+        np.testing.assert_allclose(
+            resolved_left[0],
+            left_contact
+            + 0.14 * left_outward
+            + np.array([0.0, 0.0, 0.09]),
+        )
+        np.testing.assert_allclose(
+            resolved_right[0],
+            right_contact
+            + 0.14 * right_outward
+            + np.array([0.0, 0.0, 0.09]),
+        )
+        np.testing.assert_array_equal(resolved_left[1], left_postgrasp[1])
+        np.testing.assert_array_equal(resolved_right[1], right_postgrasp[1])
         self.assertEqual(
             retreat.call_args.kwargs["action"],
             "Retreating to post-grasp",

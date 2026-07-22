@@ -69,6 +69,11 @@ from MUJOCO.utils.grasping_kinematics import (
 )
 from MUJOCO.utils.data_recording import Equation8CSVRecorder
 from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
+from MUJOCO.utils.grasp_safety import (
+    finish_after_grasped_motion,
+    object_grasp_loss_status,
+    print_grasp_loss,
+)
 from MUJOCO.utils.redundancy_optimization import (
     draw_detailed_collision_spheres,
     draw_table_collision_spheres,
@@ -278,6 +283,7 @@ def run_optimized_lift(
     number_of_steps = int(total_duration * CONTROL_HZ) + 1
     apex_objective = None
     motion_completed = True
+    grasp_lost = False
     for step in range(number_of_steps):
         if not viewer.is_running():
             motion_completed = False
@@ -304,6 +310,14 @@ def run_optimized_lift(
             show_table_collision_spheres=show_table_collision_spheres,
             enable_redundancy_optimization=enable_redundancy_optimization,
         )
+        loss_status = object_grasp_loss_status(
+            diagnostics.grasp_pose_error,
+        )
+        if loss_status is not None:
+            print_grasp_loss(loss_status)
+            grasp_lost = True
+            motion_completed = False
+            break
 
         if apex_objective is None and time >= LIFT_DURATION:
             apex_objective = optimizer.value(scene.data)
@@ -348,7 +362,7 @@ def run_optimized_lift(
             )
 
     returned_objective = optimizer.value(scene.data)
-    if motion_completed:
+    if not grasp_lost and motion_completed:
         hold_activity = (
             "optimization active"
             if enable_redundancy_optimization
@@ -364,7 +378,7 @@ def run_optimized_lift(
             f"{returned_objective:.6g}. Holding the returned pose with "
             f"{hold_activity} {hold_description}."
         )
-    else:
+    elif not grasp_lost:
         print("Viewer closed before the lift-and-lower motion completed.")
 
     maximum_hold_steps = (
@@ -373,7 +387,7 @@ def run_optimized_lift(
         else int(hold_duration * CONTROL_HZ)
     )
     hold_step = 0
-    while viewer.is_running() and (
+    while not grasp_lost and viewer.is_running() and (
         maximum_hold_steps is None or hold_step < maximum_hold_steps
     ):
         phi, optimization, diagnostics = optimized_equation_8_step(
@@ -391,6 +405,13 @@ def run_optimized_lift(
             show_table_collision_spheres=show_table_collision_spheres,
             enable_redundancy_optimization=enable_redundancy_optimization,
         )
+        loss_status = object_grasp_loss_status(
+            diagnostics.grasp_pose_error,
+        )
+        if loss_status is not None:
+            print_grasp_loss(loss_status)
+            grasp_lost = True
+            break
         if hold_step % int(CONTROL_HZ) == 0:
             print(
                 f"  hold={hold_step / CONTROL_HZ:5.1f}s, "
@@ -430,6 +451,7 @@ def run_optimized_lift(
         "initial_objective": initial_objective,
         "apex_objective": apex_objective,
         "final_objective": optimizer.value(scene.data),
+        "grasp_lost": grasp_lost,
     }
 
 
@@ -646,7 +668,7 @@ def main(
             print("Closing both grippers...")
             scene.close_grippers(viewer, rate)
             equation_8.capture_grasp_reference(scene.data)
-            run_optimized_lift(
+            result = run_optimized_lift(
                 scene,
                 kinematics,
                 equation_8,
@@ -661,8 +683,12 @@ def main(
                     enable_redundancy_optimization
                 ),
             )
-            if viewer.is_running():
-                scene.run_grasp_disengagement(viewer, rate)
+            finish_after_grasped_motion(
+                scene,
+                viewer,
+                rate,
+                grasp_lost=result["grasp_lost"],
+            )
     finally:
         if recorder is not None:
             recorder.close()
