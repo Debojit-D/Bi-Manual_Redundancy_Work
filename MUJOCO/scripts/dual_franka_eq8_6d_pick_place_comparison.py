@@ -53,6 +53,17 @@ Run from the repository root with the project virtual environment::
         MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
         --record-video
 
+    # Record one default perspective video: pose 1, velocity mode only.
+    .venv/bin/python -m \\
+        MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
+        --pose 1 --mode velocity --record-video \\
+        --video-view perspective
+
+    # Record perspective, top, and front videos for one selected run.
+    .venv/bin/python -m \\
+        MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
+        --pose 1 --mode velocity --record-video --video-view all
+
     # Compare the objectives without the soft collision penalty.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
         --disable-collision-penalty
@@ -90,6 +101,10 @@ from MUJOCO.scripts.table_spawn_comparison_positions import (
     ordered_comparison_cases,
     six_d_trajectory_case_for_number,
 )
+from MUJOCO.utils.camera_presets import (
+    VIDEO_VIEW_CHOICES,
+    video_views_for_choice,
+)
 from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 from MUJOCO.utils.redundancy_optimization import ManipulabilityObjective
 
@@ -100,12 +115,23 @@ EXPERIMENTS = (
     ("force", ManipulabilityObjective.FORCE, True),
     ("directional_force", ManipulabilityObjective.DIRECTIONAL_FORCE, True),
 )
+EXPERIMENT_MODES = ("all",) + tuple(case[0] for case in EXPERIMENTS)
 DEFAULT_VIDEO_ROOT = (
     Path(__file__).resolve().parents[2] / "outputs" / "mujoco_videos"
 )
 DEFAULT_DATA_ROOT = (
     Path(__file__).resolve().parents[2] / "outputs" / "mujoco_data"
 )
+
+
+def experiments_for_mode(mode):
+    """Return all comparison modes or one explicitly selected mode."""
+    if mode == "all":
+        return EXPERIMENTS
+    selected = tuple(case for case in EXPERIMENTS if case[0] == mode)
+    if not selected:
+        raise ValueError(f"mode must be one of {EXPERIMENT_MODES}")
+    return selected
 
 
 def parse_arguments():
@@ -130,6 +156,12 @@ def parse_arguments():
         help="final hold time for each run in seconds (default: %(default)s)",
     )
     parser.add_argument(
+        "--mode",
+        choices=EXPERIMENT_MODES,
+        default="all",
+        help="run all optimization modes or one selected mode",
+    )
+    parser.add_argument(
         "--record-data",
         action="store_true",
         help="record every pickup/mode run to a labeled CSV",
@@ -145,7 +177,17 @@ def parse_arguments():
     parser.add_argument(
         "--record-video",
         action="store_true",
-        help="run headlessly and record perspective plus top-view MP4s",
+        help="run headlessly and record the selected video view(s)",
+    )
+    parser.add_argument(
+        "--video-view",
+        choices=VIDEO_VIEW_CHOICES,
+        default="both",
+        help=(
+            "record all, the legacy perspective/top pair, or one camera "
+            "when using --record-video "
+            "(default: %(default)s)"
+        ),
     )
     parser.add_argument(
         "--video-output-dir",
@@ -310,6 +352,8 @@ def resolve_trajectory_cases(
 def main():
     arguments = parse_arguments()
     validate_arguments(arguments)
+    selected_experiments = experiments_for_mode(arguments.mode)
+    selected_video_views = video_views_for_choice(arguments.video_view)
 
     if arguments.pose is not None:
         pose_cases = (six_d_trajectory_case_for_number(arguments.pose),)
@@ -359,7 +403,7 @@ def main():
             / f"6d_pick_place_comparison_{timestamp}"
         )
         video_run_dir.mkdir(parents=True, exist_ok=False)
-        print(f"Headless dual-view video output: {video_run_dir}")
+        print(f"Headless video output: {video_run_dir}")
 
     data_run_dir = None
     if arguments.record_data:
@@ -370,29 +414,34 @@ def main():
         data_run_dir.mkdir(parents=True, exist_ok=False)
         print(f"Comparison CSV output: {data_run_dir}")
 
-    total_runs = len(trajectory_cases) * len(EXPERIMENTS)
+    total_runs = len(trajectory_cases) * len(selected_experiments)
     print(
         "Equation (8) 6D pick-and-place comparison: "
         f"{len(trajectory_cases)} configured trajectories x "
-        f"{len(EXPERIMENTS)} modes "
+        f"{len(selected_experiments)} mode(s) "
         f"= {total_runs} runs"
     )
     print(
         f"Sweep option {arguments.sweep_option}: "
         + (
-            "pose-first (four modes at each 6D pose path)."
+            "pose-first "
+            f"({len(selected_experiments)} mode(s) at each 6D pose path)."
             if arguments.sweep_option == 1
             else "optimization-first (all 6D pose paths for each mode)."
         )
     )
     if arguments.record_video:
-        print("Running headlessly; recording perspective and top views.")
+        print(
+            "Running headlessly; recording "
+            + ", ".join(selected_video_views)
+            + "."
+        )
     else:
         print("Close a viewer early to advance immediately to the next run.")
 
     run_cases = ordered_comparison_cases(
         trajectory_cases,
-        EXPERIMENTS,
+        selected_experiments,
         arguments.sweep_option,
     )
     for run_index, case in enumerate(run_cases, start=1):
@@ -448,6 +497,7 @@ def main():
             video_width=arguments.video_width,
             video_height=arguments.video_height,
             video_fps=arguments.video_fps,
+            video_views=selected_video_views,
             use_alternate_grasp_orientation=(pose_name == "pose_4"),
         )
 

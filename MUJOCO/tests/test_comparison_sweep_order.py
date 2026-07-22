@@ -2,7 +2,10 @@ import unittest
 from types import SimpleNamespace
 
 from MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison import (
+    EXPERIMENTS,
+    experiments_for_mode,
     resolve_trajectory_cases,
+    video_views_for_choice,
 )
 from MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place import (
     resolve_cli_trajectory,
@@ -65,6 +68,30 @@ class ComparisonSweepOrderTests(unittest.TestCase):
                 self.experiments,
                 sweep_option=3,
             )
+
+    def test_single_comparison_mode_selection(self):
+        selected = experiments_for_mode("velocity")
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0][0], "velocity")
+        self.assertEqual(experiments_for_mode("all"), EXPERIMENTS)
+
+    def test_single_perspective_video_view_selection(self):
+        self.assertEqual(
+            video_views_for_choice("perspective"),
+            ("perspective",),
+        )
+        self.assertEqual(
+            video_views_for_choice("both"),
+            ("perspective", "top_view"),
+        )
+        self.assertEqual(
+            video_views_for_choice("all"),
+            ("perspective", "top_view", "front_view"),
+        )
+        self.assertEqual(
+            video_views_for_choice("front"),
+            ("front_view",),
+        )
 
     def test_6d_trajectory_table_aligns_with_pickup_cases(self):
         self.assertEqual(

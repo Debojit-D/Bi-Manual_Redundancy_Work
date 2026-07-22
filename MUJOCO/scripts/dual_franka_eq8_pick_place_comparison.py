@@ -38,9 +38,9 @@ Run from the repository root with the project virtual environment::
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison \
         --front-view
 
-    # Run headlessly and record both camera views for every mode.
+    # Run headlessly and record all three camera views for every mode.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison \
-        --record-video
+        --record-video --video-view all
 
     # Compare the objectives without the soft collision penalty.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison \
@@ -63,6 +63,10 @@ from MUJOCO.scripts.table_spawn_comparison_positions import (
     SWEEP_OPTIONS,
     TABLE_SPAWN_CASES,
     ordered_comparison_cases,
+)
+from MUJOCO.utils.camera_presets import (
+    VIDEO_VIEW_CHOICES,
+    video_views_for_choice,
 )
 from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 from MUJOCO.utils.redundancy_optimization import ManipulabilityObjective
@@ -123,7 +127,16 @@ def parse_arguments():
     parser.add_argument(
         "--record-video",
         action="store_true",
-        help="run headlessly and record perspective plus top-view MP4s",
+        help="run headlessly and record the selected video view(s)",
+    )
+    parser.add_argument(
+        "--video-view",
+        choices=VIDEO_VIEW_CHOICES,
+        default="both",
+        help=(
+            "record all, the legacy perspective/top pair, or one camera "
+            "when using --record-video (default: %(default)s)"
+        ),
     )
     parser.add_argument(
         "--video-output-dir",
@@ -185,6 +198,7 @@ def validate_arguments(arguments):
 def main():
     arguments = parse_arguments()
     validate_arguments(arguments)
+    selected_video_views = video_views_for_choice(arguments.video_view)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     video_run_dir = None
@@ -220,7 +234,11 @@ def main():
         )
     )
     if arguments.record_video:
-        print("Running headlessly; recording perspective and top views.")
+        print(
+            "Running headlessly; recording "
+            + ", ".join(selected_video_views)
+            + "."
+        )
     else:
         print("Close a viewer early to advance immediately to the next run.")
     run_cases = ordered_comparison_cases(
@@ -262,6 +280,7 @@ def main():
             video_width=arguments.video_width,
             video_height=arguments.video_height,
             video_fps=arguments.video_fps,
+            video_views=selected_video_views,
         )
 
     print(f"\nCompleted all {total_runs} pick-and-place comparison runs.")

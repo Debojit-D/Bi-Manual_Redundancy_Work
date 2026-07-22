@@ -44,6 +44,12 @@ import numpy as np
 from loop_rate_limiters import RateLimiter
 from scipy.spatial.transform import Rotation
 
+from MUJOCO.utils.camera_presets import (
+    FRONT_CAMERA_DISTANCE,
+    PERSPECTIVE_CAMERA_DISTANCE,
+    TOP_CAMERA_DISTANCE,
+)
+
 from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 
 
@@ -74,8 +80,6 @@ FRONT_CAMERA_AZIMUTH = 180
 FRONT_CAMERA_ELEVATION = 0
 TOP_CAMERA_AZIMUTH = 180
 TOP_CAMERA_ELEVATION = -90
-CAMERA_DISTANCE = 2.5
-
 # World-frame base poses, matching the baseline script by default.
 LEFT_ARM_SPAWN_POSITION = np.array([0.0, -0.2, 0.0])
 RIGHT_ARM_SPAWN_POSITION = np.array([0.0, 0.2, 0.0])
@@ -329,15 +333,17 @@ def main():
             viewer.cam.lookat[:] = TOP_CAMERA_LOOKAT
             viewer.cam.azimuth = TOP_CAMERA_AZIMUTH
             viewer.cam.elevation = TOP_CAMERA_ELEVATION
+            viewer.cam.distance = TOP_CAMERA_DISTANCE
         elif args.front_view:
             viewer.cam.lookat[:] = FRONT_CAMERA_LOOKAT
             viewer.cam.azimuth = FRONT_CAMERA_AZIMUTH
             viewer.cam.elevation = FRONT_CAMERA_ELEVATION
+            viewer.cam.distance = FRONT_CAMERA_DISTANCE
         else:
             viewer.cam.lookat[:] = PERSPECTIVE_CAMERA_LOOKAT
             viewer.cam.azimuth = PERSPECTIVE_CAMERA_AZIMUTH
             viewer.cam.elevation = PERSPECTIVE_CAMERA_ELEVATION
-        viewer.cam.distance = CAMERA_DISTANCE
+            viewer.cam.distance = PERSPECTIVE_CAMERA_DISTANCE
 
         while viewer.is_running():
             for _ in range(substeps):

@@ -39,10 +39,11 @@ Use the overhead camera instead::
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
         --sweep-option 1 --top-view
 
-Record both camera views for all 24 runs without opening a viewer::
+Record perspective, top, and front views for all 24 runs without opening a
+viewer::
 
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
-        --record-video
+        --record-video --video-view all
 
 Press Ctrl+C to close the active run and stop the entire sweep cleanly.
 """
@@ -58,6 +59,10 @@ from MUJOCO.scripts.table_spawn_comparison_positions import (
     SWEEP_OPTIONS,
     TABLE_SPAWN_CASES,
     ordered_comparison_cases,
+)
+from MUJOCO.utils.camera_presets import (
+    VIDEO_VIEW_CHOICES,
+    video_views_for_choice,
 )
 from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 from MUJOCO.utils.redundancy_optimization import ManipulabilityObjective
@@ -144,7 +149,16 @@ def parse_arguments():
     parser.add_argument(
         "--record-video",
         action="store_true",
-        help="run headlessly and record perspective plus top-view MP4s",
+        help="run headlessly and record the selected video view(s)",
+    )
+    parser.add_argument(
+        "--video-view",
+        choices=VIDEO_VIEW_CHOICES,
+        default="both",
+        help=(
+            "record all, the legacy perspective/top pair, or one camera "
+            "when using --record-video (default: %(default)s)"
+        ),
     )
     parser.add_argument(
         "--video-output-dir",
@@ -174,6 +188,7 @@ def parse_arguments():
 
 def main():
     arguments = parse_arguments()
+    selected_video_views = video_views_for_choice(arguments.video_view)
     if arguments.duration is not None and arguments.duration <= 0.0:
         raise ValueError("--duration must be greater than zero")
     if arguments.convergence_speed < 0.0:
@@ -227,7 +242,11 @@ def main():
         )
     )
     if arguments.record_video:
-        print("Running headlessly; recording perspective and top views.")
+        print(
+            "Running headlessly; recording "
+            + ", ".join(selected_video_views)
+            + "."
+        )
     else:
         print("Close a viewer early to advance immediately to the next run.")
     if arguments.duration is None:
@@ -285,6 +304,7 @@ def main():
             video_width=arguments.video_width,
             video_height=arguments.video_height,
             video_fps=arguments.video_fps,
+            video_views=selected_video_views,
         )
 
     print(f"\nCompleted all {total_runs} static comparison runs.")

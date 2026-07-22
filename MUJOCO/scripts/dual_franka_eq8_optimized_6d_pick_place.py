@@ -76,6 +76,7 @@ from MUJOCO.utils.grasping_kinematics import (
 )
 from MUJOCO.utils.data_recording import Equation8CSVRecorder
 from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
+from MUJOCO.utils.control_timing import timed_equation_8_update
 from MUJOCO.utils.grasp_safety import (
     finish_after_grasped_motion,
     object_grasp_loss_status,
@@ -85,7 +86,6 @@ from MUJOCO.utils.redundancy_optimization import (
     Equation8Controller,
     ManipulabilityObjective,
     ManipulabilityOptimizer,
-    OptimizationResult,
     draw_detailed_collision_spheres,
     draw_table_collision_spheres,
 )
@@ -267,29 +267,23 @@ def optimized_control_step(
     desired_twist,
     viewer,
     rate,
+    trajectory_phase="unspecified",
+    trajectory_time=0.0,
     recorder=None,
     show_collision_spheres=False,
     show_table_collision_spheres=False,
     enable_redundancy_optimization=True,
 ):
     """Apply one joint-limit-safe primary-plus-null-space control step."""
-    if enable_redundancy_optimization:
-        optimization = optimizer.optimization_velocity(scene.data)
-    else:
-        zero_velocity = np.zeros(scene.arm_dofs.size)
-        optimization = OptimizationResult(
-            objective=optimizer.objective,
-            value=optimizer.value(scene.data),
-            gradient=zero_velocity.copy(),
-            phi_dot_opt=zero_velocity,
-        )
-    phi, diagnostics = equation_8.update(
-        scene.data,
+    phi, optimization, diagnostics, timing = timed_equation_8_update(
+        scene,
+        equation_8,
+        optimizer,
         phi,
         desired_position,
         desired_rotation,
         desired_twist,
-        optimization.phi_dot_opt,
+        enable_redundancy_optimization=enable_redundancy_optimization,
     )
     scene.command(phi, scene.gripper_closed)
     if show_collision_spheres:
@@ -308,6 +302,12 @@ def optimized_control_step(
             desired_rotation,
             optimization,
             diagnostics,
+            desired_twist=desired_twist,
+            trajectory_phase=trajectory_phase,
+            trajectory_time=trajectory_time,
+            optimizer_time_ms=timing.optimizer_time_ms,
+            controller_update_time_ms=timing.controller_update_time_ms,
+            control_compute_time_ms=timing.control_compute_time_ms,
         )
     rate.sleep()
     return phi, optimization, diagnostics
@@ -345,6 +345,11 @@ def run_trajectory(
         desired_position, desired_rotation, desired_twist = trajectory.sample(
             time
         )
+        trajectory_phase = (
+            "start_to_intermediate"
+            if time < waypoint_time
+            else "intermediate_to_goal"
+        )
         phi, optimization, diagnostics = optimized_control_step(
             scene,
             equation_8,
@@ -355,6 +360,8 @@ def run_trajectory(
             desired_twist,
             viewer,
             rate,
+            trajectory_phase=trajectory_phase,
+            trajectory_time=time,
             recorder=recorder,
             show_collision_spheres=show_collision_spheres,
             show_table_collision_spheres=show_table_collision_spheres,
@@ -419,6 +426,7 @@ def hold_goal_pose(
     viewer,
     rate,
     duration=FINAL_HOLD_DURATION,
+    trajectory_time_offset=0.0,
     recorder=None,
     show_collision_spheres=False,
     show_table_collision_spheres=False,
@@ -448,6 +456,8 @@ def hold_goal_pose(
             np.zeros(6),
             viewer,
             rate,
+            trajectory_phase="final_hold",
+            trajectory_time=(trajectory_time_offset + step / CONTROL_HZ),
             recorder=recorder,
             show_collision_spheres=show_collision_spheres,
             show_table_collision_spheres=show_table_collision_spheres,
@@ -555,6 +565,7 @@ def run_pick_and_place(
             viewer,
             rate,
             duration=hold_duration,
+            trajectory_time_offset=trajectory.total_duration,
             recorder=recorder,
             show_collision_spheres=show_collision_spheres,
             show_table_collision_spheres=show_table_collision_spheres,
@@ -619,6 +630,7 @@ def main(
     video_width=1280,
     video_height=720,
     video_fps=30,
+    video_views=None,
     keep_viewer_open=False,
     use_alternate_grasp_orientation=False,
 ):
@@ -766,6 +778,7 @@ def main(
             width=video_width,
             height=video_height,
             fps=video_fps,
+            views=video_views,
         )
         rate_context = TqdmSimulationRate(
             f"Recording 6D pick/place {optimization_mode}"
@@ -855,7 +868,7 @@ def main(
                 f"{recorder.output_path}"
             )
         if video_mode:
-            print(f"Saved perspective and top-view videos to: {video_output_dir}")
+            print(f"Saved requested video view(s) to: {video_output_dir}")
 
 
 def parse_arguments():

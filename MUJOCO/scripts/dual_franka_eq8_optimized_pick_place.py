@@ -69,6 +69,7 @@ from MUJOCO.utils.grasping_kinematics import (
 )
 from MUJOCO.utils.data_recording import Equation8CSVRecorder
 from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
+from MUJOCO.utils.control_timing import timed_equation_8_update
 from MUJOCO.utils.grasp_safety import (
     finish_after_grasped_motion,
     object_grasp_loss_status,
@@ -80,7 +81,6 @@ from MUJOCO.utils.redundancy_optimization import (
     Equation8Controller,
     ManipulabilityObjective,
     ManipulabilityOptimizer,
-    OptimizationResult,
 )
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 from MUJOCO.utils.video_recording import TqdmSimulationRate
@@ -205,29 +205,23 @@ def optimized_equation_8_step(
     desired_twist,
     viewer,
     rate,
+    trajectory_phase="unspecified",
+    trajectory_time=0.0,
     recorder=None,
     show_collision_spheres=False,
     show_table_collision_spheres=False,
     enable_redundancy_optimization=True,
 ):
     """Apply one primary-plus-null-space Equation (8) control step."""
-    if enable_redundancy_optimization:
-        optimization = optimizer.optimization_velocity(scene.data)
-    else:
-        zero_velocity = np.zeros(scene.arm_dofs.size)
-        optimization = OptimizationResult(
-            objective=optimizer.objective,
-            value=optimizer.value(scene.data),
-            gradient=zero_velocity.copy(),
-            phi_dot_opt=zero_velocity,
-        )
-    phi, diagnostics = equation_8.update(
-        scene.data,
+    phi, optimization, diagnostics, timing = timed_equation_8_update(
+        scene,
+        equation_8,
+        optimizer,
         phi,
         desired_position,
         desired_rotation,
         desired_twist,
-        optimization.phi_dot_opt,
+        enable_redundancy_optimization=enable_redundancy_optimization,
     )
     scene.command(phi, scene.gripper_closed)
     if show_collision_spheres:
@@ -246,6 +240,12 @@ def optimized_equation_8_step(
             desired_rotation,
             optimization,
             diagnostics,
+            desired_twist=desired_twist,
+            trajectory_phase=trajectory_phase,
+            trajectory_time=trajectory_time,
+            optimizer_time_ms=timing.optimizer_time_ms,
+            controller_update_time_ms=timing.controller_update_time_ms,
+            control_compute_time_ms=timing.control_compute_time_ms,
         )
     rate.sleep()
     return phi, optimization, diagnostics
@@ -295,6 +295,9 @@ def run_optimized_lift(
             desired_rotation,
             time,
         )
+        trajectory_phase = (
+            "lifting" if time < LIFT_DURATION else "lowering"
+        )
         phi, optimization, diagnostics = optimized_equation_8_step(
             scene,
             equation_8,
@@ -305,6 +308,8 @@ def run_optimized_lift(
             desired_twist,
             viewer,
             rate,
+            trajectory_phase=trajectory_phase,
+            trajectory_time=time,
             recorder=recorder,
             show_collision_spheres=show_collision_spheres,
             show_table_collision_spheres=show_table_collision_spheres,
@@ -400,6 +405,8 @@ def run_optimized_lift(
             np.zeros(6),
             viewer,
             rate,
+            trajectory_phase="final_hold",
+            trajectory_time=(total_duration + hold_step / CONTROL_HZ),
             recorder=recorder,
             show_collision_spheres=show_collision_spheres,
             show_table_collision_spheres=show_table_collision_spheres,
@@ -490,6 +497,7 @@ def main(
     video_width=1280,
     video_height=720,
     video_fps=30,
+    video_views=None,
     table_spawn_position=TABLE_SPAWN_POSITION,
 ):
     objective = ManipulabilityObjective(objective)
@@ -630,6 +638,7 @@ def main(
             width=video_width,
             height=video_height,
             fps=video_fps,
+            views=video_views,
         )
         rate_context = TqdmSimulationRate(
             f"Recording pick/place {optimization_mode}"

@@ -13,6 +13,24 @@ CSV_COLUMNS = [
     "optimization_mode",
     "objective",
     "collision_version",
+    "optimizer_time_ms",
+    "controller_update_time_ms",
+    "control_compute_time_ms",
+    "desired_x",
+    "desired_y",
+    "desired_z",
+    "desired_qw",
+    "desired_qx",
+    "desired_qy",
+    "desired_qz",
+    "desired_vx",
+    "desired_vy",
+    "desired_vz",
+    "desired_wx",
+    "desired_wy",
+    "desired_wz",
+    "trajectory_phase",
+    "trajectory_time",
     "objective_value",
     "characteristic_length_m",
     "paper_objective_raw",
@@ -176,12 +194,28 @@ class Equation8CSVRecorder:
         desired_rotation,
         optimization,
         diagnostics,
+        *,
+        desired_twist=None,
+        trajectory_phase="unspecified",
+        trajectory_time=None,
+        optimizer_time_ms=0.0,
+        controller_update_time_ms=0.0,
+        control_compute_time_ms=0.0,
     ):
         """Record the current post-step state and the latest control terms."""
         data = self.scene.data
         if self._start_simulation_time is None:
             self._start_simulation_time = float(data.time)
         elapsed_time = float(data.time - self._start_simulation_time)
+        desired_position = np.asarray(desired_position, dtype=float)
+        desired_rotation = np.asarray(desired_rotation, dtype=float)
+        desired_twist = (
+            np.zeros(6)
+            if desired_twist is None
+            else np.asarray(desired_twist, dtype=float)
+        )
+        if trajectory_time is None:
+            trajectory_time = elapsed_time
 
         object_position, object_rotation = self.kinematics.object_pose(data)
         pose_error = self.equation_8.pose_error(
@@ -192,6 +226,8 @@ class Equation8CSVRecorder:
         )
         object_quaternion = np.empty(4)
         mujoco.mju_mat2Quat(object_quaternion, object_rotation.ravel())
+        desired_quaternion = np.empty(4)
+        mujoco.mju_mat2Quat(desired_quaternion, desired_rotation.ravel())
 
         arm_positions = self.scene.arm_configuration()
         arm_dofs = self.scene.arm_dofs
@@ -253,6 +289,26 @@ class Equation8CSVRecorder:
             "optimization_mode": self.optimization_mode,
             "objective": self.optimizer.objective.value,
             "collision_version": self.optimizer.collision_version.value,
+            "optimizer_time_ms": float(optimizer_time_ms),
+            "controller_update_time_ms": float(
+                controller_update_time_ms
+            ),
+            "control_compute_time_ms": float(control_compute_time_ms),
+            "desired_x": desired_position[0],
+            "desired_y": desired_position[1],
+            "desired_z": desired_position[2],
+            "desired_qw": desired_quaternion[0],
+            "desired_qx": desired_quaternion[1],
+            "desired_qy": desired_quaternion[2],
+            "desired_qz": desired_quaternion[3],
+            "desired_vx": desired_twist[0],
+            "desired_vy": desired_twist[1],
+            "desired_vz": desired_twist[2],
+            "desired_wx": desired_twist[3],
+            "desired_wy": desired_twist[4],
+            "desired_wz": desired_twist[5],
+            "trajectory_phase": str(trajectory_phase),
+            "trajectory_time": float(trajectory_time),
             "objective_value": self.optimizer.value(data),
             "characteristic_length_m": (
                 self.optimizer.characteristic_length

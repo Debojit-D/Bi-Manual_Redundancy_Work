@@ -75,20 +75,36 @@ class HeadlessDualViewRecorder:
         *,
         perspective_lookat,
         top_lookat,
+        front_lookat,
         perspective_azimuth,
         perspective_elevation,
         top_azimuth,
         top_elevation,
-        distance,
+        front_azimuth,
+        front_elevation,
+        perspective_distance,
+        top_distance,
+        front_distance,
         control_hz,
         width=1280,
         height=720,
         fps=30,
+        views=None,
     ):
         if width <= 0 or height <= 0 or width % 2 or height % 2:
             raise ValueError("video width and height must be positive even values")
         if fps <= 0:
             raise ValueError("video fps must be positive")
+        selected_views = (
+            ("perspective", "top_view") if views is None else tuple(views)
+        )
+        available_views = {"perspective", "top_view", "front_view"}
+        unknown_views = set(selected_views) - available_views
+        if not selected_views or unknown_views:
+            raise ValueError(
+                "video views must contain perspective, top_view, and/or "
+                "front_view"
+            )
         self.model = model
         self.data = data
         self.output_dir = Path(output_dir)
@@ -115,23 +131,32 @@ class HeadlessDualViewRecorder:
 
         self.gl_context = GLContext(width, height)
         self.gl_context.make_current()
-        self.renderers = {
-            "perspective": mujoco.Renderer(model, height=height, width=width),
-            "top_view": mujoco.Renderer(model, height=height, width=width),
-        }
-        self.cameras = {
+        camera_options = {
             "perspective": self._camera(
                 perspective_lookat,
                 perspective_azimuth,
                 perspective_elevation,
-                distance,
+                perspective_distance,
             ),
             "top_view": self._camera(
                 top_lookat,
                 top_azimuth,
                 top_elevation,
-                distance,
+                top_distance,
             ),
+            "front_view": self._camera(
+                front_lookat,
+                front_azimuth,
+                front_elevation,
+                front_distance,
+            ),
+        }
+        self.renderers = {
+            name: mujoco.Renderer(model, height=height, width=width)
+            for name in selected_views
+        }
+        self.cameras = {
+            name: camera_options[name] for name in selected_views
         }
         self.writers = {
             name: FFmpegRGBWriter(

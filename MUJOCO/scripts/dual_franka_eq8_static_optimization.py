@@ -73,12 +73,12 @@ from MUJOCO.utils.grasping_kinematics import (
     CooperativeManipulationKinematics,
 )
 from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
+from MUJOCO.utils.control_timing import timed_equation_8_update
 from MUJOCO.utils.data_recording import Equation8CSVRecorder
 from MUJOCO.utils.redundancy_optimization import (
     Equation8Controller,
     ManipulabilityObjective,
     ManipulabilityOptimizer,
-    OptimizationResult,
     draw_detailed_collision_spheres,
     draw_table_collision_spheres,
 )
@@ -184,28 +184,20 @@ def run_static_optimization(
         else "baseline"
     )
     print(f"Starting static {mode} run: initial objective={initial_value:.6g}")
+    desired_twist = np.zeros(6)
     while viewer.is_running() and (
         maximum_steps is None or step < maximum_steps
     ):
-        if enable_redundancy_optimization:
-            optimization = optimizer.optimization_velocity(scene.data)
-        else:
-            zero_velocity = np.zeros(scene.arm_dofs.size)
-            optimization = OptimizationResult(
-                objective=optimizer.objective,
-                value=optimizer.value(scene.data),
-                gradient=zero_velocity.copy(),
-                phi_dot_opt=zero_velocity,
-            )
-
         # Equation (8), now including (I-J_H^dagger J_H) phi_dot_opt.
-        phi, diagnostics = equation_8.update(
-            scene.data,
+        phi, optimization, diagnostics, timing = timed_equation_8_update(
+            scene,
+            equation_8,
+            optimizer,
             phi,
             desired_position,
             desired_rotation,
-            np.zeros(6),
-            optimization.phi_dot_opt,
+            desired_twist,
+            enable_redundancy_optimization=enable_redundancy_optimization,
         )
         scene.command(phi, scene.gripper_closed)
         if show_collision_spheres:
@@ -224,6 +216,14 @@ def run_static_optimization(
                 desired_rotation,
                 optimization,
                 diagnostics,
+                desired_twist=desired_twist,
+                trajectory_phase="static_optimization",
+                trajectory_time=step / CONTROL_HZ,
+                optimizer_time_ms=timing.optimizer_time_ms,
+                controller_update_time_ms=(
+                    timing.controller_update_time_ms
+                ),
+                control_compute_time_ms=timing.control_compute_time_ms,
             )
         rate.sleep()
 
@@ -318,6 +318,7 @@ def main(
     video_width=1280,
     video_height=720,
     video_fps=30,
+    video_views=None,
     table_spawn_position=TABLE_SPAWN_POSITION,
 ):
     objective = ManipulabilityObjective(objective)
@@ -465,6 +466,7 @@ def main(
             width=video_width,
             height=video_height,
             fps=video_fps,
+            views=video_views,
         )
         rate_context = TqdmSimulationRate(
             f"Recording static {optimization_mode}"

@@ -20,6 +20,7 @@ import numpy as np
 from loop_rate_limiters import RateLimiter
 from scipy.spatial.transform import Rotation
 
+from MUJOCO.utils import camera_presets
 from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
 from MUJOCO.utils.video_recording import HeadlessDualViewRecorder
 
@@ -36,7 +37,9 @@ class DualFrankaMuJoCoScene:
     FRONT_CAMERA_ELEVATION = 0
     TOP_CAMERA_AZIMUTH = 180
     TOP_CAMERA_ELEVATION = -90
-    CAMERA_DISTANCE = 2.0
+    PERSPECTIVE_CAMERA_DISTANCE = camera_presets.PERSPECTIVE_CAMERA_DISTANCE
+    TOP_CAMERA_DISTANCE = camera_presets.TOP_CAMERA_DISTANCE
+    FRONT_CAMERA_DISTANCE = camera_presets.FRONT_CAMERA_DISTANCE
     HEADLIGHT_AMBIENT = np.array([0.27, 0.27, 0.27])
     HEADLIGHT_DIFFUSE = np.array([0.55, 0.55, 0.55])
     MODEL_LIGHT_INTENSITY_SCALE = 0.90
@@ -426,17 +429,19 @@ class DualFrankaMuJoCoScene:
             raise ValueError("top_view and front_view are mutually exclusive")
         if viewer.user_scn is not None:
             viewer.user_scn.flags[mujoco.mjtRndFlag.mjRND_SKYBOX] = 0
-        viewer.cam.distance = self.CAMERA_DISTANCE
         if top_view:
+            viewer.cam.distance = self.TOP_CAMERA_DISTANCE
             viewer.cam.lookat[:] = self.TOP_CAMERA_LOOKAT
             # Rotate the overhead image 90 degrees anticlockwise in-plane.
             viewer.cam.azimuth = self.TOP_CAMERA_AZIMUTH
             viewer.cam.elevation = self.TOP_CAMERA_ELEVATION
         elif front_view:
+            viewer.cam.distance = self.FRONT_CAMERA_DISTANCE
             viewer.cam.lookat[:] = self.FRONT_CAMERA_LOOKAT
             viewer.cam.azimuth = self.FRONT_CAMERA_AZIMUTH
             viewer.cam.elevation = self.FRONT_CAMERA_ELEVATION
         else:
+            viewer.cam.distance = self.PERSPECTIVE_CAMERA_DISTANCE
             viewer.cam.lookat[:] = self.PERSPECTIVE_CAMERA_LOOKAT
             viewer.cam.azimuth = self.PERSPECTIVE_CAMERA_AZIMUTH
             viewer.cam.elevation = self.PERSPECTIVE_CAMERA_ELEVATION
@@ -478,6 +483,7 @@ class DualFrankaMuJoCoScene:
         width=1280,
         height=720,
         fps=30,
+        views=None,
     ):
         """Create a headless recorder for perspective and overhead views."""
         return HeadlessDualViewRecorder(
@@ -486,15 +492,21 @@ class DualFrankaMuJoCoScene:
             output_dir,
             perspective_lookat=self.PERSPECTIVE_CAMERA_LOOKAT,
             top_lookat=self.TOP_CAMERA_LOOKAT,
+            front_lookat=self.FRONT_CAMERA_LOOKAT,
             perspective_azimuth=self.PERSPECTIVE_CAMERA_AZIMUTH,
             perspective_elevation=self.PERSPECTIVE_CAMERA_ELEVATION,
             top_azimuth=self.TOP_CAMERA_AZIMUTH,
             top_elevation=self.TOP_CAMERA_ELEVATION,
-            distance=self.CAMERA_DISTANCE,
+            front_azimuth=self.FRONT_CAMERA_AZIMUTH,
+            front_elevation=self.FRONT_CAMERA_ELEVATION,
+            perspective_distance=self.PERSPECTIVE_CAMERA_DISTANCE,
+            top_distance=self.TOP_CAMERA_DISTANCE,
+            front_distance=self.FRONT_CAMERA_DISTANCE,
             control_hz=self.control_hz,
             width=width,
             height=height,
             fps=fps,
+            views=views,
         )
 
     def _site_quaternion(self, site_name):

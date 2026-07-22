@@ -374,11 +374,26 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
                 output_path=output_path,
                 optimization_mode="baseline",
             ) as recorder:
+                desired_position = np.array([1.0, 2.0, 3.0])
+                desired_rotation = np.array(
+                    [
+                        [0.0, -1.0, 0.0],
+                        [1.0, 0.0, 0.0],
+                        [0.0, 0.0, 1.0],
+                    ]
+                )
+                desired_twist = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
                 recorder.record(
-                    np.zeros(3),
-                    np.eye(3),
+                    desired_position,
+                    desired_rotation,
                     optimization,
                     diagnostics,
+                    desired_twist=desired_twist,
+                    trajectory_phase="static_optimization",
+                    trajectory_time=1.25,
+                    optimizer_time_ms=0.0,
+                    controller_update_time_ms=3.0,
+                    control_compute_time_ms=3.5,
                 )
             with output_path.open(newline="", encoding="utf-8") as stream:
                 row = next(csv.DictReader(stream))
@@ -405,6 +420,24 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
             "velocity_map_sigma_min_scaled",
             "velocity_map_sigma_max_scaled",
             "velocity_map_condition_scaled",
+            "optimizer_time_ms",
+            "controller_update_time_ms",
+            "control_compute_time_ms",
+            "desired_x",
+            "desired_y",
+            "desired_z",
+            "desired_qw",
+            "desired_qx",
+            "desired_qy",
+            "desired_qz",
+            "desired_vx",
+            "desired_vy",
+            "desired_vz",
+            "desired_wx",
+            "desired_wy",
+            "desired_wz",
+            "trajectory_phase",
+            "trajectory_time",
         }
         self.assertTrue(required_new_columns.issubset(CSV_COLUMNS))
         self.assertTrue(LEGACY_CSV_COLUMNS.issubset(CSV_COLUMNS))
@@ -424,6 +457,45 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
             row["directional_force_cost_scaled"],
         )
         self.assertEqual(row["optimization_mode"], "baseline")
+        self.assertEqual(float(row["optimizer_time_ms"]), 0.0)
+        self.assertGreaterEqual(
+            float(row["control_compute_time_ms"]),
+            float(row["optimizer_time_ms"])
+            + float(row["controller_update_time_ms"]),
+        )
+        np.testing.assert_allclose(
+            [float(row[name]) for name in ("desired_x", "desired_y", "desired_z")],
+            desired_position,
+        )
+        np.testing.assert_allclose(
+            [
+                float(row[name])
+                for name in (
+                    "desired_qw",
+                    "desired_qx",
+                    "desired_qy",
+                    "desired_qz",
+                )
+            ],
+            [np.sqrt(0.5), 0.0, 0.0, np.sqrt(0.5)],
+            atol=1e-12,
+        )
+        np.testing.assert_allclose(
+            [
+                float(row[name])
+                for name in (
+                    "desired_vx",
+                    "desired_vy",
+                    "desired_vz",
+                    "desired_wx",
+                    "desired_wy",
+                    "desired_wz",
+                )
+            ],
+            desired_twist,
+        )
+        self.assertEqual(row["trajectory_phase"], "static_optimization")
+        self.assertEqual(float(row["trajectory_time"]), 1.25)
         self.assertAlmostEqual(
             float(row["characteristic_length_m"]),
             computed_characteristic_length,

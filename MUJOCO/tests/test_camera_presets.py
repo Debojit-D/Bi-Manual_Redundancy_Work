@@ -3,6 +3,7 @@ import unittest
 
 import numpy as np
 
+from MUJOCO.utils import camera_presets
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 
 
@@ -34,7 +35,34 @@ class CameraPresetTests(unittest.TestCase):
             self.viewer.cam.elevation,
             self.scene.FRONT_CAMERA_ELEVATION,
         )
-        self.assertEqual(self.viewer.cam.distance, self.scene.CAMERA_DISTANCE)
+        self.assertEqual(
+            self.viewer.cam.distance,
+            self.scene.FRONT_CAMERA_DISTANCE,
+        )
+
+    def test_scene_uses_universal_camera_distances(self):
+        self.assertEqual(
+            self.scene.PERSPECTIVE_CAMERA_DISTANCE,
+            camera_presets.PERSPECTIVE_CAMERA_DISTANCE,
+        )
+        self.assertEqual(
+            self.scene.TOP_CAMERA_DISTANCE,
+            camera_presets.TOP_CAMERA_DISTANCE,
+        )
+        self.assertEqual(
+            self.scene.FRONT_CAMERA_DISTANCE,
+            camera_presets.FRONT_CAMERA_DISTANCE,
+        )
+
+    def test_top_view_uses_independent_top_camera_distance(self):
+        self.scene.TOP_CAMERA_DISTANCE = 1.25
+        self.scene.configure_viewer_camera(self.viewer, top_view=True)
+        self.assertEqual(self.viewer.cam.distance, 1.25)
+
+    def test_perspective_uses_independent_perspective_camera_distance(self):
+        self.scene.PERSPECTIVE_CAMERA_DISTANCE = 1.75
+        self.scene.configure_viewer_camera(self.viewer)
+        self.assertEqual(self.viewer.cam.distance, 1.75)
 
     def test_front_and_top_views_are_mutually_exclusive(self):
         with self.assertRaisesRegex(ValueError, "mutually exclusive"):
