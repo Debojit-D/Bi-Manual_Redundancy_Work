@@ -9,8 +9,9 @@ viewer early to advance immediately to the next run.
 
 Run from the repository root with the project virtual environment::
 
-    # Run all six pickup positions x all four modes (24 runs).
-    .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison
+    # Option 1: run all four modes at each pickup position (24 runs).
+    .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
+        --sweep-option 1
 
     # Option 2: run each optimization mode across all six pickup positions.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\

@@ -19,15 +19,20 @@ null-space joint speed stays below the selected threshold for a sustained
 window. Supplying ``--duration`` instead runs every mode for the same fixed
 number of seconds and disables convergence-based stopping.
 
+Run position-first (option 1, the default)::
+
+    .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
+        --sweep-option 1
+
+Run optimization-first (option 2)::
+
+    .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
+        --sweep-option 2
+
 Record both camera views for all 24 runs without opening a viewer::
 
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
         --record-video
-
-Run optimization-first instead of position-first::
-
-    .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
-        --sweep-option 2
 """
 
 import argparse

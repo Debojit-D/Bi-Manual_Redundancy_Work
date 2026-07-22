@@ -10,8 +10,9 @@ advance to the next run.
 
 Run from the repository root with the project virtual environment::
 
-    # Run all 24 position/mode cases; hold 2 seconds per run.
-    .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison
+    # Option 1: run all four modes at each position.
+    .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison \
+        --sweep-option 1
 
     # Option 2: run each optimization mode across all six positions.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison \

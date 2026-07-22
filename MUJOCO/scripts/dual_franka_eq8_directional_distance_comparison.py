@@ -1,15 +1,29 @@
-"""Compare all four directional-distance permutations in static holding.
+"""Compare four directional-distance permutations at six table positions.
 
-The runner creates four independent MuJoCo scenes in this order:
+With sweep option 1 (the default), each table position runs these four
+independent MuJoCo scenes:
 
 1. ``(A A.T)^dagger`` + minimize distance (force alignment),
 2. ``(A A.T)^dagger`` + maximize distance (force negative control),
 3. ``A A.T`` + minimize distance (velocity alignment), and
 4. ``A A.T`` + maximize distance (velocity avoidance).
 
+Sweep option 2 runs each permutation at all six positions before advancing to
+the next permutation. Both options produce 24 runs::
+
+    # Option 1: run all four permutations at each position.
+    .venv/bin/python -m \
+        MUJOCO.scripts.dual_franka_eq8_directional_distance_comparison \
+        --sweep-option 1
+
+    # Option 2: run each permutation across all six positions.
+    .venv/bin/python -m \
+        MUJOCO.scripts.dual_franka_eq8_directional_distance_comparison \
+        --sweep-option 2
+
 Convergence-based stopping is the default. Supplying ``--duration`` runs each
-case for the same fixed interval instead. Each completed case disengages and
-returns home; close any viewer to advance early.
+case for the same fixed interval instead. Each completed static case ends with
+the grippers closed and does not disengage; close any viewer to advance early.
 """
 
 import argparse
@@ -18,6 +32,11 @@ import numpy as np
 from loop_rate_limiters import RateLimiter
 
 from MUJOCO.scripts import dual_franka_eq8_static_optimization as static_setup
+from MUJOCO.scripts.table_spawn_comparison_positions import (
+    SWEEP_OPTIONS,
+    TABLE_SPAWN_CASES,
+    ordered_comparison_cases,
+)
 from MUJOCO.utils.data_recording import Equation8CSVRecorder
 from MUJOCO.utils.grasping_kinematics import (
     CooperativeManipulationKinematics,
@@ -40,6 +59,7 @@ CASES = (
     DirectionalDistanceCase.VELOCITY_MINIMIZE,
     DirectionalDistanceCase.VELOCITY_MAXIMIZE,
 )
+EXPERIMENTS = tuple((case.value, case, True) for case in CASES)
 
 CASE_DESCRIPTIONS = {
     DirectionalDistanceCase.FORCE_MINIMIZE: (
@@ -61,6 +81,16 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--sweep-option",
+        type=int,
+        choices=SWEEP_OPTIONS,
+        default=1,
+        help=(
+            "run order: 1 = four permutations at each position; "
+            "2 = all six positions for each permutation (default: %(default)s)"
+        ),
     )
     parser.add_argument(
         "--duration",
@@ -94,7 +124,7 @@ def parse_arguments():
     parser.add_argument(
         "--record-data",
         action="store_true",
-        help="record every case to a separately named CSV",
+        help="record every position/permutation run to a separately named CSV",
     )
     parser.add_argument(
         "--show-collision-spheres",
@@ -104,12 +134,12 @@ def parse_arguments():
     parser.add_argument(
         "--top-view",
         action="store_true",
-        help="use a full overhead camera for all four cases",
+        help="use a full overhead camera for all comparison runs",
     )
     parser.add_argument(
         "--disable-collision-penalty",
         action="store_true",
-        help="disable the shared soft collision term in all four cases",
+        help="disable the shared soft collision term in all comparison runs",
     )
     parser.add_argument(
         "--optimization-gain",
@@ -141,7 +171,7 @@ def validate_arguments(arguments):
         raise ValueError("--max-joint-speed must be greater than zero")
 
 
-def build_experiment(case, arguments):
+def build_experiment(case, arguments, table_position):
     """Build one independent scene, controller, and permutation optimizer."""
     scene = DualFrankaMuJoCoScene(
         control_hz=static_setup.CONTROL_HZ,
@@ -156,7 +186,7 @@ def build_experiment(case, arguments):
         show_mocap_targets=static_setup.SHOW_MOCAP_TARGETS,
         enable_bias_compensation=static_setup.ENABLE_ARM_BIAS_COMPENSATION,
     )
-    scene.set_table_reference_pose(static_setup.TABLE_SPAWN_POSITION)
+    scene.set_table_reference_pose(table_position)
     kinematics = CooperativeManipulationKinematics(
         scene.model,
         scene.left_arm_dofs,
@@ -205,11 +235,13 @@ def build_experiment(case, arguments):
     return scene, kinematics, equation_8, optimizer
 
 
-def run_case(case, arguments):
+def run_case(case, arguments, position_name, table_position):
     scene, kinematics, equation_8, optimizer = build_experiment(
         case,
         arguments,
+        table_position,
     )
+    print(f"Table position: {position_name} = {table_position} m")
     print(f"Case: {case.value}")
     print(f"Definition: {CASE_DESCRIPTIONS[case]}")
     print(
@@ -228,7 +260,7 @@ def run_case(case, arguments):
             optimizer,
             experiment_name=(
                 "dual_franka_eq8_directional_distance_"
-                f"{case.value}_fitted_spheres"
+                f"{position_name}_{case.value}_fitted_spheres"
             ),
             optimization_mode=case.value,
         )
@@ -264,8 +296,6 @@ def run_case(case, arguments):
                 convergence_hold_duration=arguments.convergence_hold,
                 minimum_convergence_time=arguments.minimum_run_time,
             )
-            if viewer.is_running():
-                scene.run_grasp_disengagement(viewer, rate)
     except KeyboardInterrupt:
         print("Interrupted by Ctrl+C; preserving recorded samples.")
         raise
@@ -282,6 +312,19 @@ def main():
     arguments = parse_arguments()
     validate_arguments(arguments)
     print("Directional-distance 2x2 permutation comparison")
+    total_runs = len(TABLE_SPAWN_CASES) * len(CASES)
+    print(
+        f"{len(TABLE_SPAWN_CASES)} positions x {len(CASES)} permutations "
+        f"= {total_runs} runs"
+    )
+    print(
+        f"Sweep option {arguments.sweep_option}: "
+        + (
+            "position-first (four permutations at each position)."
+            if arguments.sweep_option == 1
+            else "optimization-first (all positions for each permutation)."
+        )
+    )
     print("Close a viewer early to advance to the next case.")
     if arguments.duration is None:
         print(
@@ -292,17 +335,23 @@ def main():
     else:
         print(f"Stopping rule: fixed {arguments.duration:g} s per case.")
 
-    for index, case in enumerate(CASES, start=1):
+    run_cases = ordered_comparison_cases(
+        TABLE_SPAWN_CASES,
+        EXPERIMENTS,
+        arguments.sweep_option,
+    )
+    for index, values in enumerate(run_cases, start=1):
+        position_name, table_position, _, case, _ = values
         print("\n" + "=" * 76)
-        print(f"Run {index}/{len(CASES)}")
+        print(f"Run {index}/{total_runs}: {position_name} / {case.value}")
         print("=" * 76)
         try:
-            run_case(case, arguments)
+            run_case(case, arguments, position_name, table_position)
         except KeyboardInterrupt:
             print("Comparison interrupted; remaining cases were not run.")
             break
     else:
-        print("\nCompleted all four directional-distance cases.")
+        print(f"\nCompleted all {total_runs} directional-distance runs.")
 
 
 if __name__ == "__main__":

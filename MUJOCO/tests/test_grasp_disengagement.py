@@ -69,6 +69,5 @@ class GraspDisengagementTests(unittest.TestCase):
             "Retreating to post-grasp",
         )
 
-
 if __name__ == "__main__":
     unittest.main()
