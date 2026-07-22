@@ -80,6 +80,7 @@ class DualFrankaMuJoCoScene:
         grasp_penetration=0.02,
         postgrasp_outward_distance=0.14,
         postgrasp_vertical_offset=0.09,
+        use_alternate_grasp_orientation=False,
     ):
         self.model_path = Path(model_path or self.DEFAULT_MODEL_PATH)
         self.control_hz = float(control_hz)
@@ -99,6 +100,9 @@ class DualFrankaMuJoCoScene:
             postgrasp_outward_distance
         )
         self.postgrasp_vertical_offset = float(postgrasp_vertical_offset)
+        self.use_alternate_grasp_orientation = bool(
+            use_alternate_grasp_orientation
+        )
         if (
             self.pregrasp_distance < 0.0
             or self.grasp_penetration < 0.0
@@ -510,7 +514,20 @@ class DualFrankaMuJoCoScene:
             mocap_id = self.model.body(body_name).mocapid
             site_id = self.model.site(site_name).id
             self.data.mocap_pos[mocap_id] = self.data.site_xpos[site_id]
-            quaternion = self._site_quaternion(site_name)
+            if self.use_alternate_grasp_orientation:
+                # A parallel-jaw grasp is unchanged when the hand is rotated
+                # 180 degrees about its local approach axis. For flipped-table
+                # pose 4, this equivalent frame selects the shorter IK branch.
+                site_rotation = self.data.site_xmat[site_id].reshape(3, 3)
+                alternate_rotation = site_rotation @ Rotation.from_rotvec(
+                    [0.0, 0.0, np.pi]
+                ).as_matrix()
+                quaternion = np.roll(
+                    Rotation.from_matrix(alternate_rotation).as_quat(),
+                    1,
+                )
+            else:
+                quaternion = self._site_quaternion(site_name)
             self.data.mocap_quat[mocap_id] = quaternion
             quaternions.append(quaternion.copy())
         return tuple(quaternions)

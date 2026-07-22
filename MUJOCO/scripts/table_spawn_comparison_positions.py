@@ -25,7 +25,7 @@ TABLE_SPAWN_CASES = (
 #  intermediate_position, intermediate_euler_xyz,
 #  final_position, final_euler_xyz)
 #
-# Poses 1, 2, 5, and 6 are complete. Poses 3 and 4 remain placeholders.
+# All six 6D pose paths are currently complete.
 SIX_D_TRAJECTORY_CASES = (
     (
         "pose_1",
@@ -40,13 +40,13 @@ SIX_D_TRAJECTORY_CASES = (
     ),
     (
         "pose_3", (0.30, 0.00, 0.28), (-pi / 2.0, 0.0, pi / 2.0),
-        (0.30, 0.00, 0.52), (0.0, 0.0, pi / 2.0),
-        (0.30, 0.00, 0.28), (0.0, 0.0, pi / 2.0),
+        (0.60, 0.00, 0.52), (0.0, 0.0, pi / 2.0),
+        (0.60, 0.00, 0.28), (0.0, 0.0, pi / 2.0),
     ),
     (
         "pose_4", (0.60, 0.00, 0.28), (pi / 2.0, 0.0, pi / 2.0),
-        (0.40, 0.00, 0.52), (0.0, 0.0, pi / 2.0 - 0.40),
-        (0.25, -0.45, 0.269), (0.0, 0.0, pi / 2.0 - 0.80),
+        (0.30, 0.00, 0.52), (0.0, 0.0, pi / 2.0 ),
+        (0.30, 0.00, 0.269), (0.0, 0.0, pi / 2.0),
     ),
     (
         "pose_5", (0.30, -0.18, 0.28), (0.0, 0.0, pi / 2.0),

@@ -448,6 +448,7 @@ def main():
             video_width=arguments.video_width,
             video_height=arguments.video_height,
             video_fps=arguments.video_fps,
+            use_alternate_grasp_orientation=(pose_name == "pose_4"),
         )
 
     print(f"\nCompleted all {total_runs} 6D comparison runs.")

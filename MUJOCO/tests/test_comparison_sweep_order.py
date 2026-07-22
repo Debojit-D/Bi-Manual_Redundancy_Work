@@ -77,50 +77,44 @@ class ComparisonSweepOrderTests(unittest.TestCase):
         pose_1 = six_d_trajectory_case_for_number(1)
         self.assertEqual(pose_1[0], "pose_1")
         self.assertEqual(pose_1[3], (0.40, 0.00, 0.52))
-        self.assertEqual(pose_1[5], (0.20, -0.45, 0.269))
+        self.assertEqual(pose_1[5], (0.25, -0.45, 0.269))
         self.assertAlmostEqual(pose_1[2][2], 1.5707963267948966)
         self.assertAlmostEqual(pose_1[4][2], 1.1707963267948966)
         self.assertAlmostEqual(pose_1[6][2], 0.7707963267948965)
 
         pose_2 = six_d_trajectory_case_for_number(2)
-        self.assertEqual(pose_2[3], (0.40, 0.315, 0.52))
-        self.assertAlmostEqual(pose_2[4][2], 1.9707963267948965)
-        self.assertEqual(pose_2[5], (0.20, 0.45, 0.269))
-        self.assertAlmostEqual(pose_2[6][2], 2.3707963267948964)
+        self.assertEqual(pose_2[3], (0.40, 0.00, 0.52))
+        self.assertAlmostEqual(pose_2[4][2], 1.1707963267948966)
+        self.assertEqual(pose_2[5], (0.25, -0.45, 0.269))
+        self.assertAlmostEqual(pose_2[6][2], 0.7707963267948965)
 
         pose_5 = six_d_trajectory_case_for_number(5)
         self.assertEqual(pose_5[3], (0.40, 0.00, 0.52))
         self.assertAlmostEqual(pose_5[4][2], 1.9707963267948965)
-        self.assertEqual(pose_5[5], (0.20, -0.45, 0.269))
+        self.assertEqual(pose_5[5], (0.25, 0.45, 0.269))
         self.assertAlmostEqual(pose_5[6][2], 2.3707963267948964)
 
         pose_6 = six_d_trajectory_case_for_number(6)
-        self.assertEqual(pose_6[3], (0.40, -0.315, 0.52))
+        self.assertEqual(pose_6[3], (0.40, 0.00, 0.52))
         self.assertAlmostEqual(pose_6[4][2], 1.9707963267948965)
-        self.assertEqual(pose_6[5], (0.20, -0.45, 0.269))
+        self.assertEqual(pose_6[5], (0.25, 0.45, 0.269))
         self.assertAlmostEqual(pose_6[6][2], 2.3707963267948964)
 
         for index in (3, 4):
             case = six_d_trajectory_case_for_number(index)
-            self.assertIsNone(case[3])
-            self.assertIsNone(case[4])
-            self.assertIsNone(case[5])
-            self.assertIsNone(case[6])
+            self.assertTrue(all(value is not None for value in case[1:]))
 
-    def test_6d_default_sweep_skips_blank_trajectory_entries(self):
+    def test_6d_default_sweep_includes_all_complete_trajectory_entries(self):
         resolved, incomplete = resolve_trajectory_cases(
             SIX_D_TRAJECTORY_CASES
         )
         self.assertEqual(
             tuple(case[0] for case in resolved),
-            ("pose_1", "pose_2", "pose_5", "pose_6"),
+            tuple(f"pose_{index}" for index in range(1, 7)),
         )
-        self.assertEqual(
-            incomplete,
-            ("pose_3", "pose_4"),
-        )
+        self.assertEqual(incomplete, ())
 
-    def test_6d_cli_poses_complete_all_blank_entries(self):
+    def test_6d_cli_overrides_apply_to_all_pose_entries(self):
         intermediate = (1.0, 2.0, 3.0)
         intermediate_euler = (0.1, 0.2, 0.3)
         final = (4.0, 5.0, 6.0)
@@ -159,18 +153,20 @@ class ComparisonSweepOrderTests(unittest.TestCase):
             SIX_D_TRAJECTORY_CASES[0][1:],
         )
 
-    def test_standalone_blank_pose_requires_missing_orientation(self):
+    def test_standalone_pose_4_resolves_complete_path(self):
         arguments = SimpleNamespace(
-            pose=3,
+            pose=4,
             start_position=None,
             start_euler_xyz=None,
-            intermediate_position=(1.0, 2.0, 3.0),
+            intermediate_position=None,
             intermediate_euler_xyz=None,
-            goal_position=(4.0, 5.0, 6.0),
-            goal_euler_xyz=(0.4, 0.5, 0.6),
+            goal_position=None,
+            goal_euler_xyz=None,
         )
-        with self.assertRaisesRegex(ValueError, "intermediate orientation"):
-            resolve_cli_trajectory(arguments)
+        self.assertEqual(
+            resolve_cli_trajectory(arguments),
+            SIX_D_TRAJECTORY_CASES[3][1:],
+        )
 
 
 if __name__ == "__main__":

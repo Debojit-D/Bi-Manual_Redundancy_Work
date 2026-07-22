@@ -2,6 +2,7 @@ from unittest import mock
 import unittest
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 
@@ -23,6 +24,50 @@ class GraspDisengagementTests(unittest.TestCase):
             self.scene.home_arm_configuration,
             keyframe_qpos[self.scene.arm_qpos],
         )
+
+    def test_pose_4_alternate_orientation_uses_shorter_equivalent_grasp(self):
+        scene = DualFrankaMuJoCoScene(
+            use_alternate_grasp_orientation=True
+        )
+        scene.set_table_reference_pose(
+            np.array([0.60, 0.00, 0.28]),
+            Rotation.from_euler(
+                "xyz", [np.pi / 2.0, 0.0, np.pi / 2.0]
+            ).as_matrix(),
+        )
+        target_quaternions = scene._initialize_mocap_targets()
+
+        for hand_name, contact_name, target_quaternion in zip(
+            ("attachment_site_left", "attachment_site_right"),
+            ("site_left", "site_right"),
+            target_quaternions,
+        ):
+            hand_rotation = scene.data.site_xmat[
+                scene.model.site(hand_name).id
+            ].reshape(3, 3)
+            contact_rotation = scene.data.site_xmat[
+                scene.model.site(contact_name).id
+            ].reshape(3, 3)
+            target_rotation = Rotation.from_quat(
+                np.roll(target_quaternion, -1)
+            ).as_matrix()
+            expected_rotation = contact_rotation @ Rotation.from_rotvec(
+                [0.0, 0.0, np.pi]
+            ).as_matrix()
+
+            np.testing.assert_allclose(
+                target_rotation, expected_rotation, atol=1e-12
+            )
+            np.testing.assert_allclose(
+                target_rotation[:, 2], contact_rotation[:, 2], atol=1e-12
+            )
+            nominal_angle = Rotation.from_matrix(
+                contact_rotation @ hand_rotation.T
+            ).magnitude()
+            alternate_angle = Rotation.from_matrix(
+                target_rotation @ hand_rotation.T
+            ).magnitude()
+            self.assertLess(alternate_angle, nominal_angle)
 
     def test_disengagement_opens_then_retreats_then_returns_home(self):
         events = []

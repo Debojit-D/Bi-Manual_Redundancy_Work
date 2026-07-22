@@ -18,8 +18,7 @@ Run from the repository root according to what you want to inspect::
         --pose 1
 
     # Pose map (each entry includes position + XYZ Euler orientation):
-    # poses 1, 2, 5, and 6 are complete; poses 3 and 4 are editable
-    # placeholders.
+    # all six predefined pose paths are complete.
     # Pickup positions [x, y, z] metres:
     # 1=(0.30, 0.18, 0.28), 2=(0.60, 0.18, 0.28)
     # 3=(0.30, 0.00, 0.28), 4=(0.60, 0.00, 0.28)
@@ -621,6 +620,7 @@ def main(
     video_height=720,
     video_fps=30,
     keep_viewer_open=False,
+    use_alternate_grasp_orientation=False,
 ):
     objective = ManipulabilityObjective(objective)
     if hold_duration is not None and hold_duration < 0.0:
@@ -628,6 +628,11 @@ def main(
     optimization_mode = (
         objective.value if enable_redundancy_optimization else "baseline"
     )
+    if use_alternate_grasp_orientation:
+        print(
+            "Using pose-4 alternate gripper orientation for the shorter "
+            "pregrasp IK branch."
+        )
     scene = DualFrankaMuJoCoScene(
         control_hz=CONTROL_HZ,
         left_arm_base_position=LEFT_ARM_SPAWN_POSITION,
@@ -636,6 +641,7 @@ def main(
         right_arm_base_euler_xyz_degrees=RIGHT_ARM_SPAWN_EULER_XYZ_DEGREES,
         show_mocap_targets=SHOW_MOCAP_TARGETS,
         enable_bias_compensation=ENABLE_ARM_BIAS_COMPENSATION,
+        use_alternate_grasp_orientation=use_alternate_grasp_orientation,
     )
     set_table_reference_pose(
         scene,
@@ -1213,6 +1219,7 @@ def cli():
         top_view=arguments.top_view,
         front_view=arguments.front_view,
         keep_viewer_open=not arguments.close_on_completion,
+        use_alternate_grasp_orientation=(arguments.pose == 4),
     )
 
 
