@@ -10,6 +10,9 @@ from unittest.mock import patch
 import numpy as np
 
 from MUJOCO.utils.data_recording import CSV_COLUMNS, Equation8CSVRecorder
+from MUJOCO.utils.grasping_kinematics import (
+    CooperativeManipulationKinematics,
+)
 from MUJOCO.utils.redundancy_optimization import (
     ManipulabilityObjective,
     ManipulabilityOptimizer,
@@ -70,12 +73,22 @@ LEGACY_CSV_COLUMNS = {
 
 
 class _FakeNamedObject:
-    id = 0
+    def __init__(self, object_id=0):
+        self.id = object_id
 
 
 class _FakeModel:
     def body(self, _name):
         return _FakeNamedObject()
+
+    def site(self, name):
+        return _FakeNamedObject(
+            {
+                "site_top_middle": 0,
+                "site_left": 1,
+                "site_right": 2,
+            }[name]
+        )
 
 
 class _FakeKinematics:
@@ -307,9 +320,26 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
             self.assertTrue(np.isinf(condition))
 
     def test_csv_schema_and_scaled_aliases(self):
+        grasp_kinematics = CooperativeManipulationKinematics(
+            _FakeModel(),
+            np.arange(7),
+            np.arange(7, 14),
+        )
+        geometry_data = SimpleNamespace(
+            site_xpos=np.array(
+                [
+                    [0.6, 0.0, 0.28],
+                    [0.6, -0.2, 0.28],
+                    [0.6, 0.2, 0.28],
+                ]
+            )
+        )
+        computed_characteristic_length = (
+            grasp_kinematics.grasp_characteristic_length(geometry_data)
+        )
         optimizer = _optimizer(
             objective=ManipulabilityObjective.FORCE,
-            characteristic_length=0.4,
+            characteristic_length=computed_characteristic_length,
         )
         optimizer.minimum_inter_arm_clearance = lambda _data: 1.0
         optimizer.inter_arm_collision_cost = lambda _data: 0.0
@@ -394,6 +424,10 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
             row["directional_force_cost_scaled"],
         )
         self.assertEqual(row["optimization_mode"], "baseline")
+        self.assertAlmostEqual(
+            float(row["characteristic_length_m"]),
+            computed_characteristic_length,
+        )
         self.assertEqual(
             row["paper_objective_scaled"],
             row["force_manipulability_scaled"],

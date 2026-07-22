@@ -48,6 +48,77 @@ class CooperativeManipulationKinematics:
         rotation = data.site_xmat[site_id].reshape(3, 3).copy()
         return position, rotation
 
+    def grasp_characteristic_length_diagnostics(self, data):
+        """Return rigid-grasp length, contact midpoint, and midpoint offset.
+
+        The characteristic length is computed from the object contact sites,
+        not hand or flange positions::
+
+            l_c = sqrt(mean_i(||p_i - p_o||^2))
+
+        Here ``p_o`` is ``object_reference_site`` and ``p_i`` are the fixed
+        ``object_contact_sites``, all evaluated in world coordinates after
+        MuJoCo forward kinematics.
+        """
+        object_site_id = self.model.site(self.object_reference_site).id
+        object_position = data.site_xpos[object_site_id]
+        contact_positions = np.array(
+            [
+                data.site_xpos[self.model.site(site_name).id]
+                for site_name in self.object_contact_sites
+            ],
+            dtype=float,
+        )
+        contact_offsets = contact_positions - object_position
+        squared_radii = np.einsum(
+            "ij,ij->i",
+            contact_offsets,
+            contact_offsets,
+        )
+        characteristic_length = float(np.sqrt(np.mean(squared_radii)))
+        contact_midpoint = np.mean(contact_positions, axis=0)
+        midpoint_reference_distance = float(
+            np.linalg.norm(contact_midpoint - object_position)
+        )
+        return (
+            characteristic_length,
+            contact_midpoint,
+            midpoint_reference_distance,
+        )
+
+    def grasp_characteristic_length(self, data):
+        """Return ``sqrt(mean_i(||p_i-p_o||^2))`` for the rigid grasp."""
+        characteristic_length, _, _ = (
+            self.grasp_characteristic_length_diagnostics(data)
+        )
+        return characteristic_length
+
+    def resolve_characteristic_length(self, data, manual_override=None):
+        """Return selected and computed rigid-grasp length diagnostics.
+
+        ``manual_override=None`` selects the automatically computed value.
+        The returned tuple is ``(selected, computed, midpoint,
+        midpoint_reference_distance)``.
+        """
+        (
+            computed_length,
+            contact_midpoint,
+            midpoint_reference_distance,
+        ) = self.grasp_characteristic_length_diagnostics(data)
+        selected_length = (
+            computed_length
+            if manual_override is None
+            else float(manual_override)
+        )
+        if selected_length <= 0.0:
+            raise ValueError("characteristic length must be positive")
+        return (
+            selected_length,
+            computed_length,
+            contact_midpoint,
+            midpoint_reference_distance,
+        )
+
     def grasp_matrix(self, data):
         """Return the 6x12 spatial full-contact grasp matrix G."""
         object_position, _ = self.object_pose(data)

@@ -163,6 +163,15 @@ def parse_arguments():
         type=float,
         default=experiment.MAXIMUM_OPTIMIZATION_JOINT_SPEED,
     )
+    parser.add_argument(
+        "--characteristic-length",
+        type=float,
+        default=None,
+        help=(
+            "manual spatial characteristic length in metres for every run; "
+            "by default each run computes it from rigid object contact sites"
+        ),
+    )
     pickup_group = parser.add_mutually_exclusive_group()
     pickup_group.add_argument(
         "--position",
@@ -317,6 +326,7 @@ def main():
         print("=" * 72)
         experiment.main(
             objective=objective,
+            characteristic_length=arguments.characteristic_length,
             enable_redundancy_optimization=enabled,
             hold_duration=arguments.hold_duration,
             record_data=arguments.record_data,

@@ -159,6 +159,15 @@ def parse_arguments():
         default=static_setup.MAXIMUM_OPTIMIZATION_JOINT_SPEED,
         help="symmetric optimization speed bound in rad/s (default: %(default)s)",
     )
+    parser.add_argument(
+        "--characteristic-length",
+        type=float,
+        default=None,
+        help=(
+            "manual spatial characteristic length in metres; by default "
+            "compute it once from the rigid object contact sites"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -198,6 +207,35 @@ def build_experiment(case, arguments, table_position):
         scene.left_arm_dofs,
         scene.right_arm_dofs,
     )
+    # Resolve once from the initialized rigid grasp; keep it fixed for the run.
+    (
+        selected_characteristic_length,
+        computed_characteristic_length,
+        contact_midpoint,
+        midpoint_reference_distance,
+    ) = kinematics.resolve_characteristic_length(
+        scene.data,
+        arguments.characteristic_length,
+    )
+    print(
+        "Computed grasp characteristic length: "
+        f"{computed_characteristic_length:.9f} m"
+    )
+    print(f"Contact midpoint: {contact_midpoint} m")
+    print(
+        "Contact midpoint to object reference distance: "
+        f"{midpoint_reference_distance:.9g} m"
+    )
+    print(
+        "Characteristic length used: "
+        f"{selected_characteristic_length:.9f} m "
+        "(automatic)"
+        if arguments.characteristic_length is None
+        else (
+            "Characteristic length used: "
+            f"{selected_characteristic_length:.9f} m (manual override)"
+        )
+    )
 
     left_limits = scene.model.actuator_ctrlrange[0:7]
     right_limits = scene.model.actuator_ctrlrange[8:15]
@@ -228,7 +266,7 @@ def build_experiment(case, arguments, table_position):
         finite_difference_step=static_setup.FINITE_DIFFERENCE_STEP,
         maximum_joint_speed=arguments.max_joint_speed,
         desired_wrench_direction=static_setup.DESIRED_WRENCH_DIRECTION,
-        characteristic_length=static_setup.CHARACTERISTIC_LENGTH,
+        characteristic_length=selected_characteristic_length,
         enable_collision_penalty=not arguments.disable_collision_penalty,
         collision_weight=static_setup.COLLISION_WEIGHT,
         collision_safety_margin=static_setup.COLLISION_SAFETY_MARGIN,

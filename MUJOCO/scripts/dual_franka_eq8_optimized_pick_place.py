@@ -143,7 +143,6 @@ COLLISION_SPHERE_MODEL_PATH = (
 )
 
 DESIRED_WRENCH_DIRECTION = np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
-CHARACTERISTIC_LENGTH = 0.4
 
 
 def quintic_segment_reference(
@@ -460,6 +459,7 @@ def main(
     joint_limit_stop_distance=JOINT_LIMIT_STOP_DISTANCE,
     joint_limit_slow_distance=JOINT_LIMIT_SLOW_DISTANCE,
     objective=OBJECTIVE,
+    characteristic_length=None,
     enable_redundancy_optimization=True,
     hold_duration=FINAL_HOLD_DURATION,
     top_view=False,
@@ -493,6 +493,30 @@ def main(
         scene.left_arm_dofs,
         scene.right_arm_dofs,
     )
+    # Resolve once from the initialized rigid grasp; keep it fixed for the run.
+    (
+        selected_characteristic_length,
+        computed_characteristic_length,
+        contact_midpoint,
+        midpoint_reference_distance,
+    ) = kinematics.resolve_characteristic_length(
+        scene.data,
+        characteristic_length,
+    )
+    print(
+        "Computed grasp characteristic length: "
+        f"{computed_characteristic_length:.9f} m"
+    )
+    print(f"Contact midpoint: {contact_midpoint} m")
+    print(
+        "Contact midpoint to object reference distance: "
+        f"{midpoint_reference_distance:.9g} m"
+    )
+    print(
+        "Characteristic length used: "
+        f"{selected_characteristic_length:.9f} m "
+        f"({'automatic' if characteristic_length is None else 'manual override'})"
+    )
     left_limits = scene.model.actuator_ctrlrange[0:7]
     right_limits = scene.model.actuator_ctrlrange[8:15]
     joint_position_lower = np.concatenate(
@@ -522,7 +546,7 @@ def main(
         finite_difference_step=FINITE_DIFFERENCE_STEP,
         maximum_joint_speed=maximum_joint_speed,
         desired_wrench_direction=DESIRED_WRENCH_DIRECTION,
-        characteristic_length=CHARACTERISTIC_LENGTH,
+        characteristic_length=selected_characteristic_length,
         enable_collision_penalty=enable_collision_penalty,
         collision_weight=collision_weight,
         collision_safety_margin=collision_safety_margin,
@@ -665,6 +689,15 @@ def parse_arguments():
         choices=[objective.value for objective in ManipulabilityObjective],
         default=OBJECTIVE.value,
         help="null-space objective (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--characteristic-length",
+        type=float,
+        default=None,
+        help=(
+            "manual spatial characteristic length in metres; by default "
+            "compute it once from the rigid object contact sites"
+        ),
     )
     parser.add_argument(
         "--baseline",
@@ -879,6 +912,7 @@ def cli():
         joint_limit_stop_distance=arguments.joint_limit_stop_distance,
         joint_limit_slow_distance=arguments.joint_limit_slow_distance,
         objective=arguments.objective,
+        characteristic_length=arguments.characteristic_length,
         enable_redundancy_optimization=not arguments.baseline,
         hold_duration=arguments.hold_duration,
         top_view=arguments.top_view,

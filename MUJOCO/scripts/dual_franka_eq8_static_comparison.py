@@ -160,6 +160,15 @@ def parse_arguments():
         action="store_true",
         help="disable the soft collision term for all optimized modes",
     )
+    parser.add_argument(
+        "--characteristic-length",
+        type=float,
+        default=None,
+        help=(
+            "manual spatial characteristic length in metres for every run; "
+            "by default each run computes it from rigid object contact sites"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -247,6 +256,7 @@ def main():
         print("=" * 72)
         run_static_experiment(
             objective=objective,
+            characteristic_length=arguments.characteristic_length,
             enable_redundancy_optimization=enabled,
             duration=arguments.duration,
             convergence_speed_threshold=(

@@ -151,6 +151,15 @@ def parse_arguments():
         default=experiment.MAXIMUM_OPTIMIZATION_JOINT_SPEED,
         help="symmetric joint-speed bound in rad/s (default: %(default)s)",
     )
+    parser.add_argument(
+        "--characteristic-length",
+        type=float,
+        default=None,
+        help=(
+            "manual spatial characteristic length in metres for every run; "
+            "by default each run computes it from rigid object contact sites"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -229,6 +238,7 @@ def main():
         print("=" * 72)
         experiment.main(
             objective=objective,
+            characteristic_length=arguments.characteristic_length,
             enable_redundancy_optimization=enabled,
             hold_duration=arguments.hold_duration,
             table_spawn_position=table_position,
