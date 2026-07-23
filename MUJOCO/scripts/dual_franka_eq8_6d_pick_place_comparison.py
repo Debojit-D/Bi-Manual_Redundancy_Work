@@ -523,7 +523,8 @@ def main():
                 video_views=selected_video_views,
                 video_encoder=arguments.video_encoder,
                 video_nvenc_view_limit=arguments.nvenc_max_views,
-                use_alternate_grasp_orientation=(pose_name == "pose_4"),
+                # The reoriented pose 4 uses the nominal contact-site frame.
+                use_alternate_grasp_orientation=False,
             )
         except Exception as error:
             failed_runs.append(run_label)

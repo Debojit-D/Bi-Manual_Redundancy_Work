@@ -643,8 +643,8 @@ def main(
     )
     if use_alternate_grasp_orientation:
         print(
-            "Using pose-4 alternate gripper orientation for the shorter "
-            "pregrasp IK branch."
+            "Using the alternate gripper orientation for the pregrasp "
+            "IK branch."
         )
     scene = DualFrankaMuJoCoScene(
         control_hz=CONTROL_HZ,
@@ -1235,7 +1235,10 @@ def cli():
         top_view=arguments.top_view,
         front_view=arguments.front_view,
         keep_viewer_open=not arguments.close_on_completion,
-        use_alternate_grasp_orientation=(arguments.pose == 4),
+        # Pose 4 now starts at -pi/2 roll. Its nominal contact-site frame is
+        # the reachable pregrasp branch; the old alternate branch was only
+        # needed for the former +pi/2 orientation.
+        use_alternate_grasp_orientation=False,
     )
 
 

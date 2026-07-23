@@ -130,6 +130,10 @@ class ComparisonSweepOrderTests(unittest.TestCase):
         for index in (3, 4):
             case = six_d_trajectory_case_for_number(index)
             self.assertTrue(all(value is not None for value in case[1:]))
+        self.assertAlmostEqual(
+            six_d_trajectory_case_for_number(4)[2][0],
+            -1.5707963267948966,
+        )
 
     def test_6d_default_sweep_includes_all_complete_trajectory_entries(self):
         resolved, incomplete = resolve_trajectory_cases(

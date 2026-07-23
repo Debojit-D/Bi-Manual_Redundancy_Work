@@ -8,9 +8,21 @@ from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 
 
 class _RunningViewer:
+    user_scn = None
+
     @staticmethod
     def is_running():
         return True
+
+    @staticmethod
+    def sync():
+        return None
+
+
+class _UnthrottledRate:
+    @staticmethod
+    def sleep():
+        return None
 
 
 class GraspDisengagementTests(unittest.TestCase):
@@ -25,7 +37,7 @@ class GraspDisengagementTests(unittest.TestCase):
             keyframe_qpos[self.scene.arm_qpos],
         )
 
-    def test_pose_4_alternate_orientation_uses_shorter_equivalent_grasp(self):
+    def test_legacy_positive_roll_uses_shorter_alternate_grasp(self):
         scene = DualFrankaMuJoCoScene(
             use_alternate_grasp_orientation=True
         )
@@ -68,6 +80,24 @@ class GraspDisengagementTests(unittest.TestCase):
                 target_rotation @ hand_rotation.T
             ).magnitude()
             self.assertLess(alternate_angle, nominal_angle)
+
+    def test_reoriented_pose_4_nominal_pregrasp_reaches_both_waypoints(self):
+        scene = DualFrankaMuJoCoScene(
+            use_alternate_grasp_orientation=False
+        )
+        scene.set_table_reference_pose(
+            np.array([0.60, 0.00, 0.28]),
+            Rotation.from_euler(
+                "xyz", [-np.pi / 2.0, 0.0, np.pi / 2.0]
+            ).as_matrix(),
+        )
+
+        completed = scene.run_grasp_approach(
+            _RunningViewer(),
+            _UnthrottledRate(),
+        )
+
+        self.assertTrue(completed)
 
     def test_disengagement_opens_then_retreats_then_returns_home(self):
         events = []

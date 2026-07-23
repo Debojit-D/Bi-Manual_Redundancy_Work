@@ -532,8 +532,8 @@ class DualFrankaMuJoCoScene:
             self.data.mocap_pos[mocap_id] = self.data.site_xpos[site_id]
             if self.use_alternate_grasp_orientation:
                 # A parallel-jaw grasp is unchanged when the hand is rotated
-                # 180 degrees about its local approach axis. For flipped-table
-                # pose 4, this equivalent frame selects the shorter IK branch.
+                # 180 degrees about its local approach axis. This equivalent
+                # frame supports legacy/custom positive-roll table poses.
                 site_rotation = self.data.site_xmat[site_id].reshape(3, 3)
                 alternate_rotation = site_rotation @ Rotation.from_rotvec(
                     [0.0, 0.0, np.pi]
