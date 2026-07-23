@@ -27,9 +27,8 @@ rosbag/
 *.bag
 *.log
 
-# Generated MuJoCo experiment data, figures, and videos
-outputs/mujoco_data/
-outputs/mujoco_videos/
+# Generated experiment data, figures, and videos
+outputs/
 
 # Native crash dumps
 core
