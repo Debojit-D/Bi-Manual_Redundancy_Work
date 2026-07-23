@@ -3,7 +3,7 @@
 This module intentionally lives beside, rather than inside, the paper's
 ``ManipulabilityOptimizer``. It tests two independent choices:
 
-1. capability matrix: ``A_scaled A_scaled.T`` or its pseudoinverse;
+1. capability matrix: ``A A.T`` or its pseudoinverse;
 2. distance direction: minimize or maximize the normalized Frobenius distance.
 
 All four cases maximize one signed score internally::
@@ -30,8 +30,8 @@ from .manipulability_optimization import (
 class CapabilityMatrixKind(str, Enum):
     """Matrix normalized before comparison with the desired direction."""
 
-    VELOCITY = "velocity"  # C_v = A_scaled A_scaled.T
-    FORCE = "force"  # C_f = (A_scaled A_scaled.T)^dagger
+    VELOCITY = "velocity"  # C_v = A A.T
+    FORCE = "force"  # C_f = (A A.T)^dagger
 
 
 class DistanceDirection(str, Enum):
@@ -144,9 +144,9 @@ class DirectionalDistancePermutationOptimizer(ManipulabilityOptimizer):
         return self.velocity_capability_matrices(data)
 
     def capability_matrix(self, data):
-        """Return the selected dimensionally scaled capability matrix."""
-        _, scaled = self.capability_matrices(data)
-        return scaled
+        """Return the selected raw capability matrix used for optimization."""
+        raw, _ = self.capability_matrices(data)
+        return raw
 
     @staticmethod
     def normalized_frobenius_distance(capability, desired):
@@ -181,8 +181,8 @@ class DirectionalDistancePermutationOptimizer(ManipulabilityOptimizer):
         )
 
     def directional_distance(self, data):
-        """Return the scaled unsigned distance D(q) for the selected matrix."""
-        return self.directional_distance_scaled(data)
+        """Return the raw unsigned distance D(q) used for optimization."""
+        return self.directional_distance_raw(data)
 
     def paper_objective_values(self, data):
         """Return selected raw/scaled distance before collision penalties."""
@@ -192,7 +192,7 @@ class DirectionalDistancePermutationOptimizer(ManipulabilityOptimizer):
         )
 
     def value(self, data, objective=None):
-        """Return scaled D(q); ``objective`` is rejected to avoid ambiguity."""
+        """Return raw D(q); ``objective`` is rejected to avoid ambiguity."""
         if (
             objective is not None
             and DirectionalDistanceCase(objective) is not self.case

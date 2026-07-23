@@ -14,8 +14,7 @@ Run from the repository root according to what you want to inspect::
     python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place
 
     # Run the complete predefined 6D path for pose 1.
-    python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place \\
-        --pose 1
+    python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place --pose 1
 
     # Pose map (each entry includes position + XYZ Euler orientation):
     # all six predefined pose paths are complete.

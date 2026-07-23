@@ -14,6 +14,8 @@ from MUJOCO.utils.grasping_kinematics import (
     CooperativeManipulationKinematics,
 )
 from MUJOCO.utils.redundancy_optimization import (
+    DirectionalDistanceCase,
+    DirectionalDistancePermutationOptimizer,
     ManipulabilityObjective,
     ManipulabilityOptimizer,
 )
@@ -222,22 +224,22 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
         self.assertEqual(optimizer.desired_force_matrix_scaled[3, 3], 2.5)
         self.assertIs(
             optimizer.desired_force_matrix,
-            optimizer.desired_force_matrix_scaled,
+            optimizer.desired_force_matrix_raw,
         )
 
-    def test_unsuffixed_public_methods_return_scaled_metrics(self):
+    def test_unsuffixed_public_methods_preserve_raw_metrics(self):
         optimizer = _optimizer(characteristic_length=0.4)
         self.assertEqual(
             optimizer.velocity_manipulability(None),
-            optimizer.velocity_manipulability_scaled(None),
+            optimizer.velocity_manipulability_raw(None),
         )
         self.assertEqual(
             optimizer.force_manipulability(None),
-            optimizer.force_manipulability_scaled(None),
+            optimizer.force_manipulability_raw(None),
         )
         self.assertEqual(
             optimizer.directional_force_cost(None),
-            optimizer.directional_force_cost_scaled(None),
+            optimizer.directional_force_cost_raw(None),
         )
 
     def test_optimization_signs_are_unchanged(self):
@@ -252,7 +254,7 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
             result = optimizer.optimization_velocity(None)
             np.testing.assert_allclose(result.phi_dot_opt, expected_sign)
 
-    def test_value_and_gradient_use_scaled_metrics(self):
+    def test_value_and_gradient_preserve_raw_optimization(self):
         optimizer = _optimizer(
             characteristic_length=0.4,
             objective=ManipulabilityObjective.VELOCITY,
@@ -269,37 +271,102 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
         optimizer.kinematics.paper_object_velocity_map = velocity_map
         self.assertEqual(
             optimizer.value(data),
-            optimizer.velocity_manipulability_scaled(data),
+            optimizer.velocity_manipulability_raw(data),
         )
         with patch(
             "MUJOCO.utils.redundancy_optimization."
             "manipulability_optimization.mujoco.mj_forward"
         ):
             gradient = optimizer.gradient(data)
-        # sqrt(det(A_scaled A_scaled.T))=l^3*abs(det(A_raw)).
-        self.assertAlmostEqual(gradient[0], 0.4**3, places=9)
-        self.assertNotAlmostEqual(gradient[0], 1.0)
+        self.assertAlmostEqual(gradient[0], 1.0, places=9)
 
         collision_cost = 3.0
         optimizer.total_collision_cost = lambda _data: collision_cost
         for objective, expected in (
             (
                 ManipulabilityObjective.VELOCITY,
-                optimizer.velocity_manipulability_scaled(data)
+                optimizer.velocity_manipulability_raw(data)
                 - collision_cost,
             ),
             (
                 ManipulabilityObjective.FORCE,
-                optimizer.force_manipulability_scaled(data)
+                optimizer.force_manipulability_raw(data)
                 - collision_cost,
             ),
             (
                 ManipulabilityObjective.DIRECTIONAL_FORCE,
-                optimizer.directional_force_cost_scaled(data)
+                optimizer.directional_force_cost_raw(data)
                 + collision_cost,
             ),
         ):
             self.assertAlmostEqual(optimizer.value(data, objective), expected)
+
+    def test_characteristic_length_does_not_change_optimizer_outputs(self):
+        data = SimpleNamespace(qpos=np.ones(14))
+        short = _optimizer(characteristic_length=0.2)
+        long = _optimizer(characteristic_length=0.8)
+
+        with patch(
+            "MUJOCO.utils.redundancy_optimization."
+            "manipulability_optimization.mujoco.mj_forward"
+        ):
+            for objective in ManipulabilityObjective:
+                short.objective = objective
+                long.objective = objective
+                self.assertAlmostEqual(short.value(data), long.value(data))
+                np.testing.assert_allclose(
+                    short.gradient(data),
+                    long.gradient(data),
+                    rtol=1e-10,
+                    atol=1e-10,
+                )
+                np.testing.assert_allclose(
+                    short.optimization_velocity(data).phi_dot_opt,
+                    long.optimization_velocity(data).phi_dot_opt,
+                    rtol=1e-10,
+                    atol=1e-10,
+                )
+
+    def test_characteristic_length_does_not_change_permutation_optimizer(self):
+        data = SimpleNamespace(qpos=np.ones(14))
+        for case in DirectionalDistanceCase:
+            optimizers = [
+                DirectionalDistancePermutationOptimizer(
+                    _FakeKinematics(_full_rank_velocity_map()),
+                    np.arange(14),
+                    case=case,
+                    characteristic_length=length,
+                    desired_wrench_direction=(
+                        1.0,
+                        2.0,
+                        3.0,
+                        0.5,
+                        0.75,
+                        1.25,
+                    ),
+                    maximum_joint_speed=100.0,
+                )
+                for length in (0.2, 0.8)
+            ]
+            short, long = optimizers
+            with patch(
+                "MUJOCO.utils.redundancy_optimization."
+                "directional_distance_permutation_optimization."
+                "mujoco.mj_forward"
+            ):
+                self.assertAlmostEqual(short.value(data), long.value(data))
+                np.testing.assert_allclose(
+                    short.gradient(data),
+                    long.gradient(data),
+                    rtol=1e-10,
+                    atol=1e-10,
+                )
+                np.testing.assert_allclose(
+                    short.optimization_velocity(data).phi_dot_opt,
+                    long.optimization_velocity(data).phi_dot_opt,
+                    rtol=1e-10,
+                    atol=1e-10,
+                )
 
     def test_rank_deficient_diagnostics_and_pseudoinverse_are_safe(self):
         velocity_map = np.zeros((6, 14))
@@ -319,7 +386,7 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
             self.assertGreater(sigma_max, 0.0)
             self.assertTrue(np.isinf(condition))
 
-    def test_csv_schema_and_scaled_aliases(self):
+    def test_csv_schema_and_raw_scaled_diagnostics(self):
         grasp_kinematics = CooperativeManipulationKinematics(
             _FakeModel(),
             np.arange(7),
@@ -446,15 +513,15 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
             self.assertNotEqual(row[new_column], "")
         self.assertEqual(
             row["velocity_manipulability"],
-            row["velocity_manipulability_scaled"],
+            row["velocity_manipulability_raw"],
         )
         self.assertEqual(
             row["force_manipulability"],
-            row["force_manipulability_scaled"],
+            row["force_manipulability_raw"],
         )
         self.assertEqual(
             row["directional_force_cost"],
-            row["directional_force_cost_scaled"],
+            row["directional_force_cost_raw"],
         )
         self.assertEqual(row["optimization_mode"], "baseline")
         self.assertEqual(float(row["optimizer_time_ms"]), 0.0)

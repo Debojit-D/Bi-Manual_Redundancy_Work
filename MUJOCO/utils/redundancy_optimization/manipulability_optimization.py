@@ -76,19 +76,19 @@ class OptimizationResult:
 
 
 class ManipulabilityOptimizer:
-    """Evaluate dimensionally scaled paper costs and produce null motion.
+    """Evaluate paper objectives and produce null motion.
 
     The raw spatial map is ``A_raw = A``.  With characteristic length ``l``,
     ``S_l = diag(1, 1, 1, l, l, l)`` and ``A_scaled = S_l A_raw``.  The active
-    spatial capabilities are ``Mv_scaled = A_scaled A_scaled.T`` and
-    ``Mf_scaled = pinv(Mv_scaled)``.
+    controller objectives remain the original raw quantities. Scaled spatial
+    capabilities are retained as diagnostics for CSV analysis only.
 
     Velocity and force manipulability are maximized.  Directional-force
     distance is minimized, so its gradient sign is reversed automatically.
     Gradients are evaluated with central joint-space finite differences.
 
-    The unsuffixed public objective methods return the scaled quantities.
-    Explicit ``*_raw`` methods retain the original unscaled diagnostics.
+    Unsuffixed public objective methods preserve the original raw behavior.
+    Explicit ``*_raw`` and ``*_scaled`` methods support comparative reporting.
     """
 
     def __init__(
@@ -198,8 +198,8 @@ class ManipulabilityOptimizer:
         ) = self._make_direction_matrices(
             desired_wrench_direction
         )
-        # Backward-compatible name: active objectives use scaled coordinates.
-        self.desired_force_matrix = self.desired_force_matrix_scaled
+        # Backward-compatible name used by the raw controller objective.
+        self.desired_force_matrix = self.desired_force_matrix_raw
 
         if self.arm_qpos_indices.size != self.kinematics.arm_dofs.size:
             raise ValueError("Expected one qpos index for every controlled DoF")
@@ -578,13 +578,13 @@ class ManipulabilityOptimizer:
         return self._sqrt_determinant(raw_matrix)
 
     def velocity_manipulability_scaled(self, data):
-        """Return the active ``sqrt(det(Mv_scaled))``."""
+        """Return diagnostic ``sqrt(det(Mv_scaled))`` for CSV comparison."""
         _, scaled_matrix = self.velocity_capability_matrices(data)
         return self._sqrt_determinant(scaled_matrix)
 
     def velocity_manipulability(self, data):
-        """Return scaled velocity manipulability used by the optimizer."""
-        return self.velocity_manipulability_scaled(data)
+        """Return raw velocity manipulability used by the optimizer."""
+        return self.velocity_manipulability_raw(data)
 
     def force_manipulability_raw(self, data):
         """Return the original diagnostic ``sqrt(det(Mf_raw))``."""
@@ -592,13 +592,13 @@ class ManipulabilityOptimizer:
         return self._sqrt_determinant(raw_matrix)
 
     def force_manipulability_scaled(self, data):
-        """Return the active ``sqrt(det(Mf_scaled))``."""
+        """Return diagnostic ``sqrt(det(Mf_scaled))`` for CSV comparison."""
         _, scaled_matrix = self.force_capability_matrices(data)
         return self._sqrt_determinant(scaled_matrix)
 
     def force_manipulability(self, data):
-        """Return scaled force manipulability used by the optimizer."""
-        return self.force_manipulability_scaled(data)
+        """Return raw force manipulability used by the optimizer."""
+        return self.force_manipulability_raw(data)
 
     @staticmethod
     def _normalized_frobenius_distance(capability, desired):
@@ -621,7 +621,7 @@ class ManipulabilityOptimizer:
         )
 
     def directional_force_cost_scaled(self, data):
-        """Return active force-direction distance in scaled coordinates."""
+        """Return diagnostic force-direction distance in scaled coordinates."""
         _, force_scaled = self.force_capability_matrices(data)
         return self._normalized_frobenius_distance(
             force_scaled,
@@ -629,8 +629,8 @@ class ManipulabilityOptimizer:
         )
 
     def directional_force_cost(self, data):
-        """Return scaled directional-force distance minimized by the optimizer."""
-        return self.directional_force_cost_scaled(data)
+        """Return raw directional-force distance minimized by the optimizer."""
+        return self.directional_force_cost_raw(data)
 
     def paper_objective_values(self, data):
         """Return raw and scaled selected paper metrics before collision costs."""

@@ -315,16 +315,17 @@ class Equation8CSVRecorder:
             ),
             "paper_objective_raw": paper_objective_raw,
             "paper_objective_scaled": paper_objective_scaled,
-            # Unsuffixed columns remain stable aliases of active scaled metrics.
-            "velocity_manipulability": velocity_manipulability_scaled,
+            # Preserve the historical raw aliases. Explicit raw/scaled columns
+            # carry both variants for characteristic-length comparisons.
+            "velocity_manipulability": velocity_manipulability_raw,
             "velocity_manipulability_raw": velocity_manipulability_raw,
             "velocity_manipulability_scaled": (
                 velocity_manipulability_scaled
             ),
-            "force_manipulability": force_manipulability_scaled,
+            "force_manipulability": force_manipulability_raw,
             "force_manipulability_raw": force_manipulability_raw,
             "force_manipulability_scaled": force_manipulability_scaled,
-            "directional_force_cost": directional_force_cost_scaled,
+            "directional_force_cost": directional_force_cost_raw,
             "directional_force_cost_raw": directional_force_cost_raw,
             "directional_force_cost_scaled": directional_force_cost_scaled,
             "velocity_capability_trace_raw": np.trace(
