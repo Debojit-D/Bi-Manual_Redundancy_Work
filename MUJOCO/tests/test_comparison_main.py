@@ -1,10 +1,27 @@
 from pathlib import Path
+import threading
+import time
 import unittest
+from unittest.mock import patch
 
 from MUJOCO.scripts import comparison_main
 
 
 class ComparisonMainTests(unittest.TestCase):
+    def test_default_workers_and_video_settings(self):
+        arguments = comparison_main.parse_arguments([])
+
+        self.assertEqual(arguments.workers, 3)
+        self.assertEqual(arguments.video_width, 1280)
+        self.assertEqual(arguments.video_height, 720)
+        self.assertEqual(arguments.video_fps, 50)
+
+    def test_worker_count_must_match_available_stages(self):
+        for workers in ("0", "4"):
+            with self.subTest(workers=workers):
+                with self.assertRaises(SystemExit):
+                    comparison_main.parse_arguments(["--workers", workers])
+
     def test_stage_order_and_recording_flags(self):
         arguments = comparison_main.parse_arguments([])
         commands = comparison_main.build_stage_commands(
@@ -52,6 +69,49 @@ class ComparisonMainTests(unittest.TestCase):
             {"static": 24, "pick_place": 24, "6d_pick_place": 24},
         )
         self.assertEqual(sum(counts.values()), 72)
+
+    def test_three_workers_execute_all_stages_concurrently(self):
+        commands = tuple((name, (name,)) for name, _ in comparison_main.STAGES)
+        barrier = threading.Barrier(3)
+        state_lock = threading.Lock()
+        active = 0
+        maximum_active = 0
+
+        class Progress:
+            def update(self, _amount):
+                return None
+
+            def set_postfix_str(self, _text, refresh=True):
+                return None
+
+        def fake_run_stage(command, stage_name, progress, **_kwargs):
+            nonlocal active, maximum_active
+            del command, stage_name, progress
+            with state_lock:
+                active += 1
+                maximum_active = max(maximum_active, active)
+            barrier.wait(timeout=2)
+            time.sleep(0.01)
+            with state_lock:
+                active -= 1
+            return 0.01, 24
+
+        with patch.object(
+            comparison_main,
+            "run_stage",
+            side_effect=fake_run_stage,
+        ):
+            results = comparison_main.run_stages(
+                commands,
+                Progress(),
+                workers=3,
+            )
+
+        self.assertEqual(maximum_active, 3)
+        self.assertEqual(
+            tuple(result[0] for result in results),
+            ("static", "pick_place", "6d_pick_place"),
+        )
 
 
 if __name__ == "__main__":

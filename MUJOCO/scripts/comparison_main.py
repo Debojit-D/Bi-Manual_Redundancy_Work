@@ -1,10 +1,14 @@
 """Run the complete Equation (8) comparison and recording campaign.
 
-The stages always run in this order:
+The campaign contains three independent stages:
 
 1. static optimization,
 2. ordinary pick-and-place, and
 3. 6D pick-and-place.
+
+By default the three stages run concurrently in separate processes. Every
+individual simulation and its optimization loop remain sequential. Use
+``--workers 1`` to reproduce the former stage-by-stage execution.
 
 Every stage runs baseline, velocity, force, and directional-force modes,
 records the CSV data, and records perspective, top, and front MP4 files. By
@@ -20,16 +24,18 @@ Preview the exact three child commands without starting MuJoCo::
     .venv/bin/python -m MUJOCO.scripts.comparison_main --dry-run
 
 Use ``--sweep-option 2`` for optimization-first ordering within each stage.
-Press Ctrl+C to stop the active child cleanly and abort the remaining stages.
+Press Ctrl+C to stop all active children and abort the remaining stages.
 """
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
+import threading
 import time
 
 from tqdm.auto import tqdm
@@ -107,7 +113,16 @@ def parse_arguments(argv=None):
     )
     parser.add_argument("--video-width", type=int, default=1280)
     parser.add_argument("--video-height", type=int, default=720)
-    parser.add_argument("--video-fps", type=int, default=30)
+    parser.add_argument("--video-fps", type=int, default=50)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=3,
+        help=(
+            "maximum independent stage processes to run concurrently "
+            f"(1-{len(STAGES)}; default: %(default)s)"
+        ),
+    )
     parser.add_argument(
         "--characteristic-length",
         type=float,
@@ -138,6 +153,8 @@ def parse_arguments(argv=None):
         parser.error("--video-height must be a positive even number")
     if arguments.video_fps <= 0:
         parser.error("--video-fps must be greater than zero")
+    if not 1 <= arguments.workers <= len(STAGES):
+        parser.error(f"--workers must be between 1 and {len(STAGES)}")
     if (
         arguments.characteristic_length is not None
         and arguments.characteristic_length <= 0
@@ -230,7 +247,15 @@ def build_stage_commands(arguments, batch_dir):
     return tuple(commands)
 
 
-def run_stage(command, stage_name, progress):
+def run_stage(
+    command,
+    stage_name,
+    progress,
+    *,
+    active_processes=None,
+    process_lock=None,
+    output_lock=None,
+):
     """Stream one child process while advancing completed-run progress."""
     stage_start = time.perf_counter()
     active_run_start = None
@@ -242,24 +267,40 @@ def run_stage(command, stage_name, progress):
         text=True,
         bufsize=1,
     )
+    if active_processes is not None:
+        with process_lock:
+            active_processes[stage_name] = process
     try:
         if process.stdout is None:
             raise RuntimeError("comparison child stdout pipe is unavailable")
         for line in process.stdout:
-            print(line, end="", flush=True)
+            if output_lock is None:
+                print(f"[{stage_name}] {line}", end="", flush=True)
+            else:
+                with output_lock:
+                    print(f"[{stage_name}] {line}", end="", flush=True)
             # Each comparison child prints exactly one "Run i/N:" banner at
             # the start of a case. Reaching the next banner proves that the
             # previous case completed successfully.
             if RUN_BANNER_PATTERN.search(line):
                 now = time.perf_counter()
-                if active_run_start is not None:
-                    progress.update(1)
                 runs_started += 1
+                if output_lock is None:
+                    if active_run_start is not None:
+                        progress.update(1)
+                    progress.set_postfix_str(
+                        f"{stage_name}: run {runs_started}",
+                        refresh=True,
+                    )
+                else:
+                    with output_lock:
+                        if active_run_start is not None:
+                            progress.update(1)
+                        progress.set_postfix_str(
+                            f"{stage_name}: run {runs_started}",
+                            refresh=True,
+                        )
                 active_run_start = now
-                progress.set_postfix_str(
-                    f"{stage_name}: run {runs_started}",
-                    refresh=True,
-                )
         return_code = process.wait()
     except KeyboardInterrupt:
         if process.poll() is None:
@@ -267,14 +308,86 @@ def run_stage(command, stage_name, progress):
         process.wait()
         raise
     finally:
+        if active_processes is not None:
+            with process_lock:
+                active_processes.pop(stage_name, None)
         if process.stdout is not None:
             process.stdout.close()
 
     if return_code != 0:
         raise subprocess.CalledProcessError(return_code, command)
     if active_run_start is not None:
-        progress.update(1)
+        if output_lock is None:
+            progress.update(1)
+        else:
+            with output_lock:
+                progress.update(1)
     return time.perf_counter() - stage_start, runs_started
+
+
+def terminate_active_processes(active_processes, process_lock):
+    """Stop campaign children that are still running after an interruption."""
+    with process_lock:
+        processes = tuple(active_processes.values())
+    for process in processes:
+        if process.poll() is None:
+            process.terminate()
+    for process in processes:
+        if process.poll() is not None:
+            continue
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+
+
+def run_stages(commands, progress, workers):
+    """Run independent stages concurrently without changing their internals."""
+    active_processes = {}
+    process_lock = threading.Lock()
+    output_lock = threading.Lock()
+    results = {}
+
+    executor = ThreadPoolExecutor(
+        max_workers=workers,
+        thread_name_prefix="equation8-stage",
+    )
+    futures = {}
+    try:
+        for stage_name, command in commands:
+            future = executor.submit(
+                run_stage,
+                command,
+                stage_name,
+                progress,
+                active_processes=active_processes,
+                process_lock=process_lock,
+                output_lock=output_lock,
+            )
+            futures[future] = stage_name
+
+        for future in as_completed(futures):
+            stage_name = futures[future]
+            results[stage_name] = future.result()
+            stage_seconds, observed_runs = results[stage_name]
+            with output_lock:
+                print(
+                    f"Stage {stage_name} completed: {observed_runs} runs in "
+                    f"{stage_seconds / 60.0:.1f} minutes."
+                )
+    except BaseException:
+        terminate_active_processes(active_processes, process_lock)
+        for future in futures:
+            future.cancel()
+        raise
+    finally:
+        executor.shutdown(wait=True, cancel_futures=True)
+
+    return tuple(
+        (stage_name, *results[stage_name])
+        for stage_name, _ in commands
+    )
 
 
 def main(argv=None):
@@ -288,7 +401,10 @@ def main(argv=None):
     commands = build_stage_commands(arguments, batch_dir)
 
     print("Unified Equation (8) comparison campaign")
-    print("Stage order: static -> pick_place -> 6d_pick_place")
+    print(
+        f"Stage workers: {arguments.workers} "
+        "(use --workers 1 for sequential stages)"
+    )
     print("Modes per position/pose: baseline, velocity, force, directional_force")
     print(f"Shared pickup positions verified: {len(pickup_positions)}")
     print(
@@ -323,17 +439,9 @@ def main(argv=None):
             dynamic_ncols=True,
         ) as progress:
             for index, (stage_name, command) in enumerate(commands, start=1):
-                print(f"\nStage {index}/{len(commands)}: {stage_name}")
+                print(f"\nStage {index}/{len(commands)} queued: {stage_name}")
                 print(shlex.join(command))
-                stage_seconds, observed_runs = run_stage(
-                    command,
-                    stage_name,
-                    progress,
-                )
-                print(
-                    f"Stage {stage_name} completed: {observed_runs} runs in "
-                    f"{stage_seconds / 60.0:.1f} minutes."
-                )
+            run_stages(commands, progress, arguments.workers)
             progress.set_postfix_str("complete", refresh=True)
 
     if arguments.dry_run:
