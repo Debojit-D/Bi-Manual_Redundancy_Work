@@ -8,10 +8,73 @@ import mujoco
 from tqdm.auto import tqdm
 
 
+VIDEO_ENCODER_CHOICES = ("nvenc", "x264")
+DEFAULT_VIDEO_ENCODER = "x264"
+
+
+def ffmpeg_h264_encoder_arguments(encoder):
+    """Return high-quality H.264 arguments for the selected encoder."""
+    if encoder == "nvenc":
+        return (
+            "-c:v",
+            "h264_nvenc",
+            "-preset",
+            "hq",
+            "-rc",
+            "vbr",
+            "-cq",
+            "18",
+            "-b:v",
+            "0",
+        )
+    if encoder == "x264":
+        return (
+            "-c:v",
+            "libx264",
+            "-preset",
+            "medium",
+            "-crf",
+            "18",
+        )
+    raise ValueError(
+        f"video encoder must be one of {VIDEO_ENCODER_CHOICES}, got {encoder!r}"
+    )
+
+
+def video_encoder_sequence(encoder, view_count, nvenc_view_limit=None):
+    """Select an encoder per view, spilling excess NVENC views to x264."""
+    if encoder not in VIDEO_ENCODER_CHOICES:
+        raise ValueError(
+            f"video encoder must be one of {VIDEO_ENCODER_CHOICES}, "
+            f"got {encoder!r}"
+        )
+    if view_count <= 0:
+        raise ValueError("view_count must be greater than zero")
+    if nvenc_view_limit is None:
+        nvenc_view_limit = view_count
+    if nvenc_view_limit < 0:
+        raise ValueError("nvenc_view_limit cannot be negative")
+    nvenc_view_limit = min(nvenc_view_limit, view_count)
+    return tuple(
+        "x264"
+        if encoder == "nvenc" and index >= nvenc_view_limit
+        else encoder
+        for index in range(view_count)
+    )
+
+
 class FFmpegRGBWriter:
     """Stream fixed-size RGB frames to an H.264 MP4 file."""
 
-    def __init__(self, path, *, width, height, fps):
+    def __init__(
+        self,
+        path,
+        *,
+        width,
+        height,
+        fps,
+        encoder=DEFAULT_VIDEO_ENCODER,
+    ):
         executable = shutil.which("ffmpeg")
         if executable is None:
             raise RuntimeError("ffmpeg is required for --record-video")
@@ -33,12 +96,7 @@ class FFmpegRGBWriter:
             "-i",
             "-",
             "-an",
-            "-c:v",
-            "libx264",
-            "-preset",
-            "medium",
-            "-crf",
-            "18",
+            *ffmpeg_h264_encoder_arguments(encoder),
             "-pix_fmt",
             "yuv420p",
             self.path.as_posix(),
@@ -90,6 +148,8 @@ class HeadlessDualViewRecorder:
         height=720,
         fps=30,
         views=None,
+        encoder=DEFAULT_VIDEO_ENCODER,
+        nvenc_view_limit=None,
     ):
         if width <= 0 or height <= 0 or width % 2 or height % 2:
             raise ValueError("video width and height must be positive even values")
@@ -105,6 +165,11 @@ class HeadlessDualViewRecorder:
                 "video views must contain perspective, top_view, and/or "
                 "front_view"
             )
+        view_encoders = video_encoder_sequence(
+            encoder,
+            len(selected_views),
+            nvenc_view_limit,
+        )
         self.model = model
         self.data = data
         self.output_dir = Path(output_dir)
@@ -158,15 +223,17 @@ class HeadlessDualViewRecorder:
         self.cameras = {
             name: camera_options[name] for name in selected_views
         }
-        self.writers = {
-            name: FFmpegRGBWriter(
+        self.writers = {}
+        self.view_encoders = {}
+        for name, view_encoder in zip(self.renderers, view_encoders):
+            self.view_encoders[name] = view_encoder
+            self.writers[name] = FFmpegRGBWriter(
                 self.output_dir / f"{name}.mp4",
                 width=width,
                 height=height,
                 fps=fps,
+                encoder=view_encoder,
             )
-            for name in self.renderers
-        }
 
     @staticmethod
     def _camera(lookat, azimuth, elevation, distance):

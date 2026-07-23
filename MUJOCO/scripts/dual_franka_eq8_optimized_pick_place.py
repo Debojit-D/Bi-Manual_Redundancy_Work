@@ -498,6 +498,8 @@ def main(
     video_height=720,
     video_fps=30,
     video_views=None,
+    video_encoder="x264",
+    video_nvenc_view_limit=None,
     table_spawn_position=TABLE_SPAWN_POSITION,
 ):
     objective = ManipulabilityObjective(objective)
@@ -639,6 +641,8 @@ def main(
             height=video_height,
             fps=video_fps,
             views=video_views,
+            encoder=video_encoder,
+            nvenc_view_limit=video_nvenc_view_limit,
         )
         rate_context = TqdmSimulationRate(
             f"Recording pick/place {optimization_mode}"

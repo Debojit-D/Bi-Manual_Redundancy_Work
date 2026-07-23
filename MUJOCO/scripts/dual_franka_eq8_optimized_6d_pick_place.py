@@ -630,6 +630,8 @@ def main(
     video_height=720,
     video_fps=30,
     video_views=None,
+    video_encoder="x264",
+    video_nvenc_view_limit=None,
     keep_viewer_open=False,
     use_alternate_grasp_orientation=False,
 ):
@@ -778,6 +780,8 @@ def main(
             height=video_height,
             fps=video_fps,
             views=video_views,
+            encoder=video_encoder,
+            nvenc_view_limit=video_nvenc_view_limit,
         )
         rate_context = TqdmSimulationRate(
             f"Recording 6D pick/place {optimization_mode}"

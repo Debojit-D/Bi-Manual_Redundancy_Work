@@ -484,6 +484,8 @@ class DualFrankaMuJoCoScene:
         height=720,
         fps=30,
         views=None,
+        encoder="x264",
+        nvenc_view_limit=None,
     ):
         """Create a headless recorder for perspective and overhead views."""
         return HeadlessDualViewRecorder(
@@ -507,6 +509,8 @@ class DualFrankaMuJoCoScene:
             height=height,
             fps=fps,
             views=views,
+            encoder=encoder,
+            nvenc_view_limit=nvenc_view_limit,
         )
 
     def _site_quaternion(self, site_name):

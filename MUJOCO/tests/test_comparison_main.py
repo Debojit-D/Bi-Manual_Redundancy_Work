@@ -1,4 +1,8 @@
+from contextlib import redirect_stderr, redirect_stdout
+import io
 from pathlib import Path
+import subprocess
+import sys
 import threading
 import time
 import unittest
@@ -15,6 +19,14 @@ class ComparisonMainTests(unittest.TestCase):
         self.assertEqual(arguments.video_width, 1280)
         self.assertEqual(arguments.video_height, 720)
         self.assertEqual(arguments.video_fps, 50)
+        self.assertEqual(arguments.video_encoder, "nvenc")
+        self.assertEqual(arguments.nvenc_session_limit, 8)
+        self.assertFalse(arguments.verbose)
+
+    def test_verbose_logging_is_opt_in(self):
+        self.assertTrue(
+            comparison_main.parse_arguments(["--verbose"]).verbose
+        )
 
     def test_worker_count_must_match_available_stages(self):
         for workers in ("0", "4"):
@@ -33,11 +45,45 @@ class ComparisonMainTests(unittest.TestCase):
             tuple(name for name, _ in commands),
             ("static", "pick_place", "6d_pick_place"),
         )
-        for _, command in commands:
+        expected_nvenc_views = {
+            "static": "3",
+            "pick_place": "3",
+            "6d_pick_place": "2",
+        }
+        for stage_name, command in commands:
             self.assertIn("--record-data", command)
             self.assertIn("--record-video", command)
             view_index = command.index("--video-view")
             self.assertEqual(command[view_index + 1], "all")
+            encoder_index = command.index("--video-encoder")
+            self.assertEqual(command[encoder_index + 1], "nvenc")
+            limit_index = command.index("--nvenc-max-views")
+            self.assertEqual(
+                command[limit_index + 1],
+                expected_nvenc_views[stage_name],
+            )
+
+    def test_x264_fallback_is_forwarded_to_every_stage(self):
+        arguments = comparison_main.parse_arguments(
+            ["--video-encoder", "x264"],
+        )
+        commands = comparison_main.build_stage_commands(
+            arguments,
+            Path("/tmp/equation8_batch"),
+        )
+
+        for _, command in commands:
+            encoder_index = command.index("--video-encoder")
+            self.assertEqual(command[encoder_index + 1], "x264")
+            self.assertNotIn("--nvenc-max-views", command)
+
+    def test_sequential_stages_can_use_nvenc_for_all_views(self):
+        arguments = comparison_main.parse_arguments(["--workers", "1"])
+
+        self.assertEqual(
+            comparison_main.stage_nvenc_view_limits(arguments),
+            {"static": 3, "pick_place": 3, "6d_pick_place": 3},
+        )
 
     def test_all_four_modes_remain_configured(self):
         module_names = (
@@ -112,6 +158,89 @@ class ComparisonMainTests(unittest.TestCase):
             tuple(result[0] for result in results),
             ("static", "pick_place", "6d_pick_place"),
         )
+
+    def test_quiet_stage_suppresses_successful_child_output(self):
+        class Progress:
+            def update(self, _amount):
+                return None
+
+            def set_postfix_str(self, _text, refresh=True):
+                return None
+
+        output = io.StringIO()
+        command = (
+            sys.executable,
+            "-u",
+            "-c",
+            "print('Run 1/1:'); print('child noise')",
+        )
+        with redirect_stdout(output):
+            comparison_main.run_stage(
+                command,
+                "test",
+                Progress(),
+                verbose=False,
+            )
+
+        self.assertEqual(output.getvalue(), "")
+
+    def test_quiet_stage_prints_recent_output_on_failure(self):
+        class Progress:
+            def update(self, _amount):
+                return None
+
+            def set_postfix_str(self, _text, refresh=True):
+                return None
+
+        error_output = io.StringIO()
+        command = (
+            sys.executable,
+            "-u",
+            "-c",
+            "print('useful failure detail'); raise SystemExit(7)",
+        )
+        with redirect_stderr(error_output):
+            with self.assertRaises(subprocess.CalledProcessError):
+                comparison_main.run_stage(
+                    command,
+                    "test",
+                    Progress(),
+                    verbose=False,
+                )
+
+        self.assertIn("useful failure detail", error_output.getvalue())
+
+    def test_quiet_stage_forwards_re_record_warning_and_continues(self):
+        class Progress:
+            def update(self, _amount):
+                return None
+
+            def set_postfix_str(self, _text, refresh=True):
+                return None
+
+        output = io.StringIO()
+        command = (
+            sys.executable,
+            "-u",
+            "-c",
+            (
+                "print('Run 1/2:'); "
+                "print('\\033[1;91mCOMPARISON_RUN_FAILED: pose_4 / force"
+                " -- Please re-record this run.\\033[0m'); "
+                "print('Run 2/2:')"
+            ),
+        )
+        with redirect_stdout(output):
+            _, observed_runs = comparison_main.run_stage(
+                command,
+                "6d_pick_place",
+                Progress(),
+                verbose=False,
+            )
+
+        self.assertEqual(observed_runs, 2)
+        self.assertIn("COMPARISON_RUN_FAILED:", output.getvalue())
+        self.assertIn("Please re-record this run", output.getvalue())
 
 
 if __name__ == "__main__":

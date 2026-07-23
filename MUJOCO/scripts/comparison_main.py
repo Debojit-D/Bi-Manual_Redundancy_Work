@@ -28,6 +28,7 @@ Press Ctrl+C to stop all active children and abort the remaining stages.
 """
 
 import argparse
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -47,7 +48,12 @@ from MUJOCO.scripts.table_spawn_comparison_positions import (
 )
 from MUJOCO.utils import camera_presets
 from MUJOCO.utils.cli import run_cli
+from MUJOCO.utils.comparison_run_safety import (
+    INCOMPLETE_SWEEP_MARKER,
+    RUN_FAILURE_MARKER,
+)
 from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
+from MUJOCO.utils.video_recording import VIDEO_ENCODER_CHOICES
 
 
 STAGES = (
@@ -115,6 +121,24 @@ def parse_arguments(argv=None):
     parser.add_argument("--video-height", type=int, default=720)
     parser.add_argument("--video-fps", type=int, default=50)
     parser.add_argument(
+        "--video-encoder",
+        choices=VIDEO_ENCODER_CHOICES,
+        default="nvenc",
+        help=(
+            "H.264 encoder: GPU NVENC or software x264 fallback "
+            "(default: %(default)s)"
+        ),
+    )
+    parser.add_argument(
+        "--nvenc-session-limit",
+        type=int,
+        default=8,
+        help=(
+            "maximum simultaneous NVENC streams; excess camera views use "
+            "x264 (default: %(default)s)"
+        ),
+    )
+    parser.add_argument(
         "--workers",
         type=int,
         default=3,
@@ -142,6 +166,11 @@ def parse_arguments(argv=None):
         action="store_true",
         help="print the commands and configuration audit without running",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="show child-process logs and generated commands while running",
+    )
     arguments = parser.parse_args(argv)
     if arguments.static_duration is not None and arguments.static_duration <= 0:
         parser.error("--static-duration must be greater than zero")
@@ -153,6 +182,8 @@ def parse_arguments(argv=None):
         parser.error("--video-height must be a positive even number")
     if arguments.video_fps <= 0:
         parser.error("--video-fps must be greater than zero")
+    if arguments.nvenc_session_limit <= 0:
+        parser.error("--nvenc-session-limit must be greater than zero")
     if not 1 <= arguments.workers <= len(STAGES):
         parser.error(f"--workers must be between 1 and {len(STAGES)}")
     if (
@@ -202,9 +233,36 @@ def expected_run_counts():
     }
 
 
+def stage_nvenc_view_limits(arguments):
+    """Allocate hardware streams without exceeding the concurrent limit."""
+    if arguments.video_encoder != "nvenc":
+        return {}
+
+    stage_count = len(STAGES)
+    views_per_stage = 3
+    active_stages = min(arguments.workers, stage_count)
+    if active_stages < stage_count:
+        per_stage = min(
+            views_per_stage,
+            arguments.nvenc_session_limit // active_stages,
+        )
+        return {stage_name: per_stage for stage_name, _ in STAGES}
+
+    usable_sessions = min(
+        arguments.nvenc_session_limit,
+        stage_count * views_per_stage,
+    )
+    base, extra = divmod(usable_sessions, stage_count)
+    return {
+        stage_name: min(views_per_stage, base + (index < extra))
+        for index, (stage_name, _) in enumerate(STAGES)
+    }
+
+
 def build_stage_commands(arguments, batch_dir):
     """Build static, pick/place, and 6D commands in required order."""
     commands = []
+    nvenc_limits = stage_nvenc_view_limits(arguments)
     for stage_name, module_name in STAGES:
         command = [
             sys.executable,
@@ -227,7 +285,13 @@ def build_stage_commands(arguments, batch_dir):
             str(arguments.video_height),
             "--video-fps",
             str(arguments.video_fps),
+            "--video-encoder",
+            arguments.video_encoder,
         ]
+        if stage_name in nvenc_limits:
+            command.extend(
+                ("--nvenc-max-views", str(nvenc_limits[stage_name]))
+            )
         if stage_name == "static" and arguments.static_duration is not None:
             command.extend(("--duration", str(arguments.static_duration)))
         if stage_name != "static":
@@ -255,11 +319,13 @@ def run_stage(
     active_processes=None,
     process_lock=None,
     output_lock=None,
+    verbose=False,
 ):
     """Stream one child process while advancing completed-run progress."""
     stage_start = time.perf_counter()
     active_run_start = None
     runs_started = 0
+    recent_output = deque(maxlen=80)
     process = subprocess.Popen(
         command,
         stdout=subprocess.PIPE,
@@ -274,11 +340,17 @@ def run_stage(
         if process.stdout is None:
             raise RuntimeError("comparison child stdout pipe is unavailable")
         for line in process.stdout:
-            if output_lock is None:
-                print(f"[{stage_name}] {line}", end="", flush=True)
-            else:
-                with output_lock:
+            recent_output.append(line)
+            important_warning = (
+                RUN_FAILURE_MARKER in line
+                or INCOMPLETE_SWEEP_MARKER in line
+            )
+            if verbose or important_warning:
+                if output_lock is None:
                     print(f"[{stage_name}] {line}", end="", flush=True)
+                else:
+                    with output_lock:
+                        print(f"[{stage_name}] {line}", end="", flush=True)
             # Each comparison child prints exactly one "Run i/N:" banner at
             # the start of a case. Reaching the next banner proves that the
             # previous case completed successfully.
@@ -315,6 +387,18 @@ def run_stage(
             process.stdout.close()
 
     if return_code != 0:
+        if not verbose:
+            diagnostic = "".join(recent_output)
+            message = (
+                f"\nStage {stage_name} failed with status {return_code}. "
+                "Recent output follows:\n"
+                f"{diagnostic}"
+            )
+            if output_lock is None:
+                print(message, file=sys.stderr, flush=True)
+            else:
+                with output_lock:
+                    print(message, file=sys.stderr, flush=True)
         raise subprocess.CalledProcessError(return_code, command)
     if active_run_start is not None:
         if output_lock is None:
@@ -342,7 +426,7 @@ def terminate_active_processes(active_processes, process_lock):
             process.wait()
 
 
-def run_stages(commands, progress, workers):
+def run_stages(commands, progress, workers, *, verbose=False):
     """Run independent stages concurrently without changing their internals."""
     active_processes = {}
     process_lock = threading.Lock()
@@ -364,6 +448,7 @@ def run_stages(commands, progress, workers):
                 active_processes=active_processes,
                 process_lock=process_lock,
                 output_lock=output_lock,
+                verbose=verbose,
             )
             futures[future] = stage_name
 
@@ -372,9 +457,14 @@ def run_stages(commands, progress, workers):
             results[stage_name] = future.result()
             stage_seconds, observed_runs = results[stage_name]
             with output_lock:
-                print(
-                    f"Stage {stage_name} completed: {observed_runs} runs in "
-                    f"{stage_seconds / 60.0:.1f} minutes."
+                if verbose:
+                    print(
+                        f"Stage {stage_name} completed: {observed_runs} runs "
+                        f"in {stage_seconds / 60.0:.1f} minutes."
+                    )
+                progress.set_postfix_str(
+                    f"{stage_name}: {observed_runs} runs complete",
+                    refresh=True,
                 )
     except BaseException:
         terminate_active_processes(active_processes, process_lock)
@@ -400,31 +490,48 @@ def main(argv=None):
     )
     commands = build_stage_commands(arguments, batch_dir)
 
-    print("Unified Equation (8) comparison campaign")
-    print(
-        f"Stage workers: {arguments.workers} "
-        "(use --workers 1 for sequential stages)"
-    )
-    print("Modes per position/pose: baseline, velocity, force, directional_force")
-    print(f"Shared pickup positions verified: {len(pickup_positions)}")
-    print(
-        "Universal camera distances (perspective, top, front): "
-        f"{camera_distances} m"
-    )
-    print(f"Combined output root: {batch_dir}")
+    nvenc_limits = stage_nvenc_view_limits(arguments)
+    show_audit = arguments.verbose or arguments.dry_run
+    if show_audit:
+        print("Unified Equation (8) comparison campaign")
+        print(
+            f"Stage workers: {arguments.workers} "
+            "(use --workers 1 for sequential stages)"
+        )
+        print(f"Video encoder: {arguments.video_encoder}")
+    if show_audit and nvenc_limits:
+        print(
+            "NVENC views per stage: "
+            + ", ".join(
+                f"{stage_name}={limit}"
+                for stage_name, limit in nvenc_limits.items()
+            )
+            + "; remaining views use x264."
+        )
 
     run_counts = expected_run_counts()
     total_runs = sum(run_counts.values())
-    print(
-        f"Expected runs: {total_runs} total "
-        f"({run_counts['static']} static, "
-        f"{run_counts['pick_place']} pick/place, "
-        f"{run_counts['6d_pick_place']} 6D)."
-    )
-    print(
-        "Wall-clock ETA will appear after the first completed run and "
-        "will continuously adapt to measured performance."
-    )
+    if show_audit:
+        print(
+            "Modes per position/pose: "
+            "baseline, velocity, force, directional_force"
+        )
+        print(f"Shared pickup positions verified: {len(pickup_positions)}")
+        print(
+            "Universal camera distances (perspective, top, front): "
+            f"{camera_distances} m"
+        )
+        print(f"Combined output root: {batch_dir}")
+        print(
+            f"Expected runs: {total_runs} total "
+            f"({run_counts['static']} static, "
+            f"{run_counts['pick_place']} pick/place, "
+            f"{run_counts['6d_pick_place']} 6D)."
+        )
+        print(
+            "Wall-clock ETA will appear after the first completed run and "
+            "will continuously adapt to measured performance."
+        )
 
     campaign_start = time.perf_counter()
     if arguments.dry_run:
@@ -438,10 +545,19 @@ def main(argv=None):
             unit="run",
             dynamic_ncols=True,
         ) as progress:
-            for index, (stage_name, command) in enumerate(commands, start=1):
-                print(f"\nStage {index}/{len(commands)} queued: {stage_name}")
-                print(shlex.join(command))
-            run_stages(commands, progress, arguments.workers)
+            if arguments.verbose:
+                for index, (stage_name, command) in enumerate(
+                    commands,
+                    start=1,
+                ):
+                    print(f"\nStage {index}/{len(commands)} queued: {stage_name}")
+                    print(shlex.join(command))
+            run_stages(
+                commands,
+                progress,
+                arguments.workers,
+                verbose=arguments.verbose,
+            )
             progress.set_postfix_str("complete", refresh=True)
 
     if arguments.dry_run:

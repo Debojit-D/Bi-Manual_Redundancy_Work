@@ -106,7 +106,12 @@ from MUJOCO.utils.camera_presets import (
     video_views_for_choice,
 )
 from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
+from MUJOCO.utils.comparison_run_safety import (
+    print_run_failure,
+    print_sweep_summary,
+)
 from MUJOCO.utils.redundancy_optimization import ManipulabilityObjective
+from MUJOCO.utils.video_recording import VIDEO_ENCODER_CHOICES
 
 
 EXPERIMENTS = (
@@ -198,6 +203,19 @@ def parse_arguments():
     parser.add_argument("--video-width", type=int, default=1280)
     parser.add_argument("--video-height", type=int, default=720)
     parser.add_argument("--video-fps", type=int, default=30)
+    parser.add_argument(
+        "--video-encoder",
+        choices=VIDEO_ENCODER_CHOICES,
+        default="nvenc",
+        help="H.264 encoder used for recorded videos (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--nvenc-max-views",
+        type=int,
+        choices=range(4),
+        default=3,
+        help="maximum selected views encoded with NVENC (default: %(default)s)",
+    )
     parser.add_argument("--disable-collision-penalty", action="store_true")
     parser.add_argument(
         "--optimization-gain",
@@ -444,6 +462,7 @@ def main():
         selected_experiments,
         arguments.sweep_option,
     )
+    failed_runs = []
     for run_index, case in enumerate(run_cases, start=1):
         pose_name, poses, name, objective, enabled = case
         (
@@ -460,48 +479,57 @@ def main():
             f"pickup site_top_middle = {start_position} m"
         )
         print("=" * 72)
-        experiment.main(
-            objective=objective,
-            characteristic_length=arguments.characteristic_length,
-            enable_redundancy_optimization=enabled,
-            hold_duration=arguments.hold_duration,
-            record_data=arguments.record_data,
-            output_csv=(
-                data_run_dir / pose_name / f"{name}.csv"
-                if data_run_dir is not None
-                else None
-            ),
-            show_collision_spheres=arguments.show_collision_spheres,
-            enable_collision_penalty=(not arguments.disable_collision_penalty),
-            optimization_gain=arguments.optimization_gain,
-            maximum_joint_speed=arguments.max_joint_speed,
-            start_position=start_position,
-            start_euler_xyz=start_euler_xyz,
-            intermediate_position=intermediate_position,
-            intermediate_euler_xyz=intermediate_euler_xyz,
-            goal_position=goal_position,
-            goal_euler_xyz=goal_euler_xyz,
-            start_to_intermediate_duration=(
-                arguments.start_to_intermediate_duration
-            ),
-            intermediate_to_goal_duration=(
-                arguments.intermediate_to_goal_duration
-            ),
-            top_view=arguments.top_view,
-            front_view=arguments.front_view,
-            video_output_dir=(
-                video_run_dir / pose_name / name
-                if video_run_dir is not None
-                else None
-            ),
-            video_width=arguments.video_width,
-            video_height=arguments.video_height,
-            video_fps=arguments.video_fps,
-            video_views=selected_video_views,
-            use_alternate_grasp_orientation=(pose_name == "pose_4"),
-        )
+        run_label = f"{pose_name} / {name}"
+        try:
+            experiment.main(
+                objective=objective,
+                characteristic_length=arguments.characteristic_length,
+                enable_redundancy_optimization=enabled,
+                hold_duration=arguments.hold_duration,
+                record_data=arguments.record_data,
+                output_csv=(
+                    data_run_dir / pose_name / f"{name}.csv"
+                    if data_run_dir is not None
+                    else None
+                ),
+                show_collision_spheres=arguments.show_collision_spheres,
+                enable_collision_penalty=(
+                    not arguments.disable_collision_penalty
+                ),
+                optimization_gain=arguments.optimization_gain,
+                maximum_joint_speed=arguments.max_joint_speed,
+                start_position=start_position,
+                start_euler_xyz=start_euler_xyz,
+                intermediate_position=intermediate_position,
+                intermediate_euler_xyz=intermediate_euler_xyz,
+                goal_position=goal_position,
+                goal_euler_xyz=goal_euler_xyz,
+                start_to_intermediate_duration=(
+                    arguments.start_to_intermediate_duration
+                ),
+                intermediate_to_goal_duration=(
+                    arguments.intermediate_to_goal_duration
+                ),
+                top_view=arguments.top_view,
+                front_view=arguments.front_view,
+                video_output_dir=(
+                    video_run_dir / pose_name / name
+                    if video_run_dir is not None
+                    else None
+                ),
+                video_width=arguments.video_width,
+                video_height=arguments.video_height,
+                video_fps=arguments.video_fps,
+                video_views=selected_video_views,
+                video_encoder=arguments.video_encoder,
+                video_nvenc_view_limit=arguments.nvenc_max_views,
+                use_alternate_grasp_orientation=(pose_name == "pose_4"),
+            )
+        except Exception as error:
+            failed_runs.append(run_label)
+            print_run_failure(run_label, error)
 
-    print(f"\nCompleted all {total_runs} 6D comparison runs.")
+    print_sweep_summary(total_runs, failed_runs)
 
 
 if __name__ == "__main__":

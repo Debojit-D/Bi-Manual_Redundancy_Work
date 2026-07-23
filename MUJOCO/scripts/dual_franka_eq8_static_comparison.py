@@ -65,7 +65,12 @@ from MUJOCO.utils.camera_presets import (
     video_views_for_choice,
 )
 from MUJOCO.utils.cli import add_camera_view_arguments, run_cli
+from MUJOCO.utils.comparison_run_safety import (
+    print_run_failure,
+    print_sweep_summary,
+)
 from MUJOCO.utils.redundancy_optimization import ManipulabilityObjective
+from MUJOCO.utils.video_recording import VIDEO_ENCODER_CHOICES
 
 
 DEFAULT_CONVERGENCE_SPEED = 0.005
@@ -170,6 +175,19 @@ def parse_arguments():
     parser.add_argument("--video-height", type=int, default=720)
     parser.add_argument("--video-fps", type=int, default=30)
     parser.add_argument(
+        "--video-encoder",
+        choices=VIDEO_ENCODER_CHOICES,
+        default="nvenc",
+        help="H.264 encoder used for recorded videos (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--nvenc-max-views",
+        type=int,
+        choices=range(4),
+        default=3,
+        help="maximum selected views encoded with NVENC (default: %(default)s)",
+    )
+    parser.add_argument(
         "--disable-collision-penalty",
         action="store_true",
         help="disable the soft collision term for all optimized modes",
@@ -265,6 +283,7 @@ def main():
         EXPERIMENTS,
         arguments.sweep_option,
     )
+    failed_runs = []
     for run_index, case in enumerate(run_cases, start=1):
         position_name, table_position, name, objective, enabled = case
         print("\n" + "=" * 72)
@@ -273,41 +292,50 @@ def main():
             f"table site_top_middle = {table_position} m"
         )
         print("=" * 72)
-        run_static_experiment(
-            objective=objective,
-            characteristic_length=arguments.characteristic_length,
-            enable_redundancy_optimization=enabled,
-            duration=arguments.duration,
-            convergence_speed_threshold=(
-                arguments.convergence_speed
-                if arguments.duration is None
-                else None
-            ),
-            convergence_hold_duration=arguments.convergence_hold,
-            minimum_convergence_time=arguments.minimum_run_time,
-            table_spawn_position=table_position,
-            record_data=arguments.record_data,
-            output_csv=(
-                data_run_dir / position_name / f"{name}.csv"
-                if data_run_dir is not None
-                else None
-            ),
-            show_collision_spheres=arguments.show_collision_spheres,
-            enable_collision_penalty=(not arguments.disable_collision_penalty),
-            top_view=arguments.top_view,
-            front_view=arguments.front_view,
-            video_output_dir=(
-                video_run_dir / position_name / name
-                if video_run_dir is not None
-                else None
-            ),
-            video_width=arguments.video_width,
-            video_height=arguments.video_height,
-            video_fps=arguments.video_fps,
-            video_views=selected_video_views,
-        )
+        run_label = f"{position_name} / {name}"
+        try:
+            run_static_experiment(
+                objective=objective,
+                characteristic_length=arguments.characteristic_length,
+                enable_redundancy_optimization=enabled,
+                duration=arguments.duration,
+                convergence_speed_threshold=(
+                    arguments.convergence_speed
+                    if arguments.duration is None
+                    else None
+                ),
+                convergence_hold_duration=arguments.convergence_hold,
+                minimum_convergence_time=arguments.minimum_run_time,
+                table_spawn_position=table_position,
+                record_data=arguments.record_data,
+                output_csv=(
+                    data_run_dir / position_name / f"{name}.csv"
+                    if data_run_dir is not None
+                    else None
+                ),
+                show_collision_spheres=arguments.show_collision_spheres,
+                enable_collision_penalty=(
+                    not arguments.disable_collision_penalty
+                ),
+                top_view=arguments.top_view,
+                front_view=arguments.front_view,
+                video_output_dir=(
+                    video_run_dir / position_name / name
+                    if video_run_dir is not None
+                    else None
+                ),
+                video_width=arguments.video_width,
+                video_height=arguments.video_height,
+                video_fps=arguments.video_fps,
+                video_views=selected_video_views,
+                video_encoder=arguments.video_encoder,
+                video_nvenc_view_limit=arguments.nvenc_max_views,
+            )
+        except Exception as error:
+            failed_runs.append(run_label)
+            print_run_failure(run_label, error)
 
-    print(f"\nCompleted all {total_runs} static comparison runs.")
+    print_sweep_summary(total_runs, failed_runs)
 
 
 if __name__ == "__main__":
