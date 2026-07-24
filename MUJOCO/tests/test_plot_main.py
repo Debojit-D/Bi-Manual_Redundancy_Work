@@ -116,6 +116,26 @@ class PlotMainTests(unittest.TestCase):
             )
         )
 
+    def test_static_effort_baseline_extends_to_longest_optimization(self):
+        runs = plot_main.load_stage_runs(
+            self.batch_dir,
+            "6d_pick_place",
+        )
+        runs["pose_1"]["baseline"] = (
+            runs["pose_1"]["baseline"].iloc[:2].copy()
+        )
+        style = Equation8PlotStyle(dpi=72)
+        style.apply()
+        figure = plot_main.plot_actuator_effort(
+            runs,
+            stage="static",
+            style=style,
+        )
+        self.addCleanup(plt.close, figure)
+
+        baseline_time = figure.axes[0].lines[0].get_xdata()
+        self.assertEqual(baseline_time[-1], 2.0)
+
     def test_object_tracking_grid_has_command_and_all_measured_modes(self):
         runs = plot_main.load_stage_runs(
             self.batch_dir,

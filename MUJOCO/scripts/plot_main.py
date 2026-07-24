@@ -290,6 +290,19 @@ def subplot_title(case_name):
     return f"{label} {number}"
 
 
+def extend_final_value(time, values, end_time):
+    """Hold the final sample constant through a later comparison horizon."""
+    time = np.asarray(time, dtype=float)
+    values = np.asarray(values, dtype=float)
+    end_time = float(end_time)
+    if end_time <= time[-1]:
+        return time, values
+    return (
+        np.append(time, end_time),
+        np.append(values, values[-1]),
+    )
+
+
 def plot_optimization_grid(
     stage_runs,
     specification,
@@ -311,10 +324,17 @@ def plot_optimization_grid(
     for axis, (case_name, runs) in zip(axes.flat, stage_runs.items()):
         baseline = runs["baseline"]
         optimized = runs[specification.mode]
+        baseline_time = baseline["time"].to_numpy(dtype=float)
+        baseline_values = baseline[column].to_numpy(dtype=float)
+        if stage == "static":
+            baseline_time, baseline_values = extend_final_value(
+                baseline_time,
+                baseline_values,
+                optimized["time"].iloc[-1],
+            )
         sns.lineplot(
-            data=baseline,
-            x="time",
-            y=column,
+            x=baseline_time,
+            y=baseline_values,
             estimator=None,
             sort=False,
             legend=False,
@@ -391,16 +411,27 @@ def plot_actuator_effort(stage_runs, *, stage, style):
     )
 
     for axis, (case_name, runs) in zip(axes.flat, stage_runs.items()):
+        comparison_end_time = max(
+            float(run["time"].iloc[-1]) for run in runs.values()
+        )
         for mode in MODES:
             run = runs[mode]
+            time = run["time"].to_numpy(dtype=float)
+            effort = actuator_effort(run)
+            if stage == "static" and mode == "baseline":
+                time, effort = extend_final_value(
+                    time,
+                    effort,
+                    comparison_end_time,
+                )
             line_kwargs = (
                 style.baseline_line_kwargs()
                 if mode == "baseline"
                 else style.optimized_line_kwargs(mode)
             )
             sns.lineplot(
-                x=run["time"],
-                y=actuator_effort(run),
+                x=time,
+                y=effort,
                 estimator=None,
                 sort=False,
                 legend=False,
