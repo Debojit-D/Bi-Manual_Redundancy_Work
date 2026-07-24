@@ -103,8 +103,38 @@ class PlotMainTests(unittest.TestCase):
 
         self.assertEqual(len(figure.axes), 6)
         self.assertTrue(all(len(axis.lines) == 4 for axis in figure.axes))
+        self.assertFalse(
+            figure.axes[0].get_shared_x_axes().joined(
+                figure.axes[0],
+                figure.axes[1],
+            )
+        )
+        self.assertFalse(
+            figure.axes[0].get_shared_y_axes().joined(
+                figure.axes[0],
+                figure.axes[1],
+            )
+        )
 
-    def test_main_writes_four_six_case_figures(self):
+    def test_object_tracking_grid_has_command_and_all_measured_modes(self):
+        runs = plot_main.load_stage_runs(
+            self.batch_dir,
+            "6d_pick_place",
+        )
+        style = Equation8PlotStyle(dpi=72)
+        style.apply()
+        figure = plot_main.plot_object_position_tracking(
+            runs,
+            component="x",
+            ylabel="World x position (m)",
+            style=style,
+        )
+        self.addCleanup(plt.close, figure)
+
+        self.assertEqual(len(figure.axes), 6)
+        self.assertTrue(all(len(axis.lines) == 5 for axis in figure.axes))
+
+    def test_main_writes_optimization_effort_and_tracking_figures(self):
         output_dir = self.batch_dir / "custom_plots"
         written = plot_main.main(
             [
@@ -120,7 +150,7 @@ class PlotMainTests(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(len(written), 4)
+        self.assertEqual(len(written), 7)
         self.assertTrue(all(path.is_file() for path in written))
 
     def test_all_stages_are_plotted_by_default(self):

@@ -47,6 +47,11 @@ TORQUE_COLUMNS = tuple(
     for arm in ("l", "r")
     for joint in range(1, 8)
 )
+POSITION_COMPONENTS = (
+    ("x", "World x position (m)"),
+    ("y", "World y position (m)"),
+    ("z", "World z position (m)"),
+)
 CASE_PATTERN = re.compile(r"^(?:position|pose)_(\d+)$")
 
 
@@ -226,6 +231,11 @@ def required_columns():
         "time",
         *TORQUE_COLUMNS,
         *(
+            f"{prefix}_{component}"
+            for prefix in ("desired", "object")
+            for component, _ in POSITION_COMPONENTS
+        ),
+        *(
             column
             for specification in OPTIMIZATION_PLOTS
             for column in (
@@ -376,8 +386,8 @@ def plot_actuator_effort(stage_runs, *, stage, style):
         2,
         3,
         figsize=style.SIX_PANEL_SIZE,
-        sharex=True,
-        sharey=True,
+        sharex=False,
+        sharey=False,
     )
 
     for axis, (case_name, runs) in zip(axes.flat, stage_runs.items()):
@@ -407,6 +417,64 @@ def plot_actuator_effort(stage_runs, *, stage, style):
         r"Actuator effort $\sqrt{\tau\tau^\mathsf{T}}=\|\tau\|_2$ (N m)"
     )
     style.finish_all_modes_six_panel_figure(
+        figure,
+        axes,
+        mode_labels=MODE_LABELS,
+    )
+    return figure
+
+
+def plot_object_position_tracking(stage_runs, *, component, ylabel, style):
+    """Plot commanded and measured 6D object position for all six poses."""
+    desired_column = f"desired_{component}"
+    measured_column = f"object_{component}"
+    figure, axes = plt.subplots(
+        2,
+        3,
+        figsize=style.SIX_PANEL_SIZE,
+        sharex=True,
+        sharey=True,
+    )
+
+    for axis, (case_name, runs) in zip(axes.flat, stage_runs.items()):
+        command = runs["baseline"]
+        sns.lineplot(
+            data=command,
+            x="time",
+            y=desired_column,
+            estimator=None,
+            sort=False,
+            legend=False,
+            ax=axis,
+            **style.command_line_kwargs(),
+        )
+        for mode in MODES:
+            run = runs[mode]
+            line_kwargs = (
+                style.baseline_line_kwargs()
+                if mode == "baseline"
+                else style.optimized_line_kwargs(mode)
+            )
+            sns.lineplot(
+                data=run,
+                x="time",
+                y=measured_column,
+                estimator=None,
+                sort=False,
+                legend=False,
+                ax=axis,
+                **line_kwargs,
+            )
+        axis.set_title(subplot_title(case_name))
+        axis.set_xlabel("")
+        axis.set_ylabel("")
+
+    figure.suptitle(
+        f"6D Pick-and-Place — Object {component}-position tracking"
+    )
+    figure.supxlabel("Simulation time (s)")
+    figure.supylabel(ylabel)
+    style.finish_tracking_six_panel_figure(
         figure,
         axes,
         mode_labels=MODE_LABELS,
@@ -467,6 +535,31 @@ def generate_stage_figures(
             output_format,
         )
     )
+
+    if stage == "6d_pick_place":
+        tracking_output_dir = Path(output_root) / stage / "object_tracking"
+        for index, (component, ylabel) in enumerate(
+            POSITION_COMPONENTS,
+            start=5,
+        ):
+            tracking_figure = plot_object_position_tracking(
+                stage_runs,
+                component=component,
+                ylabel=ylabel,
+                style=style,
+            )
+            figures.append(tracking_figure)
+            written.extend(
+                style.save(
+                    tracking_figure,
+                    tracking_output_dir,
+                    (
+                        f"{index:02d}_object_{component}_position_"
+                        "tracking_six_cases"
+                    ),
+                    output_format,
+                )
+            )
     return tuple(figures), tuple(written)
 
 

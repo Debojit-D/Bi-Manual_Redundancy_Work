@@ -11,6 +11,7 @@ class Equation8PlotStyle:
     """Own the visual language and figure-export settings for batch plots."""
 
     BASELINE_COLOR = "#68737D"
+    COMMAND_COLOR = "#111111"
     MODE_COLORS = {
         "velocity": "#0072B2",
         "force": "#D55E00",
@@ -83,6 +84,16 @@ class Equation8PlotStyle:
             "zorder": 1,
         }
 
+    def command_line_kwargs(self):
+        """Return styling for a commanded reference trajectory."""
+        return {
+            "color": self.COMMAND_COLOR,
+            "linewidth": 2.0,
+            "linestyle": (0, (1, 1.5)),
+            "alpha": 0.9,
+            "zorder": 3,
+        }
+
     def optimized_line_kwargs(self, mode):
         return {
             "color": self.mode_color(mode),
@@ -124,6 +135,29 @@ class Equation8PlotStyle:
                     **self.optimized_line_kwargs(mode),
                 )
                 for mode in self.MODE_COLORS
+            ),
+        )
+
+    def tracking_legend_handles(self, mode_labels):
+        """Return handles for one command and all measured mode trajectories."""
+        return (
+            Line2D(
+                [0],
+                [0],
+                label="Commanded",
+                **self.command_line_kwargs(),
+            ),
+            *(
+                Line2D(
+                    [0],
+                    [0],
+                    label=f"{handle.get_label()} tracked",
+                    color=handle.get_color(),
+                    linewidth=handle.get_linewidth(),
+                    linestyle=handle.get_linestyle(),
+                    alpha=handle.get_alpha(),
+                )
+                for handle in self.all_mode_legend_handles(mode_labels)
             ),
         )
 
@@ -170,6 +204,21 @@ class Equation8PlotStyle:
             axes,
             handles=self.all_mode_legend_handles(mode_labels),
             legend_columns=4,
+        )
+
+    def finish_tracking_six_panel_figure(
+        self,
+        figure,
+        axes,
+        *,
+        mode_labels,
+    ):
+        """Finalize a commanded-versus-measured six-panel figure."""
+        self._finish_six_panel_figure(
+            figure,
+            axes,
+            handles=self.tracking_legend_handles(mode_labels),
+            legend_columns=5,
         )
 
     def save(self, figure, output_dir, stem, output_format):
