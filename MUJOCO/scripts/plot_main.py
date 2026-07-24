@@ -1,13 +1,17 @@
 """Plot six-case Equation (8) optimization comparisons from one batch.
 
-The default command creates three figures for the 6D stage. Each figure has
-six subplots (one per pose) and draws the matching baseline trace behind the
-optimized trace::
+The default command creates four figures for each of the static, ordinary
+pick/place, and 6D pick/place stages. Each figure has six subplots (one per
+position or pose) and draws the matching baseline trace behind the optimized
+trace::
 
-    .venv/bin/python -m MUJOCO.scripts.plot_main /path/to/comparison_main_BATCH
+    .venv/bin/python -m MUJOCO.scripts.plot_main
 
-Static and ordinary pick/place stages use the same plotting functions and can
-be selected with ``--stage static`` or ``--stage pick_place``.
+Use ``--stage static``, ``--stage pick_place``, or ``--stage 6d_pick_place``
+to plot only one stage.
+
+Pass a different batch directory as the first argument to override
+``DEFAULT_BATCH_DIR``.
 """
 
 import argparse
@@ -24,8 +28,25 @@ from MUJOCO.plotting_scripts.equation8_plot_style import Equation8PlotStyle
 from MUJOCO.utils.cli import run_cli
 
 
+# Change this path to select the comparison batch used when no path is passed.
+DEFAULT_BATCH_DIR = Path(
+    "/home/debojit/debojit/iitgn/Bi-Manual_Redundancy_Work/outputs/"
+    "equation8_comparison_batches/comparison_main_20260723_214914_681226"
+)
+
 STAGES = ("static", "pick_place", "6d_pick_place")
 MODES = ("baseline", "velocity", "force", "directional_force")
+MODE_LABELS = {
+    "baseline": "Baseline",
+    "velocity": "Velocity optimization",
+    "force": "Force optimization",
+    "directional_force": "Directional-force optimization",
+}
+TORQUE_COLUMNS = tuple(
+    f"tau_act_{arm}{joint}"
+    for arm in ("l", "r")
+    for joint in range(1, 8)
+)
 CASE_PATTERN = re.compile(r"^(?:position|pose)_(\d+)$")
 
 
@@ -102,13 +123,18 @@ def parse_arguments(argv=None):
     )
     parser.add_argument(
         "batch_dir",
+        nargs="?",
         type=Path,
-        help="comparison_main timestamp directory containing data/",
+        default=DEFAULT_BATCH_DIR,
+        help=(
+            "comparison_main timestamp directory containing data/ "
+            f"(default: {DEFAULT_BATCH_DIR})"
+        ),
     )
     parser.add_argument(
         "--stage",
         choices=(*STAGES, "all"),
-        default="6d_pick_place",
+        default="all",
         help="experiment stage to plot (default: %(default)s)",
     )
     parser.add_argument(
@@ -198,6 +224,7 @@ def discover_stage_run_directory(batch_dir, stage):
 def required_columns():
     return (
         "time",
+        *TORQUE_COLUMNS,
         *(
             column
             for specification in OPTIMIZATION_PLOTS
@@ -337,6 +364,56 @@ def plot_directional_force_optimization(stage_runs, **kwargs):
     )
 
 
+def actuator_effort(run):
+    """Return sqrt(tau tau^T), the combined norm of all 14 actuator torques."""
+    torque = run.loc[:, TORQUE_COLUMNS].to_numpy(dtype=float)
+    return np.sqrt(np.sum(torque * torque, axis=1))
+
+
+def plot_actuator_effort(stage_runs, *, stage, style):
+    """Plot all four modes' actuator effort across the six cases."""
+    figure, axes = plt.subplots(
+        2,
+        3,
+        figsize=style.SIX_PANEL_SIZE,
+        sharex=True,
+        sharey=True,
+    )
+
+    for axis, (case_name, runs) in zip(axes.flat, stage_runs.items()):
+        for mode in MODES:
+            run = runs[mode]
+            line_kwargs = (
+                style.baseline_line_kwargs()
+                if mode == "baseline"
+                else style.optimized_line_kwargs(mode)
+            )
+            sns.lineplot(
+                x=run["time"],
+                y=actuator_effort(run),
+                estimator=None,
+                sort=False,
+                legend=False,
+                ax=axis,
+                **line_kwargs,
+            )
+        axis.set_title(subplot_title(case_name))
+        axis.set_xlabel("")
+        axis.set_ylabel("")
+
+    figure.suptitle(f"{STAGE_LABELS[stage]} — Actuator torque effort")
+    figure.supxlabel("Simulation time (s)")
+    figure.supylabel(
+        r"Actuator effort $\sqrt{\tau\tau^\mathsf{T}}=\|\tau\|_2$ (N m)"
+    )
+    style.finish_all_modes_six_panel_figure(
+        figure,
+        axes,
+        mode_labels=MODE_LABELS,
+    )
+    return figure
+
+
 def generate_stage_figures(
     batch_dir,
     stage,
@@ -375,6 +452,21 @@ def generate_stage_figures(
                 output_format,
             )
         )
+
+    effort_figure = plot_actuator_effort(
+        stage_runs,
+        stage=stage,
+        style=style,
+    )
+    figures.append(effort_figure)
+    written.extend(
+        style.save(
+            effort_figure,
+            output_dir,
+            "04_actuator_effort_six_cases",
+            output_format,
+        )
+    )
     return tuple(figures), tuple(written)
 
 

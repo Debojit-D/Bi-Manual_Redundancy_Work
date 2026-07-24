@@ -107,20 +107,70 @@ class Equation8PlotStyle:
             ),
         )
 
-    def finish_six_panel_figure(self, figure, axes, *, mode, mode_label):
-        """Finalize spacing, axis details, and one shared legend."""
+    def all_mode_legend_handles(self, mode_labels):
+        """Return handles for baseline and every optimization mode."""
+        return (
+            Line2D(
+                [0],
+                [0],
+                label=mode_labels["baseline"],
+                **self.baseline_line_kwargs(),
+            ),
+            *(
+                Line2D(
+                    [0],
+                    [0],
+                    label=mode_labels[mode],
+                    **self.optimized_line_kwargs(mode),
+                )
+                for mode in self.MODE_COLORS
+            ),
+        )
+
+    def _finish_six_panel_figure(
+        self,
+        figure,
+        axes,
+        *,
+        handles,
+        legend_columns,
+    ):
         for axis in axes.flat:
             axis.margins(x=0)
             axis.ticklabel_format(axis="y", style="plain", useOffset=False)
         sns.despine(fig=figure, offset=2, trim=False)
         figure.legend(
-            handles=self.legend_handles(mode, mode_label),
+            handles=handles,
             loc="upper center",
             bbox_to_anchor=(0.5, 0.935),
-            ncol=2,
+            ncol=legend_columns,
             handlelength=3.0,
         )
         figure.tight_layout(rect=(0.035, 0.045, 1.0, 0.88))
+
+    def finish_six_panel_figure(self, figure, axes, *, mode, mode_label):
+        """Finalize spacing, axis details, and one shared legend."""
+        self._finish_six_panel_figure(
+            figure,
+            axes,
+            handles=self.legend_handles(mode, mode_label),
+            legend_columns=2,
+        )
+
+    def finish_all_modes_six_panel_figure(
+        self,
+        figure,
+        axes,
+        *,
+        mode_labels,
+    ):
+        """Finalize a six-panel figure comparing all optimization modes."""
+        self._finish_six_panel_figure(
+            figure,
+            axes,
+            handles=self.all_mode_legend_handles(mode_labels),
+            legend_columns=4,
+        )
 
     def save(self, figure, output_dir, stem, output_format):
         """Save one figure as PNG, PDF, or both and return written paths."""

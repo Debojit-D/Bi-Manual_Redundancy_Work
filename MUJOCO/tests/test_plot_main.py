@@ -87,11 +87,30 @@ class PlotMainTests(unittest.TestCase):
                 axis.lines[1].get_zorder(),
             )
 
-    def test_main_writes_three_optimization_figures(self):
+    def test_actuator_effort_grid_has_six_panels_and_all_modes(self):
+        runs = plot_main.load_stage_runs(
+            self.batch_dir,
+            "6d_pick_place",
+        )
+        style = Equation8PlotStyle(dpi=72)
+        style.apply()
+        figure = plot_main.plot_actuator_effort(
+            runs,
+            stage="6d_pick_place",
+            style=style,
+        )
+        self.addCleanup(plt.close, figure)
+
+        self.assertEqual(len(figure.axes), 6)
+        self.assertTrue(all(len(axis.lines) == 4 for axis in figure.axes))
+
+    def test_main_writes_four_six_case_figures(self):
         output_dir = self.batch_dir / "custom_plots"
         written = plot_main.main(
             [
                 str(self.batch_dir),
+                "--stage",
+                "6d_pick_place",
                 "--format",
                 "png",
                 "--dpi",
@@ -101,8 +120,13 @@ class PlotMainTests(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(len(written), 3)
+        self.assertEqual(len(written), 4)
         self.assertTrue(all(path.is_file() for path in written))
+
+    def test_all_stages_are_plotted_by_default(self):
+        arguments = plot_main.parse_arguments([])
+
+        self.assertEqual(arguments.stage, "all")
 
 
 if __name__ == "__main__":
