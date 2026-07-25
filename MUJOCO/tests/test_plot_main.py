@@ -7,6 +7,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 
 from MUJOCO.plotting_scripts.equation8_plot_style import Equation8PlotStyle
 from MUJOCO.scripts import plot_main
@@ -23,11 +24,22 @@ class PlotMainTests(unittest.TestCase):
             / "6d_pick_place"
             / "6d_pick_place_comparison_test"
         )
+        self.indirect_run_dir = (
+            self.batch_dir
+            / "data"
+            / "6d_pick_place"
+            / "6d_pick_place_comparison_indirect_test"
+        )
         columns = plot_main.required_columns()
         for case_number in range(1, 7):
-            case_dir = self.run_dir / f"pose_{case_number}"
-            case_dir.mkdir(parents=True)
             for mode_index, mode in enumerate(plot_main.MODES):
+                run_dir = (
+                    self.indirect_run_dir
+                    if mode == "directional_force_indirect"
+                    else self.run_dir
+                )
+                case_dir = run_dir / f"pose_{case_number}"
+                case_dir.mkdir(parents=True, exist_ok=True)
                 with (case_dir / f"{mode}.csv").open(
                     "w",
                     newline="",
@@ -46,13 +58,16 @@ class PlotMainTests(unittest.TestCase):
                         }
                         writer.writerow(row)
 
-    def test_discovers_timestamped_stage_directory(self):
-        discovered = plot_main.discover_stage_run_directory(
+    def test_discovers_all_timestamped_stage_directories(self):
+        discovered = plot_main.discover_stage_run_directories(
             self.batch_dir,
             "6d_pick_place",
         )
 
-        self.assertEqual(discovered, self.run_dir)
+        self.assertEqual(
+            discovered,
+            (self.indirect_run_dir, self.run_dir),
+        )
 
     def test_loads_six_cases_with_all_modes(self):
         runs = plot_main.load_stage_runs(
@@ -102,7 +117,7 @@ class PlotMainTests(unittest.TestCase):
         self.addCleanup(plt.close, figure)
 
         self.assertEqual(len(figure.axes), 6)
-        self.assertTrue(all(len(axis.lines) == 4 for axis in figure.axes))
+        self.assertTrue(all(len(axis.lines) == 5 for axis in figure.axes))
         self.assertFalse(
             figure.axes[0].get_shared_x_axes().joined(
                 figure.axes[0],
@@ -136,23 +151,59 @@ class PlotMainTests(unittest.TestCase):
         baseline_time = figure.axes[0].lines[0].get_xdata()
         self.assertEqual(baseline_time[-1], 2.0)
 
-    def test_object_tracking_grid_has_command_and_all_measured_modes(self):
+    def test_indirect_grid_plots_reconstructed_baseline_and_recorded_trace(self):
         runs = plot_main.load_stage_runs(
             self.batch_dir,
             "6d_pick_place",
         )
         style = Equation8PlotStyle(dpi=72)
         style.apply()
-        figure = plot_main.plot_object_position_tracking(
+        figure = plot_main.plot_directional_force_indirect_optimization(
             runs,
-            component="x",
-            ylabel="World x position (m)",
+            stage="6d_pick_place",
+            metric_scale="raw",
             style=style,
         )
         self.addCleanup(plt.close, figure)
 
         self.assertEqual(len(figure.axes), 6)
-        self.assertTrue(all(len(axis.lines) == 5 for axis in figure.axes))
+        self.assertTrue(all(len(axis.lines) == 2 for axis in figure.axes))
+        self.assertAlmostEqual(
+            figure.axes[0].lines[1].get_ydata()[0],
+            5.0 / np.sqrt(2.0),
+        )
+
+    def test_only_directional_rows_are_normalized(self):
+        runs = plot_main.load_stage_runs(
+            self.batch_dir,
+            "6d_pick_place",
+        )
+        style = Equation8PlotStyle(dpi=72)
+        style.apply()
+        figure = plot_main.plot_combined_optimization_grid(
+            runs,
+            stage="6d_pick_place",
+            metric_scale="raw",
+            style=style,
+        )
+        self.addCleanup(plt.close, figure)
+
+        self.assertEqual(figure.axes[0].lines[0].get_ydata()[0], 1.0)
+        self.assertEqual(figure.axes[0].lines[1].get_ydata()[0], 2.0)
+        self.assertAlmostEqual(
+            figure.axes[12].lines[0].get_ydata()[0],
+            1.0 / np.sqrt(2.0),
+        )
+        self.assertAlmostEqual(
+            figure.axes[12].lines[1].get_ydata()[0],
+            4.0 / np.sqrt(2.0),
+        )
+        self.assertTrue(
+            all(
+                "normalized" not in axis.get_ylabel().lower()
+                for axis in figure.axes
+            )
+        )
 
     def test_main_writes_optimization_effort_and_tracking_figures(self):
         output_dir = self.batch_dir / "custom_plots"
@@ -170,8 +221,12 @@ class PlotMainTests(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(len(written), 7)
+        self.assertEqual(len(written), 2)
         self.assertTrue(all(path.is_file() for path in written))
+        self.assertEqual(
+            {path.parent.name for path in written},
+            {"combined_plots", "combined_plotsV2"},
+        )
 
     def test_all_stages_are_plotted_by_default(self):
         arguments = plot_main.parse_arguments([])

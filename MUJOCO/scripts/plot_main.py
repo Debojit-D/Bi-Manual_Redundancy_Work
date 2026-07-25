@@ -1,8 +1,10 @@
 """Plot six-case Equation (8) optimization comparisons from one batch.
 
-The default command creates one combined three-objective figure for each
-stage. Each comparison draws the matching baseline trace behind the optimized
-trace::
+The default command creates the original combined three-objective figure and
+the combined four-objective V2 figure for each stage. Every objective draws its
+matching baseline trace behind the optimized trace. For older baseline CSVs
+that predate the indirect metric, that trace is reconstructed from the recorded
+joint and object poses::
 
     .venv/bin/python -m MUJOCO.scripts.plot_main
 
@@ -22,9 +24,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from scipy.spatial.transform import Rotation
 
 from MUJOCO.plotting_scripts.equation8_plot_style import Equation8PlotStyle
 from MUJOCO.utils.cli import run_cli
+from MUJOCO.utils.grasping_kinematics import (
+    CooperativeManipulationKinematics,
+)
+from MUJOCO.utils.scene_builder import DualFrankaMuJoCoScene
 
 
 # Change this path to select the comparison batch used when no path is passed.
@@ -34,18 +41,42 @@ DEFAULT_BATCH_DIR = Path(
 )
 
 STAGES = ("static", "pick_place", "6d_pick_place")
-MODES = ("baseline", "velocity", "force", "directional_force")
+MODES = (
+    "baseline",
+    "velocity",
+    "force",
+    "directional_force",
+    "directional_force_indirect",
+)
 MODE_LABELS = {
     "baseline": "Baseline",
     "velocity": "Velocity optimization",
     "force": "Force optimization",
     "directional_force": "Directional-force optimization",
+    "directional_force_indirect": "Indirect directional-force optimization",
 }
 TORQUE_COLUMNS = tuple(
     f"tau_act_{arm}{joint}"
     for arm in ("l", "r")
     for joint in range(1, 8)
 )
+ARM_JOINT_COLUMNS = tuple(
+    f"q_{arm}{joint}"
+    for arm in ("l", "r")
+    for joint in range(1, 8)
+)
+OBJECT_POSE_COLUMNS = (
+    "object_x",
+    "object_y",
+    "object_z",
+    "object_qw",
+    "object_qx",
+    "object_qy",
+    "object_qz",
+)
+INDIRECT_BASELINE_RAW_COLUMN = "directional_force_indirect_cost_raw"
+INDIRECT_BASELINE_SCALED_COLUMN = "directional_force_indirect_cost_scaled"
+ARM_BASE_OFFSET = 0.25
 TRACKING_ERROR_PLOTS = (
     (
         "position_error_norm",
@@ -72,9 +103,18 @@ class OptimizationPlot:
     raw_ylabel: str
     scaled_ylabel: str
     filename: str
+    baseline_raw_column: str | None = None
+    baseline_scaled_column: str | None = None
+    include_baseline: bool = True
+    plot_divisor: float = 1.0
 
     def column(self, metric_scale):
         return self.raw_column if metric_scale == "raw" else self.scaled_column
+
+    def baseline_column(self, metric_scale):
+        if metric_scale == "raw":
+            return self.baseline_raw_column or self.raw_column
+        return self.baseline_scaled_column or self.scaled_column
 
     def ylabel(self, metric_scale):
         return (
@@ -82,6 +122,10 @@ class OptimizationPlot:
             if metric_scale == "raw"
             else self.scaled_ylabel
         )
+
+    def plot_values(self, values):
+        """Apply presentation-only normalization to a metric series."""
+        return np.asarray(values, dtype=float) / self.plot_divisor
 
 
 OPTIMIZATION_PLOTS = (
@@ -108,9 +152,22 @@ OPTIMIZATION_PLOTS = (
         label="Directional-force optimization",
         raw_column="directional_force_cost_raw",
         scaled_column="directional_force_cost_scaled",
-        raw_ylabel="Directional-Force Manipulability",
-        scaled_ylabel="Scaled Directional-Force Manipulability",
+        raw_ylabel="Directional - Force Manipulability",
+        scaled_ylabel="Scaled Directional - Force Manipulability",
         filename="03_directional_force_optimization_six_cases",
+        plot_divisor=np.sqrt(2.0),
+    ),
+    OptimizationPlot(
+        mode="directional_force_indirect",
+        label="Indirect directional-force optimization",
+        raw_column="paper_objective_raw",
+        scaled_column="paper_objective_scaled",
+        raw_ylabel="Directional - Force Manipulability (Indirect)",
+        scaled_ylabel="Scaled Directional - Force Manipulability (Indirect)",
+        filename="04_directional_force_indirect_optimization_six_cases",
+        baseline_raw_column=INDIRECT_BASELINE_RAW_COLUMN,
+        baseline_scaled_column=INDIRECT_BASELINE_SCALED_COLUMN,
+        plot_divisor=np.sqrt(2.0),
     ),
 )
 
@@ -220,10 +277,33 @@ def discover_stage_run_directory(batch_dir, stage):
     return candidates[0]
 
 
+def discover_stage_run_directories(batch_dir, stage):
+    """Find every timestamped CSV directory contributing modes to a stage."""
+    batch_dir = Path(batch_dir).expanduser().resolve()
+    stage_root = batch_dir / "data" / stage
+    if not stage_root.is_dir():
+        raise FileNotFoundError(f"Stage data directory not found: {stage_root}")
+    if case_directories(stage_root):
+        return (stage_root,)
+    candidates = tuple(
+        child
+        for child in sorted(stage_root.iterdir())
+        if child.is_dir() and case_directories(child)
+    )
+    if not candidates:
+        raise FileNotFoundError(
+            f"No timestamped six-case CSV directory found in: {stage_root}"
+        )
+    return candidates
+
+
 def required_columns():
     return (
         "time",
         *TORQUE_COLUMNS,
+        *ARM_JOINT_COLUMNS,
+        *OBJECT_POSE_COLUMNS,
+        "characteristic_length_m",
         "position_error_norm",
         "orientation_error_norm",
         *(
@@ -252,26 +332,126 @@ def load_csv(path):
     return frame
 
 
+def normalized_frobenius_distance(capability, desired):
+    """Return the trace-normalized Frobenius distance used by the optimizer."""
+    capability_trace = float(np.trace(capability))
+    desired_trace = float(np.trace(desired))
+    if capability_trace <= 0.0 or desired_trace <= 0.0:
+        raise ValueError("Capability and desired matrices need positive traces")
+    return float(
+        np.linalg.norm(
+            capability / capability_trace - desired / desired_trace,
+            ord="fro",
+        )
+    )
+
+
+def add_indirect_baseline_metrics(loaded):
+    """Reconstruct the indirect metric from each recorded baseline state."""
+    scene = DualFrankaMuJoCoScene(
+        control_hz=50.0,
+        left_arm_base_position=np.array([0.0, -ARM_BASE_OFFSET, 0.0]),
+        right_arm_base_position=np.array([0.0, ARM_BASE_OFFSET, 0.0]),
+        left_arm_base_euler_xyz_degrees=np.zeros(3),
+        right_arm_base_euler_xyz_degrees=np.zeros(3),
+        show_mocap_targets=False,
+        enable_bias_compensation=True,
+    )
+    kinematics = CooperativeManipulationKinematics(
+        scene.model,
+        scene.left_arm_dofs,
+        scene.right_arm_dofs,
+    )
+    desired = np.diag([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
+
+    for runs in loaded.values():
+        baseline = runs["baseline"]
+        arm_states = baseline.loc[:, ARM_JOINT_COLUMNS].to_numpy(dtype=float)
+        object_poses = baseline.loc[:, OBJECT_POSE_COLUMNS].to_numpy(dtype=float)
+        characteristic_lengths = baseline[
+            "characteristic_length_m"
+        ].to_numpy(dtype=float)
+        raw_values = np.empty(len(baseline), dtype=float)
+        scaled_values = np.empty(len(baseline), dtype=float)
+
+        for sample, (arm_state, object_pose, characteristic_length) in enumerate(
+            zip(arm_states, object_poses, characteristic_lengths)
+        ):
+            position = object_pose[:3]
+            quaternion_xyzw = np.array(
+                [
+                    object_pose[4],
+                    object_pose[5],
+                    object_pose[6],
+                    object_pose[3],
+                ]
+            )
+            scene.data.qpos[scene.arm_qpos] = arm_state
+            scene.set_table_reference_pose(
+                position,
+                Rotation.from_quat(quaternion_xyzw).as_matrix(),
+            )
+
+            velocity_map = kinematics.paper_object_velocity_map(scene.data)
+            velocity_capability = velocity_map @ velocity_map.T
+            raw_values[sample] = normalized_frobenius_distance(
+                velocity_capability,
+                desired,
+            )
+
+            spatial_scaling = np.diag(
+                [1.0, 1.0, 1.0]
+                + [float(characteristic_length)] * 3
+            )
+            scaled_velocity_map = spatial_scaling @ velocity_map
+            scaled_velocity_capability = (
+                scaled_velocity_map @ scaled_velocity_map.T
+            )
+            scaled_values[sample] = normalized_frobenius_distance(
+                scaled_velocity_capability,
+                desired,
+            )
+
+        baseline[INDIRECT_BASELINE_RAW_COLUMN] = raw_values
+        baseline[INDIRECT_BASELINE_SCALED_COLUMN] = scaled_values
+
+
 def load_stage_runs(batch_dir, stage):
-    """Return six ordered cases, each containing all four mode dataframes."""
-    run_dir = discover_stage_run_directory(batch_dir, stage)
-    cases = case_directories(run_dir)
-    if len(cases) != 6:
+    """Merge timestamped runs into six cases containing all five modes."""
+    run_dirs = discover_stage_run_directories(batch_dir, stage)
+    case_names = sorted(
+        {
+            case_dir.name
+            for run_dir in run_dirs
+            for case_dir in case_directories(run_dir)
+        },
+        key=lambda name: int(name.rsplit("_", maxsplit=1)[-1]),
+    )
+    if len(case_names) != 6:
         raise ValueError(
-            f"Expected six cases in {run_dir}, found {len(cases)}"
+            f"Expected six cases across {run_dirs}, found {len(case_names)}"
         )
 
     loaded = {}
-    for case_dir in cases:
+    for case_name in case_names:
         mode_runs = {}
         for mode in MODES:
-            csv_path = case_dir / f"{mode}.csv"
-            if not csv_path.is_file():
+            matches = tuple(
+                run_dir / case_name / f"{mode}.csv"
+                for run_dir in run_dirs
+                if (run_dir / case_name / f"{mode}.csv").is_file()
+            )
+            if not matches:
                 raise FileNotFoundError(
-                    f"Missing {mode!r} CSV for {case_dir.name}: {csv_path}"
+                    f"Missing {mode!r} CSV for {case_name} in: {run_dirs}"
                 )
-            mode_runs[mode] = load_csv(csv_path)
-        loaded[case_dir.name] = mode_runs
+            if len(matches) > 1:
+                raise ValueError(
+                    f"Multiple {mode!r} CSVs found for {case_name}: {matches}"
+                )
+            mode_runs[mode] = load_csv(matches[0])
+        loaded[case_name] = mode_runs
+    add_indirect_baseline_metrics(loaded)
     return loaded
 
 
@@ -304,6 +484,7 @@ def plot_optimization_grid(
 ):
     """Plot one objective across six cases with baseline behind each trace."""
     column = specification.column(metric_scale)
+    baseline_column = specification.baseline_column(metric_scale)
     figure, axes = plt.subplots(
         1,
         6,
@@ -313,27 +494,30 @@ def plot_optimization_grid(
     )
 
     for axis, (case_name, runs) in zip(axes.flat, stage_runs.items()):
-        baseline = runs["baseline"]
         optimized = runs[specification.mode]
-        baseline_time = baseline["time"].to_numpy(dtype=float)
-        baseline_values = baseline[column].to_numpy(dtype=float)
         optimized_time = optimized["time"].to_numpy(dtype=float)
-        optimized_values = optimized[column].to_numpy(dtype=float)
-        if stage == "static":
-            baseline_time, baseline_values = extend_final_value(
-                baseline_time,
-                baseline_values,
-                optimized_time[-1],
+        optimized_values = specification.plot_values(optimized[column])
+        if specification.include_baseline:
+            baseline = runs["baseline"]
+            baseline_time = baseline["time"].to_numpy(dtype=float)
+            baseline_values = specification.plot_values(
+                baseline[baseline_column]
             )
-        sns.lineplot(
-            x=baseline_time,
-            y=baseline_values,
-            estimator=None,
-            sort=False,
-            legend=False,
-            ax=axis,
-            **style.baseline_line_kwargs(),
-        )
+            if stage == "static":
+                baseline_time, baseline_values = extend_final_value(
+                    baseline_time,
+                    baseline_values,
+                    optimized_time[-1],
+                )
+            sns.lineplot(
+                x=baseline_time,
+                y=baseline_values,
+                estimator=None,
+                sort=False,
+                legend=False,
+                ax=axis,
+                **style.baseline_line_kwargs(),
+            )
         sns.lineplot(
             x=optimized_time,
             y=optimized_values,
@@ -382,49 +566,67 @@ def plot_directional_force_optimization(stage_runs, **kwargs):
     )
 
 
+def plot_directional_force_indirect_optimization(stage_runs, **kwargs):
+    return plot_optimization_grid(
+        stage_runs,
+        OPTIMIZATION_PLOTS[3],
+        **kwargs,
+    )
+
+
 def plot_combined_optimization_grid(
     stage_runs,
     *,
     stage,
     metric_scale,
     style,
+    specifications=OPTIMIZATION_PLOTS,
 ):
-    """Plot all three objectives as rows across the six comparison cases."""
+    """Plot the selected objectives as rows across all six comparison cases."""
+    row_count = len(specifications)
     figure, axes = plt.subplots(
-        3,
+        row_count,
         6,
-        figsize=style.THREE_BY_SIX_SIZE,
+        figsize=(
+            style.FOUR_BY_SIX_SIZE
+            if row_count == 4
+            else style.THREE_BY_SIX_SIZE
+        ),
         sharex=False if stage == "static" else "col",
         sharey="row",
     )
 
-    for row, specification in enumerate(OPTIMIZATION_PLOTS):
+    for row, specification in enumerate(specifications):
         column = specification.column(metric_scale)
+        baseline_column = specification.baseline_column(metric_scale)
         for axis, (case_name, runs) in zip(
             axes[row],
             stage_runs.items(),
         ):
-            baseline = runs["baseline"]
             optimized = runs[specification.mode]
-            baseline_time = baseline["time"].to_numpy(dtype=float)
-            baseline_values = baseline[column].to_numpy(dtype=float)
             optimized_time = optimized["time"].to_numpy(dtype=float)
-            optimized_values = optimized[column].to_numpy(dtype=float)
-            if stage == "static":
-                baseline_time, baseline_values = extend_final_value(
-                    baseline_time,
-                    baseline_values,
-                    optimized_time[-1],
+            optimized_values = specification.plot_values(optimized[column])
+            if specification.include_baseline:
+                baseline = runs["baseline"]
+                baseline_time = baseline["time"].to_numpy(dtype=float)
+                baseline_values = specification.plot_values(
+                    baseline[baseline_column]
                 )
-            sns.lineplot(
-                x=baseline_time,
-                y=baseline_values,
-                estimator=None,
-                sort=False,
-                legend=False,
-                ax=axis,
-                **style.baseline_line_kwargs(),
-            )
+                if stage == "static":
+                    baseline_time, baseline_values = extend_final_value(
+                        baseline_time,
+                        baseline_values,
+                        optimized_time[-1],
+                    )
+                sns.lineplot(
+                    x=baseline_time,
+                    y=baseline_values,
+                    estimator=None,
+                    sort=False,
+                    legend=False,
+                    ax=axis,
+                    **style.baseline_line_kwargs(),
+                )
             sns.lineplot(
                 x=optimized_time,
                 y=optimized_values,
@@ -441,7 +643,10 @@ def plot_combined_optimization_grid(
         metric_label = {
             "velocity": "Velocity\nmanipulability",
             "force": "Force\nmanipulability",
-            "directional_force": "Directional-Force\nManipulability",
+            "directional_force": "Directional - Force\nManipulability",
+            "directional_force_indirect": (
+                "Directional - Force\nManipulability (Indirect)"
+            ),
         }[specification.mode]
         row_label = (
             f"{metric_label}\n(scaled)"
@@ -454,6 +659,7 @@ def plot_combined_optimization_grid(
             ha="center",
             va="center",
             labelpad=14,
+            fontsize=8.0,
         )
 
     figure.supxlabel("Simulation time (s)", y=0.005)
@@ -461,7 +667,13 @@ def plot_combined_optimization_grid(
     style.finish_all_modes_six_panel_figure(
         figure,
         axes,
-        mode_labels=MODE_LABELS,
+        mode_labels={
+            "baseline": MODE_LABELS["baseline"],
+            **{
+                specification.mode: MODE_LABELS[specification.mode]
+                for specification in specifications
+            },
+        },
     )
     return figure
 
@@ -582,22 +794,41 @@ def generate_stage_figures(
     output_format,
     style,
 ):
-    """Create and save only the combined three-by-six figure for one stage."""
+    """Create and save the legacy and V2 combined figures for one stage."""
     stage_runs = load_stage_runs(batch_dir, stage)
-    output_dir = Path(output_root) / "combined_plots"
+    legacy_output_dir = Path(output_root) / "combined_plots"
+    output_dir = Path(output_root) / "combined_plotsV2"
+    legacy_combined_figure = plot_combined_optimization_grid(
+        stage_runs,
+        stage=stage,
+        metric_scale=metric_scale,
+        style=style,
+        specifications=OPTIMIZATION_PLOTS[:3],
+    )
     combined_figure = plot_combined_optimization_grid(
         stage_runs,
         stage=stage,
         metric_scale=metric_scale,
         style=style,
     )
-    written = style.save(
+    written = list(
+        style.save(
+            legacy_combined_figure,
+            legacy_output_dir,
+            f"{stage}_combined_optimization_three_by_six",
+            output_format,
+        )
+    )
+    written.extend(style.save(
         combined_figure,
         output_dir,
-        f"{stage}_combined_optimization_three_by_six",
+        f"{stage}_combined_optimization_four_by_six",
         output_format,
-    )
-    return (combined_figure,), tuple(written)
+    ))
+    return (
+        legacy_combined_figure,
+        combined_figure,
+    ), tuple(written)
 
 
 def main(argv=None):

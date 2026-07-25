@@ -13,8 +13,10 @@ class Equation8PlotStyle:
 
     DOUBLE_COLUMN_WIDTH = 7.16
     SIX_PANEL_SIZE = (DOUBLE_COLUMN_WIDTH, 1.425)
+    SIX_PANEL_V2_SIZE = (DOUBLE_COLUMN_WIDTH, 1.8)
     SIX_PANEL_GRID_SIZE = (DOUBLE_COLUMN_WIDTH, 2.7)
     THREE_BY_SIX_SIZE = (DOUBLE_COLUMN_WIDTH, 3.9)
+    FOUR_BY_SIX_SIZE = (DOUBLE_COLUMN_WIDTH, 6.2)
     TIMES_NEW_ROMAN_DIR = (
         Path(__file__).resolve().parents[2]
         / "outputs"
@@ -27,6 +29,7 @@ class Equation8PlotStyle:
         "velocity": "#0072B2",
         "force": "#D55E00",
         "directional_force": "#009E73",
+        "directional_force_indirect": "#CC79A7",
     }
 
     def __init__(self, *, dpi=300):
@@ -153,7 +156,8 @@ class Equation8PlotStyle:
                     label=mode_labels[mode],
                     **self.optimized_line_kwargs(mode),
                 )
-                for mode in self.MODE_COLORS
+                for mode in mode_labels
+                if mode != "baseline"
             ),
         )
 
@@ -241,6 +245,32 @@ class Equation8PlotStyle:
             layout_top=0.87,
         )
 
+    def finish_optimized_only_six_panel_row_figure(
+        self,
+        figure,
+        axes,
+        *,
+        mode,
+        mode_label,
+    ):
+        """Finalize a one-row figure containing one optimized mode."""
+        handles = (
+            Line2D(
+                [0],
+                [0],
+                label=mode_label,
+                **self.optimized_line_kwargs(mode),
+            ),
+        )
+        self._finish_six_panel_figure(
+            figure,
+            axes,
+            handles=handles,
+            legend_columns=1,
+            legend_y=0.98,
+            layout_top=0.74,
+        )
+
     def finish_all_modes_six_panel_figure(
         self,
         figure,
@@ -253,7 +283,7 @@ class Equation8PlotStyle:
             figure,
             axes,
             handles=self.all_mode_legend_handles(mode_labels),
-            legend_columns=4,
+            legend_columns=len(mode_labels),
         )
 
     def finish_all_modes_six_panel_row_figure(
@@ -268,7 +298,7 @@ class Equation8PlotStyle:
             figure,
             axes,
             handles=self.all_mode_legend_handles(mode_labels),
-            legend_columns=4,
+            legend_columns=len(mode_labels),
             legend_y=0.985,
             layout_top=0.87,
         )
