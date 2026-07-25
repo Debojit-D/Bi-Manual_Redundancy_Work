@@ -1,14 +1,15 @@
 """Run all static Equation (8) modes at six table positions.
 
-By default (sweep option 1), each table position runs four independent MuJoCo
+By default (sweep option 1), each table position runs five independent MuJoCo
 scenes in this order:
 
 1. baseline (no null-space optimization),
 2. velocity manipulability,
 3. force manipulability, and
-4. directional-force manipulability.
+4. directional-force manipulability, and
+5. indirect directional-force manipulability (velocity-distance maximize).
 
-The six positions therefore produce 24 independent runs.
+The six positions therefore produce 30 independent runs.
 
 Use ``--sweep-option 2`` to run each optimization mode at all six positions
 before advancing to the next optimization mode.
@@ -39,7 +40,7 @@ Use the overhead camera instead::
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
         --sweep-option 1 --top-view
 
-Record perspective, top, and front views for all 24 runs without opening a
+Record perspective, top, and front views for all 30 runs without opening a
 viewer::
 
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
@@ -81,13 +82,29 @@ EXPERIMENTS = (
     ("velocity", ManipulabilityObjective.VELOCITY, True),
     ("force", ManipulabilityObjective.FORCE, True),
     ("directional_force", ManipulabilityObjective.DIRECTIONAL_FORCE, True),
+    (
+        "directional_force_indirect",
+        ManipulabilityObjective.DIRECTIONAL_FORCE_INDIRECT,
+        True,
+    ),
 )
+EXPERIMENT_MODES = ("all",) + tuple(case[0] for case in EXPERIMENTS)
 DEFAULT_VIDEO_ROOT = (
     Path(__file__).resolve().parents[2] / "outputs" / "mujoco_videos"
 )
 DEFAULT_DATA_ROOT = (
     Path(__file__).resolve().parents[2] / "outputs" / "mujoco_data"
 )
+
+
+def experiments_for_mode(mode):
+    """Return all comparison modes or one explicitly selected mode."""
+    if mode == "all":
+        return EXPERIMENTS
+    selected = tuple(case for case in EXPERIMENTS if case[0] == mode)
+    if not selected:
+        raise ValueError(f"mode must be one of {EXPERIMENT_MODES}")
+    return selected
 
 
 def parse_arguments():
@@ -101,9 +118,15 @@ def parse_arguments():
         choices=SWEEP_OPTIONS,
         default=1,
         help=(
-            "run order: 1 = four modes at each position; "
+            "run order: 1 = five modes at each position; "
             "2 = all six positions for each mode (default: %(default)s)"
         ),
+    )
+    parser.add_argument(
+        "--mode",
+        choices=EXPERIMENT_MODES,
+        default="all",
+        help="run all optimization modes or one selected mode",
     )
     parser.add_argument(
         "--duration",
@@ -206,6 +229,7 @@ def parse_arguments():
 
 def main():
     arguments = parse_arguments()
+    selected_experiments = experiments_for_mode(arguments.mode)
     selected_video_views = video_views_for_choice(arguments.video_view)
     if arguments.duration is not None and arguments.duration <= 0.0:
         raise ValueError("--duration must be greater than zero")
@@ -245,16 +269,18 @@ def main():
         data_run_dir.mkdir(parents=True, exist_ok=False)
         print(f"Comparison CSV output: {data_run_dir}")
 
-    total_runs = len(TABLE_SPAWN_CASES) * len(EXPERIMENTS)
+    total_runs = len(TABLE_SPAWN_CASES) * len(selected_experiments)
     print(
         "Static Equation (8) comparison: "
-        f"{len(TABLE_SPAWN_CASES)} positions x {len(EXPERIMENTS)} modes "
+        f"{len(TABLE_SPAWN_CASES)} positions x "
+        f"{len(selected_experiments)} mode(s) "
         f"= {total_runs} runs"
     )
     print(
         f"Sweep option {arguments.sweep_option}: "
         + (
-            "position-first (four modes at each position)."
+            "position-first "
+            f"({len(selected_experiments)} mode(s) at each position)."
             if arguments.sweep_option == 1
             else "optimization-first (all positions for each mode)."
         )
@@ -280,7 +306,7 @@ def main():
         )
     run_cases = ordered_comparison_cases(
         TABLE_SPAWN_CASES,
-        EXPERIMENTS,
+        selected_experiments,
         arguments.sweep_option,
     )
     failed_runs = []

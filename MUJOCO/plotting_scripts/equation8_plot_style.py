@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib import font_manager
 from matplotlib.lines import Line2D
 import seaborn as sns
 
@@ -10,6 +11,16 @@ import seaborn as sns
 class Equation8PlotStyle:
     """Own the visual language and figure-export settings for batch plots."""
 
+    DOUBLE_COLUMN_WIDTH = 7.16
+    SIX_PANEL_SIZE = (DOUBLE_COLUMN_WIDTH, 1.425)
+    SIX_PANEL_GRID_SIZE = (DOUBLE_COLUMN_WIDTH, 2.7)
+    THREE_BY_SIX_SIZE = (DOUBLE_COLUMN_WIDTH, 3.9)
+    TIMES_NEW_ROMAN_DIR = (
+        Path(__file__).resolve().parents[2]
+        / "outputs"
+        / ".fonts"
+        / "times-new-roman"
+    )
     BASELINE_COLOR = "#68737D"
     COMMAND_COLOR = "#111111"
     MODE_COLORS = {
@@ -17,7 +28,6 @@ class Equation8PlotStyle:
         "force": "#D55E00",
         "directional_force": "#009E73",
     }
-    SIX_PANEL_SIZE = (12.0, 6.4)
 
     def __init__(self, *, dpi=300):
         self.dpi = int(dpi)
@@ -26,6 +36,7 @@ class Equation8PlotStyle:
 
     def apply(self):
         """Apply the common Seaborn theme before figures are created."""
+        self._register_times_new_roman()
         sns.set_theme(
             context="paper",
             style="whitegrid",
@@ -46,27 +57,35 @@ class Equation8PlotStyle:
                 "lines.solid_capstyle": "round",
                 "pdf.fonttype": 42,
                 "ps.fonttype": 42,
-                "mathtext.fontset": "stix",
             },
         )
         plt.rcParams.update(
             {
-                "font.family": "serif",
-                "font.serif": [
-                    "Times New Roman",
-                    "Times",
-                    "Nimbus Roman",
-                    "Liberation Serif",
-                    "DejaVu Serif",
-                ],
-                "axes.titlesize": 10,
+                "font.family": "Times New Roman",
+                "axes.titlesize": 8.5,
                 "axes.labelsize": 9.5,
-                "xtick.labelsize": 8.5,
-                "ytick.labelsize": 8.5,
-                "legend.fontsize": 9,
-                "figure.titlesize": 14,
+                "xtick.labelsize": 8,
+                "ytick.labelsize": 8,
+                "legend.fontsize": 8.5,
+                "figure.labelsize": 9.5,
+                "figure.titlesize": 10,
             }
         )
+
+    def _register_times_new_roman(self):
+        """Register the project-local Times files and reject substitution."""
+        for path in sorted(self.TIMES_NEW_ROMAN_DIR.glob("*.[Tt][Tt][Ff]")):
+            font_manager.fontManager.addfont(path)
+        try:
+            font_manager.findfont(
+                "Times New Roman",
+                fallback_to_default=False,
+            )
+        except ValueError as error:
+            raise RuntimeError(
+                "Times New Roman is unavailable. Expected font files in "
+                f"{self.TIMES_NEW_ROMAN_DIR}"
+            ) from error
 
     def mode_color(self, mode):
         try:
@@ -78,7 +97,7 @@ class Equation8PlotStyle:
         """Return subdued styling so baseline traces remain in the background."""
         return {
             "color": self.BASELINE_COLOR,
-            "linewidth": 2.3,
+            "linewidth": 1.35,
             "linestyle": (0, (4, 2)),
             "alpha": 0.72,
             "zorder": 1,
@@ -88,7 +107,7 @@ class Equation8PlotStyle:
         """Return styling for a commanded reference trajectory."""
         return {
             "color": self.COMMAND_COLOR,
-            "linewidth": 2.0,
+            "linewidth": 1.25,
             "linestyle": (0, (1, 1.5)),
             "alpha": 0.9,
             "zorder": 3,
@@ -97,7 +116,7 @@ class Equation8PlotStyle:
     def optimized_line_kwargs(self, mode):
         return {
             "color": self.mode_color(mode),
-            "linewidth": 1.9,
+            "linewidth": 1.15,
             "alpha": 0.98,
             "zorder": 2,
         }
@@ -168,6 +187,8 @@ class Equation8PlotStyle:
         *,
         handles,
         legend_columns,
+        legend_y=0.97,
+        layout_top=0.89,
     ):
         for axis in axes.flat:
             axis.margins(x=0)
@@ -176,11 +197,22 @@ class Equation8PlotStyle:
         figure.legend(
             handles=handles,
             loc="upper center",
-            bbox_to_anchor=(0.5, 0.935),
+            bbox_to_anchor=(0.5, legend_y),
             ncol=legend_columns,
-            handlelength=3.0,
+            handlelength=2.2,
+            frameon=True,
+            fancybox=False,
+            framealpha=1.0,
+            facecolor="white",
+            edgecolor="#68737D",
+            borderpad=0.4,
         )
-        figure.tight_layout(rect=(0.035, 0.045, 1.0, 0.88))
+        figure.tight_layout(
+            rect=(0.015, 0.025, 1.0, layout_top),
+            pad=0.35,
+            h_pad=0.5,
+            w_pad=0.45,
+        )
 
     def finish_six_panel_figure(self, figure, axes, *, mode, mode_label):
         """Finalize spacing, axis details, and one shared legend."""
@@ -189,6 +221,24 @@ class Equation8PlotStyle:
             axes,
             handles=self.legend_handles(mode, mode_label),
             legend_columns=2,
+        )
+
+    def finish_six_panel_row_figure(
+        self,
+        figure,
+        axes,
+        *,
+        mode,
+        mode_label,
+    ):
+        """Finalize a one-row figure comparing baseline and one mode."""
+        self._finish_six_panel_figure(
+            figure,
+            axes,
+            handles=self.legend_handles(mode, mode_label),
+            legend_columns=2,
+            legend_y=0.985,
+            layout_top=0.87,
         )
 
     def finish_all_modes_six_panel_figure(
@@ -204,6 +254,23 @@ class Equation8PlotStyle:
             axes,
             handles=self.all_mode_legend_handles(mode_labels),
             legend_columns=4,
+        )
+
+    def finish_all_modes_six_panel_row_figure(
+        self,
+        figure,
+        axes,
+        *,
+        mode_labels,
+    ):
+        """Finalize a one-row six-panel figure comparing all modes."""
+        self._finish_six_panel_figure(
+            figure,
+            axes,
+            handles=self.all_mode_legend_handles(mode_labels),
+            legend_columns=4,
+            legend_y=0.985,
+            layout_top=0.87,
         )
 
     def finish_tracking_six_panel_figure(

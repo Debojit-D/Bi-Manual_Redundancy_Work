@@ -241,12 +241,29 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
             optimizer.directional_force_cost(None),
             optimizer.directional_force_cost_raw(None),
         )
+        self.assertEqual(
+            optimizer.directional_force_indirect_cost(None),
+            optimizer.directional_force_indirect_cost_raw(None),
+        )
+
+    def test_indirect_directional_force_uses_velocity_distance(self):
+        optimizer = _optimizer(characteristic_length=0.4)
+        velocity_raw, _ = optimizer.velocity_capability_matrices(None)
+        expected = optimizer._normalized_frobenius_distance(
+            velocity_raw,
+            optimizer.desired_force_matrix_raw,
+        )
+        self.assertAlmostEqual(
+            optimizer.directional_force_indirect_cost_raw(None),
+            expected,
+        )
 
     def test_optimization_signs_are_unchanged(self):
         for objective, expected_sign in (
             (ManipulabilityObjective.VELOCITY, 1.0),
             (ManipulabilityObjective.FORCE, 1.0),
             (ManipulabilityObjective.DIRECTIONAL_FORCE, -1.0),
+            (ManipulabilityObjective.DIRECTIONAL_FORCE_INDIRECT, 1.0),
         ):
             optimizer = _optimizer(objective=objective)
             optimizer.value = lambda _data: 7.0
@@ -297,6 +314,11 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
                 ManipulabilityObjective.DIRECTIONAL_FORCE,
                 optimizer.directional_force_cost_raw(data)
                 + collision_cost,
+            ),
+            (
+                ManipulabilityObjective.DIRECTIONAL_FORCE_INDIRECT,
+                optimizer.directional_force_indirect_cost_raw(data)
+                - collision_cost,
             ),
         ):
             self.assertAlmostEqual(optimizer.value(data, objective), expected)

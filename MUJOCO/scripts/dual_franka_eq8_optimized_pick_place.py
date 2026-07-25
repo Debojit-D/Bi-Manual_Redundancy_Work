@@ -112,7 +112,7 @@ GRASP_K_P = np.diag([8.0, 8.0, 8.0, 6.0, 6.0, 6.0])
 
 # Match the static experiment so the trajectory is the only controller-level
 # difference between the two scripts.
-OBJECTIVE = ManipulabilityObjective.FORCE
+OBJECTIVE = ManipulabilityObjective.DIRECTIONAL_FORCE_INDIRECT
 OPTIMIZATION_GAIN = 5000.0
 MAXIMUM_OPTIMIZATION_JOINT_SPEED = 5
 FINITE_DIFFERENCE_STEP = 1e-4

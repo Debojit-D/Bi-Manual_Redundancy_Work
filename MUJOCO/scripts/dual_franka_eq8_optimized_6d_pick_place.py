@@ -125,7 +125,7 @@ FINAL_HOLD_DURATION = 2.0
 
 # Null-space optimization remains active throughout both trajectory segments
 # and continuously at the final goal pose.
-OBJECTIVE = ManipulabilityObjective.FORCE
+OBJECTIVE = ManipulabilityObjective.DIRECTIONAL_FORCE_INDIRECT
 OPTIMIZATION_GAIN = 5000.0
 MAXIMUM_OPTIMIZATION_JOINT_SPEED = 5
 FINITE_DIFFERENCE_STEP = 1e-4

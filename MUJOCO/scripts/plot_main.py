@@ -1,8 +1,7 @@
 """Plot six-case Equation (8) optimization comparisons from one batch.
 
-The default command creates four figures for each of the static, ordinary
-pick/place, and 6D pick/place stages. Each figure has six subplots (one per
-position or pose) and draws the matching baseline trace behind the optimized
+The default command creates one combined three-objective figure for each
+stage. Each comparison draws the matching baseline trace behind the optimized
 trace::
 
     .venv/bin/python -m MUJOCO.scripts.plot_main
@@ -47,10 +46,19 @@ TORQUE_COLUMNS = tuple(
     for arm in ("l", "r")
     for joint in range(1, 8)
 )
-POSITION_COMPONENTS = (
-    ("x", "World x position (m)"),
-    ("y", "World y position (m)"),
-    ("z", "World z position (m)"),
+TRACKING_ERROR_PLOTS = (
+    (
+        "position_error_norm",
+        1000.0,
+        "Position error (mm)",
+        "05_position_error_six_cases",
+    ),
+    (
+        "orientation_error_norm",
+        180.0 / np.pi,
+        "Orientation error (deg)",
+        "06_orientation_error_six_cases",
+    ),
 )
 CASE_PATTERN = re.compile(r"^(?:position|pose)_(\d+)$")
 
@@ -59,12 +67,10 @@ CASE_PATTERN = re.compile(r"^(?:position|pose)_(\d+)$")
 class OptimizationPlot:
     mode: str
     label: str
-    title: str
     raw_column: str
     scaled_column: str
     raw_ylabel: str
     scaled_ylabel: str
-    direction: str
     filename: str
 
     def column(self, metric_scale):
@@ -82,43 +88,31 @@ OPTIMIZATION_PLOTS = (
     OptimizationPlot(
         mode="velocity",
         label="Velocity optimization",
-        title="Velocity manipulability",
         raw_column="velocity_manipulability_raw",
         scaled_column="velocity_manipulability_scaled",
-        raw_ylabel="Raw velocity manipulability",
+        raw_ylabel="Velocity manipulability",
         scaled_ylabel="Scaled velocity manipulability",
-        direction="higher is better",
         filename="01_velocity_optimization_six_cases",
     ),
     OptimizationPlot(
         mode="force",
         label="Force optimization",
-        title="Force manipulability",
         raw_column="force_manipulability_raw",
         scaled_column="force_manipulability_scaled",
-        raw_ylabel="Raw force manipulability",
+        raw_ylabel="Force manipulability",
         scaled_ylabel="Scaled force manipulability",
-        direction="higher is better",
         filename="02_force_optimization_six_cases",
     ),
     OptimizationPlot(
         mode="directional_force",
         label="Directional-force optimization",
-        title="Directional-force cost",
         raw_column="directional_force_cost_raw",
         scaled_column="directional_force_cost_scaled",
-        raw_ylabel="Raw directional-force cost",
-        scaled_ylabel="Scaled directional-force cost",
-        direction="lower is better",
+        raw_ylabel="Directional-Force Manipulability",
+        scaled_ylabel="Scaled Directional-Force Manipulability",
         filename="03_directional_force_optimization_six_cases",
     ),
 )
-
-STAGE_LABELS = {
-    "static": "Static",
-    "pick_place": "Pick-and-Place",
-    "6d_pick_place": "6D Pick-and-Place",
-}
 
 
 def parse_arguments(argv=None):
@@ -230,11 +224,8 @@ def required_columns():
     return (
         "time",
         *TORQUE_COLUMNS,
-        *(
-            f"{prefix}_{component}"
-            for prefix in ("desired", "object")
-            for component, _ in POSITION_COMPONENTS
-        ),
+        "position_error_norm",
+        "orientation_error_norm",
         *(
             column
             for specification in OPTIMIZATION_PLOTS
@@ -314,8 +305,8 @@ def plot_optimization_grid(
     """Plot one objective across six cases with baseline behind each trace."""
     column = specification.column(metric_scale)
     figure, axes = plt.subplots(
-        2,
-        3,
+        1,
+        6,
         figsize=style.SIX_PANEL_SIZE,
         sharex=True,
         sharey=True,
@@ -326,11 +317,13 @@ def plot_optimization_grid(
         optimized = runs[specification.mode]
         baseline_time = baseline["time"].to_numpy(dtype=float)
         baseline_values = baseline[column].to_numpy(dtype=float)
+        optimized_time = optimized["time"].to_numpy(dtype=float)
+        optimized_values = optimized[column].to_numpy(dtype=float)
         if stage == "static":
             baseline_time, baseline_values = extend_final_value(
                 baseline_time,
                 baseline_values,
-                optimized["time"].iloc[-1],
+                optimized_time[-1],
             )
         sns.lineplot(
             x=baseline_time,
@@ -342,9 +335,8 @@ def plot_optimization_grid(
             **style.baseline_line_kwargs(),
         )
         sns.lineplot(
-            data=optimized,
-            x="time",
-            y=column,
+            x=optimized_time,
+            y=optimized_values,
             estimator=None,
             sort=False,
             legend=False,
@@ -355,13 +347,9 @@ def plot_optimization_grid(
         axis.set_xlabel("")
         axis.set_ylabel("")
 
-    figure.suptitle(
-        f"{STAGE_LABELS[stage]} — {specification.title} "
-        f"({specification.direction})"
-    )
-    figure.supxlabel("Simulation time (s)")
-    figure.supylabel(specification.ylabel(metric_scale))
-    style.finish_six_panel_figure(
+    figure.supxlabel("Simulation time (s)", y=0.005)
+    figure.supylabel(specification.ylabel(metric_scale), x=0.025)
+    style.finish_six_panel_row_figure(
         figure,
         axes,
         mode=specification.mode,
@@ -394,6 +382,90 @@ def plot_directional_force_optimization(stage_runs, **kwargs):
     )
 
 
+def plot_combined_optimization_grid(
+    stage_runs,
+    *,
+    stage,
+    metric_scale,
+    style,
+):
+    """Plot all three objectives as rows across the six comparison cases."""
+    figure, axes = plt.subplots(
+        3,
+        6,
+        figsize=style.THREE_BY_SIX_SIZE,
+        sharex=False if stage == "static" else "col",
+        sharey="row",
+    )
+
+    for row, specification in enumerate(OPTIMIZATION_PLOTS):
+        column = specification.column(metric_scale)
+        for axis, (case_name, runs) in zip(
+            axes[row],
+            stage_runs.items(),
+        ):
+            baseline = runs["baseline"]
+            optimized = runs[specification.mode]
+            baseline_time = baseline["time"].to_numpy(dtype=float)
+            baseline_values = baseline[column].to_numpy(dtype=float)
+            optimized_time = optimized["time"].to_numpy(dtype=float)
+            optimized_values = optimized[column].to_numpy(dtype=float)
+            if stage == "static":
+                baseline_time, baseline_values = extend_final_value(
+                    baseline_time,
+                    baseline_values,
+                    optimized_time[-1],
+                )
+            sns.lineplot(
+                x=baseline_time,
+                y=baseline_values,
+                estimator=None,
+                sort=False,
+                legend=False,
+                ax=axis,
+                **style.baseline_line_kwargs(),
+            )
+            sns.lineplot(
+                x=optimized_time,
+                y=optimized_values,
+                estimator=None,
+                sort=False,
+                legend=False,
+                ax=axis,
+                **style.optimized_line_kwargs(specification.mode),
+            )
+            axis.set_xlabel("")
+            axis.set_ylabel("")
+            if row == 0:
+                axis.set_title(subplot_title(case_name))
+        metric_label = {
+            "velocity": "Velocity\nmanipulability",
+            "force": "Force\nmanipulability",
+            "directional_force": "Directional-Force\nManipulability",
+        }[specification.mode]
+        row_label = (
+            f"{metric_label}\n(scaled)"
+            if metric_scale == "scaled"
+            else metric_label
+        )
+        axes[row, 0].set_ylabel(
+            row_label,
+            rotation=90,
+            ha="center",
+            va="center",
+            labelpad=14,
+        )
+
+    figure.supxlabel("Simulation time (s)", y=0.005)
+    figure.align_ylabels(axes[:, 0])
+    style.finish_all_modes_six_panel_figure(
+        figure,
+        axes,
+        mode_labels=MODE_LABELS,
+    )
+    return figure
+
+
 def actuator_effort(run):
     """Return sqrt(tau tau^T), the combined norm of all 14 actuator torques."""
     torque = run.loc[:, TORQUE_COLUMNS].to_numpy(dtype=float)
@@ -405,7 +477,7 @@ def plot_actuator_effort(stage_runs, *, stage, style):
     figure, axes = plt.subplots(
         2,
         3,
-        figsize=style.SIX_PANEL_SIZE,
+        figsize=style.SIX_PANEL_GRID_SIZE,
         sharex=False,
         sharey=False,
     )
@@ -442,11 +514,8 @@ def plot_actuator_effort(stage_runs, *, stage, style):
         axis.set_xlabel("")
         axis.set_ylabel("")
 
-    figure.suptitle(f"{STAGE_LABELS[stage]} — Actuator torque effort")
-    figure.supxlabel("Simulation time (s)")
-    figure.supylabel(
-        r"Actuator effort $\sqrt{\tau\tau^\mathsf{T}}=\|\tau\|_2$ (N m)"
-    )
+    figure.supxlabel("Simulation time (s)", y=0.005)
+    figure.supylabel("Actuator effort, L2 norm (N m)", x=0.025)
     style.finish_all_modes_six_panel_figure(
         figure,
         axes,
@@ -455,30 +524,24 @@ def plot_actuator_effort(stage_runs, *, stage, style):
     return figure
 
 
-def plot_object_position_tracking(stage_runs, *, component, ylabel, style):
-    """Plot commanded and measured 6D object position for all six poses."""
-    desired_column = f"desired_{component}"
-    measured_column = f"object_{component}"
+def plot_tracking_error(
+    stage_runs,
+    *,
+    error_column,
+    scale,
+    ylabel,
+    style,
+):
+    """Plot one object-pose tracking error norm for all modes and poses."""
     figure, axes = plt.subplots(
-        2,
-        3,
+        1,
+        6,
         figsize=style.SIX_PANEL_SIZE,
         sharex=True,
         sharey=True,
     )
 
     for axis, (case_name, runs) in zip(axes.flat, stage_runs.items()):
-        command = runs["baseline"]
-        sns.lineplot(
-            data=command,
-            x="time",
-            y=desired_column,
-            estimator=None,
-            sort=False,
-            legend=False,
-            ax=axis,
-            **style.command_line_kwargs(),
-        )
         for mode in MODES:
             run = runs[mode]
             line_kwargs = (
@@ -487,9 +550,8 @@ def plot_object_position_tracking(stage_runs, *, component, ylabel, style):
                 else style.optimized_line_kwargs(mode)
             )
             sns.lineplot(
-                data=run,
-                x="time",
-                y=measured_column,
+                x=run["time"],
+                y=scale * run[error_column],
                 estimator=None,
                 sort=False,
                 legend=False,
@@ -500,12 +562,10 @@ def plot_object_position_tracking(stage_runs, *, component, ylabel, style):
         axis.set_xlabel("")
         axis.set_ylabel("")
 
-    figure.suptitle(
-        f"6D Pick-and-Place — Object {component}-position tracking"
-    )
-    figure.supxlabel("Simulation time (s)")
-    figure.supylabel(ylabel)
-    style.finish_tracking_six_panel_figure(
+    axes.flat[0].set_ylim(bottom=0.0)
+    figure.supxlabel("Simulation time (s)", y=0.005)
+    figure.supylabel(ylabel, x=0.025)
+    style.finish_all_modes_six_panel_row_figure(
         figure,
         axes,
         mode_labels=MODE_LABELS,
@@ -522,76 +582,22 @@ def generate_stage_figures(
     output_format,
     style,
 ):
-    """Create and save the three initial six-panel figures for one stage."""
+    """Create and save only the combined three-by-six figure for one stage."""
     stage_runs = load_stage_runs(batch_dir, stage)
-    output_dir = Path(output_root) / stage / "optimization_overlays"
-    plotting_functions = (
-        plot_velocity_optimization,
-        plot_force_optimization,
-        plot_directional_force_optimization,
-    )
-    written = []
-    figures = []
-    for specification, plotting_function in zip(
-        OPTIMIZATION_PLOTS,
-        plotting_functions,
-    ):
-        figure = plotting_function(
-            stage_runs,
-            stage=stage,
-            metric_scale=metric_scale,
-            style=style,
-        )
-        figures.append(figure)
-        written.extend(
-            style.save(
-                figure,
-                output_dir,
-                specification.filename,
-                output_format,
-            )
-        )
-
-    effort_figure = plot_actuator_effort(
+    output_dir = Path(output_root) / "combined_plots"
+    combined_figure = plot_combined_optimization_grid(
         stage_runs,
         stage=stage,
+        metric_scale=metric_scale,
         style=style,
     )
-    figures.append(effort_figure)
-    written.extend(
-        style.save(
-            effort_figure,
-            output_dir,
-            "04_actuator_effort_six_cases",
-            output_format,
-        )
+    written = style.save(
+        combined_figure,
+        output_dir,
+        f"{stage}_combined_optimization_three_by_six",
+        output_format,
     )
-
-    if stage == "6d_pick_place":
-        tracking_output_dir = Path(output_root) / stage / "object_tracking"
-        for index, (component, ylabel) in enumerate(
-            POSITION_COMPONENTS,
-            start=5,
-        ):
-            tracking_figure = plot_object_position_tracking(
-                stage_runs,
-                component=component,
-                ylabel=ylabel,
-                style=style,
-            )
-            figures.append(tracking_figure)
-            written.extend(
-                style.save(
-                    tracking_figure,
-                    tracking_output_dir,
-                    (
-                        f"{index:02d}_object_{component}_position_"
-                        "tracking_six_cases"
-                    ),
-                    output_format,
-                )
-            )
-    return tuple(figures), tuple(written)
+    return (combined_figure,), tuple(written)
 
 
 def main(argv=None):

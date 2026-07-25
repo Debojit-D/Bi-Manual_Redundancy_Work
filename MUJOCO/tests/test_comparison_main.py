@@ -9,9 +9,40 @@ import unittest
 from unittest.mock import patch
 
 from MUJOCO.scripts import comparison_main
+from MUJOCO.scripts import add_directional_force_indirect_to_batch as addon
 
 
 class ComparisonMainTests(unittest.TestCase):
+    def test_indirect_addon_builds_only_the_new_mode(self):
+        arguments = addon.parse_arguments(
+            [
+                "--dry-run",
+                "--video-encoder",
+                "x264",
+                "--workers",
+                "1",
+            ]
+        )
+        commands = addon.build_stage_commands(arguments, Path("/tmp/batch"))
+
+        self.assertEqual(tuple(name for name, _ in commands), tuple(
+            name for name, _ in comparison_main.STAGES
+        ))
+        for _stage_name, command in commands:
+            mode_index = command.index("--mode")
+            self.assertEqual(
+                command[mode_index + 1],
+                "directional_force_indirect",
+            )
+            self.assertIn("--record-data", command)
+            self.assertIn("--record-video", command)
+
+    def test_indirect_addon_expected_run_count(self):
+        self.assertEqual(
+            addon.expected_run_counts(),
+            {"static": 6, "pick_place": 6, "6d_pick_place": 6},
+        )
+
     def test_default_workers_and_video_settings(self):
         arguments = comparison_main.parse_arguments([])
 
@@ -85,20 +116,38 @@ class ComparisonMainTests(unittest.TestCase):
             {"static": 3, "pick_place": 3, "6d_pick_place": 3},
         )
 
-    def test_all_four_modes_remain_configured(self):
-        module_names = (
-            "dual_franka_eq8_static_comparison",
-            "dual_franka_eq8_pick_place_comparison",
-            "dual_franka_eq8_6d_pick_place_comparison",
-        )
-        for module_name in module_names:
+    def test_comparison_modes_remain_configured(self):
+        expected_modes = {
+            "dual_franka_eq8_static_comparison": (
+                "baseline",
+                "velocity",
+                "force",
+                "directional_force",
+                "directional_force_indirect",
+            ),
+            "dual_franka_eq8_pick_place_comparison": (
+                "baseline",
+                "velocity",
+                "force",
+                "directional_force",
+                "directional_force_indirect",
+            ),
+            "dual_franka_eq8_6d_pick_place_comparison": (
+                "baseline",
+                "velocity",
+                "force",
+                "directional_force",
+                "directional_force_indirect",
+            ),
+        }
+        for module_name, expected in expected_modes.items():
             module = __import__(
                 f"MUJOCO.scripts.{module_name}",
                 fromlist=["EXPERIMENTS"],
             )
             self.assertEqual(
                 tuple(case[0] for case in module.EXPERIMENTS),
-                ("baseline", "velocity", "force", "directional_force"),
+                expected,
             )
 
     def test_pickup_positions_and_camera_settings_are_uniform(self):
@@ -112,9 +161,9 @@ class ComparisonMainTests(unittest.TestCase):
         counts = comparison_main.expected_run_counts()
         self.assertEqual(
             counts,
-            {"static": 24, "pick_place": 24, "6d_pick_place": 24},
+            {"static": 30, "pick_place": 30, "6d_pick_place": 30},
         )
-        self.assertEqual(sum(counts.values()), 72)
+        self.assertEqual(sum(counts.values()), 90)
 
     def test_three_workers_execute_all_stages_concurrently(self):
         commands = tuple((name, (name,)) for name, _ in comparison_main.STAGES)

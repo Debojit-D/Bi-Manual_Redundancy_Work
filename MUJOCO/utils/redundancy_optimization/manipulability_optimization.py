@@ -53,11 +53,12 @@ KNOWN_TABLE_TOP_GEOM_NAMES = (
 
 
 class ManipulabilityObjective(str, Enum):
-    """The three redundancy objectives compared in the paper."""
+    """The supported redundancy objectives."""
 
     VELOCITY = "velocity"
     FORCE = "force"
     DIRECTIONAL_FORCE = "directional_force"
+    DIRECTIONAL_FORCE_INDIRECT = "directional_force_indirect"
 
 
 class CollisionModelVersion(str, Enum):
@@ -83,8 +84,10 @@ class ManipulabilityOptimizer:
     controller objectives remain the original raw quantities. Scaled spatial
     capabilities are retained as diagnostics for CSV analysis only.
 
-    Velocity and force manipulability are maximized.  Directional-force
-    distance is minimized, so its gradient sign is reversed automatically.
+    Velocity and force manipulability are maximized. Direct directional-force
+    distance compares the force-capability matrix with the desired wrench
+    direction and is minimized. Indirect directional-force distance compares
+    the velocity-capability matrix with that direction and is maximized.
     Gradients are evaluated with central joint-space finite differences.
 
     Unsuffixed public objective methods preserve the original raw behavior.
@@ -632,6 +635,26 @@ class ManipulabilityOptimizer:
         """Return raw directional-force distance minimized by the optimizer."""
         return self.directional_force_cost_raw(data)
 
+    def directional_force_indirect_cost_raw(self, data):
+        """Return raw velocity-capability distance maximized by the optimizer."""
+        velocity_raw, _ = self.velocity_capability_matrices(data)
+        return self._normalized_frobenius_distance(
+            velocity_raw,
+            self.desired_force_matrix_raw,
+        )
+
+    def directional_force_indirect_cost_scaled(self, data):
+        """Return scaled velocity-capability directional distance."""
+        _, velocity_scaled = self.velocity_capability_matrices(data)
+        return self._normalized_frobenius_distance(
+            velocity_scaled,
+            self.desired_force_matrix_scaled,
+        )
+
+    def directional_force_indirect_cost(self, data):
+        """Return raw indirect directional-force distance to maximize."""
+        return self.directional_force_indirect_cost_raw(data)
+
     def paper_objective_values(self, data):
         """Return raw and scaled selected paper metrics before collision costs."""
         if self.objective is ManipulabilityObjective.VELOCITY:
@@ -643,6 +666,14 @@ class ManipulabilityOptimizer:
             return (
                 self.force_manipulability_raw(data),
                 self.force_manipulability_scaled(data),
+            )
+        if (
+            self.objective
+            is ManipulabilityObjective.DIRECTIONAL_FORCE_INDIRECT
+        ):
+            return (
+                self.directional_force_indirect_cost_raw(data),
+                self.directional_force_indirect_cost_scaled(data),
             )
         return (
             self.directional_force_cost_raw(data),
@@ -918,6 +949,8 @@ class ManipulabilityOptimizer:
             value = self.velocity_manipulability(data)
         elif selected is ManipulabilityObjective.FORCE:
             value = self.force_manipulability(data)
+        elif selected is ManipulabilityObjective.DIRECTIONAL_FORCE_INDIRECT:
+            value = self.directional_force_indirect_cost(data)
         else:
             # optimization_velocity() reverses this gradient to minimize the
             # directional distance. Adding collision cost here therefore

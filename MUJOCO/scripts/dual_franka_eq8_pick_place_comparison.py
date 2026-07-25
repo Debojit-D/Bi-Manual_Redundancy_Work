@@ -1,16 +1,16 @@
 """Run the simple Equation (8) pick-and-place comparison at six positions.
 
-With sweep option 1 (the default), each configured table position runs four
+With sweep option 1 (the default), each configured table position runs five
 independent MuJoCo scenes sequentially: baseline, velocity manipulability,
-force manipulability, and directional-force manipulability. Sweep option 2
-runs each mode at all six positions before advancing to the next mode. Both
-options produce the same 24 runs. Each scene performs the same lift-and-return
-trajectory and then holds for the configured interval. Close a viewer early to
-advance to the next run.
+force manipulability, directional-force manipulability, and indirect
+directional-force manipulability. Sweep option 2 runs each mode at all six
+positions before advancing to the next mode. Both options produce the same 30
+runs. Each scene performs the same lift-and-return trajectory and then holds
+for the configured interval. Close a viewer early to advance to the next run.
 
 Run from the repository root with the project virtual environment::
 
-    # Option 1: run all four modes at each position.
+    # Option 1: run all five modes at each position.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison \
         --sweep-option 1
 
@@ -82,13 +82,29 @@ EXPERIMENTS = (
     ("velocity", ManipulabilityObjective.VELOCITY, True),
     ("force", ManipulabilityObjective.FORCE, True),
     ("directional_force", ManipulabilityObjective.DIRECTIONAL_FORCE, True),
+    (
+        "directional_force_indirect",
+        ManipulabilityObjective.DIRECTIONAL_FORCE_INDIRECT,
+        True,
+    ),
 )
+EXPERIMENT_MODES = ("all",) + tuple(case[0] for case in EXPERIMENTS)
 DEFAULT_VIDEO_ROOT = (
     Path(__file__).resolve().parents[2] / "outputs" / "mujoco_videos"
 )
 DEFAULT_DATA_ROOT = (
     Path(__file__).resolve().parents[2] / "outputs" / "mujoco_data"
 )
+
+
+def experiments_for_mode(mode):
+    """Return all comparison modes or one explicitly selected mode."""
+    if mode == "all":
+        return EXPERIMENTS
+    selected = tuple(case for case in EXPERIMENTS if case[0] == mode)
+    if not selected:
+        raise ValueError(f"mode must be one of {EXPERIMENT_MODES}")
+    return selected
 
 
 def parse_arguments():
@@ -102,9 +118,15 @@ def parse_arguments():
         choices=SWEEP_OPTIONS,
         default=1,
         help=(
-            "run order: 1 = four modes at each position; "
+            "run order: 1 = five modes at each position; "
             "2 = all six positions for each mode (default: %(default)s)"
         ),
+    )
+    parser.add_argument(
+        "--mode",
+        choices=EXPERIMENT_MODES,
+        default="all",
+        help="run all optimization modes or one selected mode",
     )
     parser.add_argument(
         "--hold-duration",
@@ -216,6 +238,7 @@ def validate_arguments(arguments):
 def main():
     arguments = parse_arguments()
     validate_arguments(arguments)
+    selected_experiments = experiments_for_mode(arguments.mode)
     selected_video_views = video_views_for_choice(arguments.video_view)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -237,16 +260,18 @@ def main():
         data_run_dir.mkdir(parents=True, exist_ok=False)
         print(f"Comparison CSV output: {data_run_dir}")
 
-    total_runs = len(TABLE_SPAWN_CASES) * len(EXPERIMENTS)
+    total_runs = len(TABLE_SPAWN_CASES) * len(selected_experiments)
     print(
         "Equation (8) pick-and-place comparison: "
-        f"{len(TABLE_SPAWN_CASES)} positions x {len(EXPERIMENTS)} modes "
+        f"{len(TABLE_SPAWN_CASES)} positions x "
+        f"{len(selected_experiments)} mode(s) "
         f"= {total_runs} runs"
     )
     print(
         f"Sweep option {arguments.sweep_option}: "
         + (
-            "position-first (four modes at each position)."
+            "position-first "
+            f"({len(selected_experiments)} mode(s) at each position)."
             if arguments.sweep_option == 1
             else "optimization-first (all positions for each mode)."
         )
@@ -261,7 +286,7 @@ def main():
         print("Close a viewer early to advance immediately to the next run.")
     run_cases = ordered_comparison_cases(
         TABLE_SPAWN_CASES,
-        EXPERIMENTS,
+        selected_experiments,
         arguments.sweep_option,
     )
     failed_runs = []

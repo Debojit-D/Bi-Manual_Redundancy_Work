@@ -7,7 +7,7 @@ entries without editing the table.
 
 Run from the repository root with the project virtual environment::
 
-    # Option 1: run all four modes at each configured 6D trajectory.
+    # Option 1: run all five modes at each configured 6D trajectory.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
         --sweep-option 1
 
@@ -15,7 +15,7 @@ Run from the repository root with the project virtual environment::
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
         --sweep-option 2
 
-    # Run pose 1 (its complete position/orientation path) in all four modes.
+    # Run pose 1 (its complete position/orientation path) in all five modes.
     .venv/bin/python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison \\
         --pose 1
 
@@ -119,6 +119,11 @@ EXPERIMENTS = (
     ("velocity", ManipulabilityObjective.VELOCITY, True),
     ("force", ManipulabilityObjective.FORCE, True),
     ("directional_force", ManipulabilityObjective.DIRECTIONAL_FORCE, True),
+    (
+        "directional_force_indirect",
+        ManipulabilityObjective.DIRECTIONAL_FORCE_INDIRECT,
+        True,
+    ),
 )
 EXPERIMENT_MODES = ("all",) + tuple(case[0] for case in EXPERIMENTS)
 DEFAULT_VIDEO_ROOT = (
@@ -150,7 +155,7 @@ def parse_arguments():
         choices=SWEEP_OPTIONS,
         default=1,
         help=(
-            "run order: 1 = four modes at each 6D pose path; "
+            "run order: 1 = five modes at each 6D pose path; "
             "2 = all 6D pose paths for each mode (default: %(default)s)"
         ),
     )

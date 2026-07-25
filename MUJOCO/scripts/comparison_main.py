@@ -10,10 +10,10 @@ By default the three stages run concurrently in separate processes. Every
 individual simulation and its optimization loop remain sequential. Use
 ``--workers 1`` to reproduce the former stage-by-stage execution.
 
-Every stage runs baseline, velocity, force, and directional-force modes,
-records the CSV data, and records perspective, top, and front MP4 files. By
-default all six shared pickup positions/poses are processed, producing 72
-runs when all six 6D paths are complete.
+Every stage runs baseline, velocity, force, directional-force, and indirect
+directional-force modes, records the CSV data, and records perspective, top,
+and front MP4 files. By default all six shared pickup positions/poses are
+processed, producing 90 runs when all six 6D paths are complete.
 
 Run from the repository root::
 
@@ -72,6 +72,7 @@ OPTIMIZATION_MODES = (
     "velocity",
     "force",
     "directional_force",
+    "directional_force_indirect",
 )
 DEFAULT_OUTPUT_ROOT = (
     Path(__file__).resolve().parents[2]
@@ -225,11 +226,10 @@ def expected_run_counts():
         all(component is not None for component in case[1:])
         for case in SIX_D_TRAJECTORY_CASES
     )
-    mode_count = len(OPTIMIZATION_MODES)
     return {
-        "static": len(TABLE_SPAWN_CASES) * mode_count,
-        "pick_place": len(TABLE_SPAWN_CASES) * mode_count,
-        "6d_pick_place": complete_6d_cases * mode_count,
+        "static": len(TABLE_SPAWN_CASES) * len(OPTIMIZATION_MODES),
+        "pick_place": len(TABLE_SPAWN_CASES) * len(OPTIMIZATION_MODES),
+        "6d_pick_place": complete_6d_cases * len(OPTIMIZATION_MODES),
     }
 
 
@@ -514,7 +514,8 @@ def main(argv=None):
     if show_audit:
         print(
             "Modes per position/pose: "
-            "baseline, velocity, force, directional_force"
+            "baseline, velocity, force, directional_force, "
+            "directional_force_indirect"
         )
         print(f"Shared pickup positions verified: {len(pickup_positions)}")
         print(

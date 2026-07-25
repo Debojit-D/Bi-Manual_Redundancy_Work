@@ -7,6 +7,12 @@ from MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison import (
     resolve_trajectory_cases,
     video_views_for_choice,
 )
+from MUJOCO.scripts.dual_franka_eq8_pick_place_comparison import (
+    experiments_for_mode as pick_place_experiments_for_mode,
+)
+from MUJOCO.scripts.dual_franka_eq8_static_comparison import (
+    experiments_for_mode as static_experiments_for_mode,
+)
 from MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place import (
     resolve_cli_trajectory,
 )
@@ -73,7 +79,17 @@ class ComparisonSweepOrderTests(unittest.TestCase):
         selected = experiments_for_mode("velocity")
         self.assertEqual(len(selected), 1)
         self.assertEqual(selected[0][0], "velocity")
+        indirect = experiments_for_mode("directional_force_indirect")
+        self.assertEqual(len(indirect), 1)
+        self.assertEqual(indirect[0][0], "directional_force_indirect")
         self.assertEqual(experiments_for_mode("all"), EXPERIMENTS)
+        for selector in (
+            static_experiments_for_mode,
+            pick_place_experiments_for_mode,
+        ):
+            selected = selector("directional_force_indirect")
+            self.assertEqual(len(selected), 1)
+            self.assertEqual(selected[0][0], "directional_force_indirect")
 
     def test_single_perspective_video_view_selection(self):
         self.assertEqual(
