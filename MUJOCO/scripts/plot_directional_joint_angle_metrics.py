@@ -1,11 +1,9 @@
-"""Summarize direct-versus-indirect joint trajectory differences.
+"""Plot final static joint-configuration differences.
 
-For each joint, the comparison metric is the time-aligned trajectory RMSE
-
-    RMSE_j = sqrt((1 / T) integral (q_direct_j(t)-q_indirect_j(t))^2 dt).
-
-The shorter run's final joint configuration is held through the longer run's
-end time. Each combined-arm value is the RMS of its seven joint RMSE values.
+For each of the six static cases, this script computes the Euclidean distance
+between the final seven-joint configurations produced by the direct and
+indirect directional-force optimizations. It writes one CSV and the matching
+PNG/PDF bar chart to ``<batch_dir>/plots/directional_joint_angles``.
 """
 
 import argparse
@@ -17,24 +15,19 @@ import pandas as pd
 import seaborn as sns
 
 from MUJOCO.plotting_scripts.equation8_plot_style import Equation8PlotStyle
-from MUJOCO.scripts.plot_directional_joint_angle_comparison import (
-    JOINT_COLUMNS,
-    load_stage_runs,
+from MUJOCO.scripts.plot_main import (
+    DEFAULT_BATCH_DIR,
+    case_directories,
+    discover_stage_run_directories,
 )
-from MUJOCO.scripts.plot_main import DEFAULT_BATCH_DIR, STAGES
 from MUJOCO.utils.cli import run_cli
 
 
-STAGE_LABELS = {
-    "static": "Static",
-    "pick_place": "Pick-and-place",
-    "6d_pick_place": "6D pick-and-place",
-}
-DISPLAY_COLUMNS = (
-    *(rf"$q_{{L{joint}}}$" for joint in range(1, 8)),
-    "Left arm\ncombined",
-    *(rf"$q_{{R{joint}}}$" for joint in range(1, 8)),
-    "Right arm\ncombined",
+MODES = ("directional_force", "directional_force_indirect")
+JOINT_COLUMNS = tuple(
+    f"q_{arm}{joint}"
+    for arm in ("l", "r")
+    for joint in range(1, 8)
 )
 
 
@@ -78,141 +71,58 @@ def parse_arguments(argv=None):
     return arguments
 
 
-def trajectory_rmse(direct, indirect, joint_column):
-    """Return time-weighted RMSE after aligning two recorded trajectories."""
-    direct_time = direct["time"].to_numpy(dtype=float)
-    indirect_time = indirect["time"].to_numpy(dtype=float)
-    if np.any(np.diff(direct_time) <= 0.0):
-        raise ValueError("Direct-run timestamps must be strictly increasing")
-    if np.any(np.diff(indirect_time) <= 0.0):
-        raise ValueError("Indirect-run timestamps must be strictly increasing")
-
-    common_time = np.union1d(direct_time, indirect_time)
-    duration = float(common_time[-1] - common_time[0])
-    if duration <= 0.0:
-        raise ValueError("Joint trajectories must span a positive duration")
-    direct_values = np.interp(
-        common_time,
-        direct_time,
-        direct[joint_column].to_numpy(dtype=float),
-    )
-    indirect_values = np.interp(
-        common_time,
-        indirect_time,
-        indirect[joint_column].to_numpy(dtype=float),
-    )
-    squared_difference = (direct_values - indirect_values) ** 2
-    mean_squared_difference = (
-        np.trapezoid(squared_difference, common_time) / duration
-    )
-    return float(np.sqrt(mean_squared_difference))
+def load_joint_angle_csv(path):
+    """Load and validate time plus all fourteen recorded arm angles."""
+    required = ("time", *JOINT_COLUMNS)
+    frame = pd.read_csv(path, usecols=lambda column: column in required)
+    missing = set(required) - set(frame.columns)
+    if missing:
+        raise ValueError(f"Missing columns {sorted(missing)} in: {path}")
+    if frame.empty:
+        raise ValueError(f"CSV contains no samples: {path}")
+    if not np.all(np.isfinite(frame.to_numpy(dtype=float))):
+        raise ValueError(f"CSV contains non-finite joint-angle data: {path}")
+    return frame
 
 
-def calculate_metrics(batch_dir):
-    """Return one row of per-joint and combined-arm metrics per case."""
-    rows = []
-    row_labels = []
-    records = []
-    for stage in STAGES:
-        stage_runs = load_stage_runs(batch_dir, stage)
-        for case_number, (case_name, modes) in enumerate(
-            stage_runs.items(),
-            start=1,
-        ):
-            direct = modes["directional_force"]
-            indirect = modes["directional_force_indirect"]
-            joint_values = np.array(
-                [
-                    trajectory_rmse(direct, indirect, joint_column)
-                    for joint_column in JOINT_COLUMNS
-                ]
-            )
-            left_combined = float(np.sqrt(np.mean(joint_values[:7] ** 2)))
-            right_combined = float(np.sqrt(np.mean(joint_values[7:] ** 2)))
-            display_values = np.concatenate(
-                (
-                    joint_values[:7],
-                    [left_combined],
-                    joint_values[7:],
-                    [right_combined],
-                )
-            )
-            rows.append(display_values)
-            case_label = "Pose" if case_name.startswith("pose_") else "Position"
-            row_labels.append(
-                f"{STAGE_LABELS[stage]} — {case_label} {case_number}"
-            )
-            record = {
-                "stage": stage,
-                "case": case_name,
-                **dict(zip(JOINT_COLUMNS, joint_values)),
-                "left_arm_combined_rmse": left_combined,
-                "right_arm_combined_rmse": right_combined,
-            }
-            records.append(record)
-
-    heatmap_frame = pd.DataFrame(
-        np.asarray(rows),
-        index=row_labels,
-        columns=DISPLAY_COLUMNS,
-    )
-    metrics_frame = pd.DataFrame.from_records(records)
-    return heatmap_frame, metrics_frame
-
-
-def plot_metric_heatmap(metrics):
-    """Create one annotated heatmap for all stages, cases, and joints."""
-    figure, axis = plt.subplots(figsize=(13.0, 8.2))
-    sns.heatmap(
-        metrics,
-        ax=axis,
-        cmap="mako",
-        vmin=0.0,
-        annot=True,
-        fmt=".2f",
-        linewidths=0.35,
-        linecolor="white",
-        cbar_kws={
-            "label": "Direct–indirect trajectory RMSE (rad)",
-            "shrink": 0.86,
+def load_static_runs(batch_dir):
+    """Load the direct and indirect directional-force runs for each case."""
+    run_directories = discover_stage_run_directories(batch_dir, "static")
+    case_names = sorted(
+        {
+            case_directory.name
+            for run_directory in run_directories
+            for case_directory in case_directories(run_directory)
         },
-        annot_kws={"fontsize": 7.0},
+        key=lambda name: int(name.rsplit("_", maxsplit=1)[-1]),
     )
-    axis.set_title(
-        "Joint-angle differences: direct vs indirect directional-force "
-        "optimization",
-        pad=14,
-    )
-    axis.set_xlabel("")
-    axis.set_ylabel("")
-    axis.tick_params(axis="x", rotation=0)
-    axis.tick_params(axis="y", rotation=0)
+    if len(case_names) != 6:
+        raise ValueError(
+            f"Expected six cases across {run_directories}, "
+            f"found {len(case_names)}"
+        )
 
-    for boundary in (6, 12):
-        axis.axhline(boundary, color="#212529", linewidth=1.6)
-    for boundary in (7, 8, 15):
-        axis.axvline(boundary, color="#212529", linewidth=1.25)
-
-    for index, tick_label in enumerate(axis.get_xticklabels()):
-        if index in (7, 15):
-            tick_label.set_fontweight("bold")
-
-    figure.text(
-        0.5,
-        0.012,
-        "Per-joint time-aligned RMSE; combined columns are the RMS across "
-        "the seven joints of that arm.",
-        ha="center",
-        va="bottom",
-        fontsize=9,
-    )
-    figure.tight_layout(rect=(0.0, 0.035, 1.0, 1.0))
-    return figure
+    loaded = {}
+    for case_name in case_names:
+        loaded[case_name] = {}
+        for mode in MODES:
+            matches = tuple(
+                run_directory / case_name / f"{mode}.csv"
+                for run_directory in run_directories
+                if (run_directory / case_name / f"{mode}.csv").is_file()
+            )
+            if len(matches) != 1:
+                raise ValueError(
+                    f"Expected one {mode!r} CSV for {case_name}; "
+                    f"found {matches}"
+                )
+            loaded[case_name][mode] = load_joint_angle_csv(matches[0])
+    return loaded
 
 
 def calculate_static_final_configuration_metrics(batch_dir):
-    """Return final direct–indirect seven-joint distances for both arms."""
-    stage_runs = load_stage_runs(batch_dir, "static")
+    """Return final direct-indirect seven-joint distances for both arms."""
+    stage_runs = load_static_runs(batch_dir)
     records = []
     for case_name, modes in stage_runs.items():
         direct_final = modes["directional_force"].iloc[-1]
@@ -315,44 +225,27 @@ def main(argv=None):
 
     style = Equation8PlotStyle(dpi=arguments.dpi)
     style.apply()
-    heatmap_metrics, tabular_metrics = calculate_metrics(batch_dir)
-    figure = plot_metric_heatmap(heatmap_metrics)
+    metrics = calculate_static_final_configuration_metrics(batch_dir)
+    figure = plot_static_final_configuration_metrics(metrics)
     written = list(
         style.save(
             figure,
-            output_dir,
-            "directional_joint_angle_rmse_summary",
-            arguments.format,
-        )
-    )
-    csv_path = output_dir / "directional_joint_angle_rmse_summary.csv"
-    tabular_metrics.to_csv(csv_path, index=False)
-    written.append(csv_path)
-
-    final_metrics = calculate_static_final_configuration_metrics(batch_dir)
-    final_figure = plot_static_final_configuration_metrics(final_metrics)
-    written.extend(
-        style.save(
-            final_figure,
             output_dir,
             "static_final_arm_configuration_difference",
             arguments.format,
         )
     )
-    final_csv_path = (
-        output_dir / "static_final_arm_configuration_difference.csv"
-    )
-    final_metrics.to_csv(final_csv_path, index=False)
-    written.append(final_csv_path)
+    csv_path = output_dir / "static_final_arm_configuration_difference.csv"
+    metrics.to_csv(csv_path, index=False)
+    written.append(csv_path)
 
-    print(f"Saved {len(written)} joint-angle metric files to: {output_dir}")
+    print(f"Saved {len(written)} static joint-angle metric files to: {output_dir}")
     for path in written:
         print(f"  {path}")
     if arguments.show:
         plt.show()
     else:
         plt.close(figure)
-        plt.close(final_figure)
     return tuple(written)
 
 
