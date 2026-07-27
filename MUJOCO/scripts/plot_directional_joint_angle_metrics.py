@@ -1,9 +1,9 @@
-"""Plot final static joint-configuration differences.
+"""Plot final joint-configuration differences for static and 6D runs.
 
-For each of the six static cases, this script computes the Euclidean distance
-between the final seven-joint configurations produced by the direct and
-indirect directional-force optimizations. It writes one CSV and the matching
-PNG/PDF bar chart to ``<batch_dir>/plots/directional_joint_angles``.
+For each case, this script computes the Euclidean distance between the final
+seven-joint configurations produced by the direct and indirect directional-
+force optimizations. It writes CSV and matching PNG/PDF bar charts to
+``<batch_dir>/plots/directional_joint_angles``.
 """
 
 import argparse
@@ -24,6 +24,15 @@ from MUJOCO.utils.cli import run_cli
 
 
 MODES = ("directional_force", "directional_force_indirect")
+FINAL_CONFIGURATION_STAGES = ("static", "6d_pick_place")
+STAGE_LABELS = {
+    "static": "Static",
+    "6d_pick_place": "6D pick-and-place",
+}
+STAGE_XLABELS = {
+    "static": "Static table position",
+    "6d_pick_place": "6D trajectory pose",
+}
 JOINT_COLUMNS = tuple(
     f"q_{arm}{joint}"
     for arm in ("l", "r")
@@ -85,9 +94,9 @@ def load_joint_angle_csv(path):
     return frame
 
 
-def load_static_runs(batch_dir):
+def load_stage_runs(batch_dir, stage):
     """Load the direct and indirect directional-force runs for each case."""
-    run_directories = discover_stage_run_directories(batch_dir, "static")
+    run_directories = discover_stage_run_directories(batch_dir, stage)
     case_names = sorted(
         {
             case_directory.name
@@ -120,9 +129,9 @@ def load_static_runs(batch_dir):
     return loaded
 
 
-def calculate_static_final_configuration_metrics(batch_dir):
+def calculate_final_configuration_metrics(batch_dir, stage):
     """Return final direct-indirect seven-joint distances for both arms."""
-    stage_runs = load_static_runs(batch_dir)
+    stage_runs = load_stage_runs(batch_dir, stage)
     records = []
     for case_name, modes in stage_runs.items():
         direct_final = modes["directional_force"].iloc[-1]
@@ -159,8 +168,8 @@ def calculate_static_final_configuration_metrics(batch_dir):
     return pd.DataFrame.from_records(records)
 
 
-def plot_static_final_configuration_metrics(metrics):
-    """Plot one final-configuration distance per arm and static position."""
+def plot_final_configuration_metrics(metrics, *, stage):
+    """Plot one final-configuration distance per arm and stage case."""
     figure, axis = plt.subplots(figsize=(7.16, 3.8))
     positions = np.arange(1, len(metrics) + 1)
     width = 0.36
@@ -187,9 +196,10 @@ def plot_static_final_configuration_metrics(metrics):
     axis.bar_label(left_bars, fmt="%.2f", padding=2, fontsize=8)
     axis.bar_label(right_bars, fmt="%.2f", padding=2, fontsize=8)
     axis.set_title(
-        "Static final joint-configuration difference: direct vs indirect"
+        f"{STAGE_LABELS[stage]} final joint-configuration difference: "
+        "direct vs indirect"
     )
-    axis.set_xlabel("Static table position")
+    axis.set_xlabel(STAGE_XLABELS[stage])
     axis.set_ylabel(r"Final configuration distance $\|\Delta q\|_2$ (rad)")
     axis.set_xticks(positions)
     axis.set_ylim(
@@ -225,27 +235,33 @@ def main(argv=None):
 
     style = Equation8PlotStyle(dpi=arguments.dpi)
     style.apply()
-    metrics = calculate_static_final_configuration_metrics(batch_dir)
-    figure = plot_static_final_configuration_metrics(metrics)
-    written = list(
-        style.save(
-            figure,
-            output_dir,
-            "static_final_arm_configuration_difference",
-            arguments.format,
+    figures = []
+    written = []
+    for stage in FINAL_CONFIGURATION_STAGES:
+        metrics = calculate_final_configuration_metrics(batch_dir, stage)
+        figure = plot_final_configuration_metrics(metrics, stage=stage)
+        figures.append(figure)
+        stem = f"{stage}_final_arm_configuration_difference"
+        written.extend(
+            style.save(
+                figure,
+                output_dir,
+                stem,
+                arguments.format,
+            )
         )
-    )
-    csv_path = output_dir / "static_final_arm_configuration_difference.csv"
-    metrics.to_csv(csv_path, index=False)
-    written.append(csv_path)
+        csv_path = output_dir / f"{stem}.csv"
+        metrics.to_csv(csv_path, index=False)
+        written.append(csv_path)
 
-    print(f"Saved {len(written)} static joint-angle metric files to: {output_dir}")
+    print(f"Saved {len(written)} final joint-angle metric files to: {output_dir}")
     for path in written:
         print(f"  {path}")
     if arguments.show:
         plt.show()
     else:
-        plt.close(figure)
+        for figure in figures:
+            plt.close(figure)
     return tuple(written)
 
 

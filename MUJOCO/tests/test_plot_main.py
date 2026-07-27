@@ -151,6 +151,17 @@ class PlotMainTests(unittest.TestCase):
         baseline_time = figure.axes[0].lines[0].get_xdata()
         self.assertEqual(baseline_time[-1], 2.0)
 
+    def test_total_actuator_effort_integrates_norm_to_common_horizon(self):
+        columns = ("time", *plot_main.TORQUE_COLUMNS)
+        run = np.zeros(3, dtype=[(column, float) for column in columns])
+        run["time"] = [0.0, 1.0, 2.0]
+        run[plot_main.TORQUE_COLUMNS[0]] = [3.0, 3.0, 3.0]
+        frame = plot_main.pd.DataFrame(run)
+
+        total = plot_main.total_actuator_effort(frame, end_time=4.0)
+
+        self.assertAlmostEqual(total, 12.0)
+
     def test_indirect_grid_plots_reconstructed_baseline_and_recorded_trace(self):
         runs = plot_main.load_stage_runs(
             self.batch_dir,
@@ -221,11 +232,11 @@ class PlotMainTests(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(len(written), 2)
+        self.assertEqual(len(written), 4)
         self.assertTrue(all(path.is_file() for path in written))
         self.assertEqual(
             {path.parent.name for path in written},
-            {"combined_plots", "combined_plotsV2"},
+            {"combined_plots", "combined_plotsV2", "actuator_effort"},
         )
 
     def test_all_stages_are_plotted_by_default(self):

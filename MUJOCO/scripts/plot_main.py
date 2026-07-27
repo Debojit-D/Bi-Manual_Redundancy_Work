@@ -684,8 +684,19 @@ def actuator_effort(run):
     return np.sqrt(np.sum(torque * torque, axis=1))
 
 
+def total_actuator_effort(run, *, end_time=None):
+    """Integrate the 14-actuator torque norm over a comparison horizon."""
+    time = run["time"].to_numpy(dtype=float)
+    if np.any(np.diff(time) <= 0.0):
+        raise ValueError("Actuator-effort timestamps must be strictly increasing")
+    effort = actuator_effort(run)
+    if end_time is not None:
+        time, effort = extend_final_value(time, effort, end_time)
+    return float(np.trapezoid(effort, time))
+
+
 def plot_actuator_effort(stage_runs, *, stage, style):
-    """Plot all four modes' actuator effort across the six cases."""
+    """Plot baseline and all four modes' effort across the six cases."""
     figure, axes = plt.subplots(
         2,
         3,
@@ -732,6 +743,62 @@ def plot_actuator_effort(stage_runs, *, stage, style):
         figure,
         axes,
         mode_labels=MODE_LABELS,
+    )
+    return figure
+
+
+def plot_total_actuator_effort(stage_runs, *, style):
+    """Plot time-integrated actuator effort for all modes and six cases."""
+    figure, axes = plt.subplots(
+        2,
+        3,
+        figsize=style.SIX_PANEL_GRID_SIZE,
+        sharex=True,
+        sharey=False,
+    )
+    positions = np.arange(len(MODES))
+    colors = (
+        style.BASELINE_COLOR,
+        *(style.mode_color(mode) for mode in MODES if mode != "baseline"),
+    )
+    tick_labels = ("Base", "Vel.", "Force", "Direct", "Indirect")
+
+    for axis, (case_name, runs) in zip(axes.flat, stage_runs.items()):
+        comparison_end_time = max(
+            float(run["time"].iloc[-1]) for run in runs.values()
+        )
+        totals = tuple(
+            total_actuator_effort(
+                runs[mode],
+                end_time=comparison_end_time,
+            )
+            for mode in MODES
+        )
+        axis.bar(
+            positions,
+            totals,
+            color=colors,
+            width=0.72,
+            edgecolor="white",
+            linewidth=0.5,
+        )
+        axis.set_title(subplot_title(case_name))
+        axis.set_xlabel("")
+        axis.set_ylabel("")
+        axis.set_xticks(positions, tick_labels, rotation=25, ha="right")
+        axis.set_ylim(bottom=0.0)
+
+    sns.despine(fig=figure, offset=2, trim=False)
+    figure.tight_layout(
+        rect=(0.035, 0.04, 1.0, 0.94),
+        pad=0.35,
+        h_pad=0.5,
+        w_pad=0.45,
+    )
+    figure.supxlabel("Optimization mode", y=0.005)
+    figure.supylabel(
+        r"Total actuator effort $\int \|\tau(t)\|_2\,dt$ (N m s)",
+        x=0.018,
     )
     return figure
 
@@ -794,10 +861,11 @@ def generate_stage_figures(
     output_format,
     style,
 ):
-    """Create and save the legacy and V2 combined figures for one stage."""
+    """Create combined-objective and actuator-effort figures for one stage."""
     stage_runs = load_stage_runs(batch_dir, stage)
     legacy_output_dir = Path(output_root) / "combined_plots"
     output_dir = Path(output_root) / "combined_plotsV2"
+    effort_output_dir = Path(output_root) / "actuator_effort"
     legacy_combined_figure = plot_combined_optimization_grid(
         stage_runs,
         stage=stage,
@@ -825,9 +893,36 @@ def generate_stage_figures(
         f"{stage}_combined_optimization_four_by_six",
         output_format,
     ))
+    effort_figure = plot_actuator_effort(
+        stage_runs,
+        stage=stage,
+        style=style,
+    )
+    written.extend(
+        style.save(
+            effort_figure,
+            effort_output_dir,
+            f"{stage}_actuator_effort_six_cases",
+            output_format,
+        )
+    )
+    total_effort_figure = plot_total_actuator_effort(
+        stage_runs,
+        style=style,
+    )
+    written.extend(
+        style.save(
+            total_effort_figure,
+            effort_output_dir,
+            f"{stage}_total_actuator_effort_six_cases",
+            output_format,
+        )
+    )
     return (
         legacy_combined_figure,
         combined_figure,
+        effort_figure,
+        total_effort_figure,
     ), tuple(written)
 
 

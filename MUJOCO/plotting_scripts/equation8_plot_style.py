@@ -198,6 +198,12 @@ class Equation8PlotStyle:
             axis.margins(x=0)
             axis.ticklabel_format(axis="y", style="plain", useOffset=False)
         sns.despine(fig=figure, offset=2, trim=False)
+        figure.tight_layout(
+            rect=(0.015, 0.025, 1.0, layout_top),
+            pad=0.35,
+            h_pad=0.5,
+            w_pad=0.45,
+        )
         figure.legend(
             handles=handles,
             loc="upper center",
@@ -210,12 +216,6 @@ class Equation8PlotStyle:
             facecolor="white",
             edgecolor="#68737D",
             borderpad=0.4,
-        )
-        figure.tight_layout(
-            rect=(0.015, 0.025, 1.0, layout_top),
-            pad=0.35,
-            h_pad=0.5,
-            w_pad=0.45,
         )
 
     def finish_six_panel_figure(self, figure, axes, *, mode, mode_label):
