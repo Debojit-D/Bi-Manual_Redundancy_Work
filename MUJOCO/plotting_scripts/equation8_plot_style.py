@@ -16,7 +16,8 @@ class Equation8PlotStyle:
     SIX_PANEL_V2_SIZE = (DOUBLE_COLUMN_WIDTH, 1.8)
     SIX_PANEL_GRID_SIZE = (DOUBLE_COLUMN_WIDTH, 2.7)
     THREE_BY_SIX_SIZE = (DOUBLE_COLUMN_WIDTH, 3.9)
-    FOUR_BY_SIX_SIZE = (DOUBLE_COLUMN_WIDTH, 6.2)
+    FOUR_BY_SIX_SIZE = (DOUBLE_COLUMN_WIDTH, 5.27)
+    REDUCED_FOUR_BY_SIX_SIZE = (DOUBLE_COLUMN_WIDTH, 4.96)
     TIMES_NEW_ROMAN_DIR = (
         Path(__file__).resolve().parents[2]
         / "outputs"
@@ -277,13 +278,22 @@ class Equation8PlotStyle:
         axes,
         *,
         mode_labels,
+        legend_columns=None,
+        legend_handle_order=None,
+        legend_y=0.97,
+        layout_top=0.89,
     ):
         """Finalize a six-panel figure comparing all optimization modes."""
+        handles = self.all_mode_legend_handles(mode_labels)
+        if legend_handle_order is not None:
+            handles = tuple(handles[index] for index in legend_handle_order)
         self._finish_six_panel_figure(
             figure,
             axes,
-            handles=self.all_mode_legend_handles(mode_labels),
-            legend_columns=len(mode_labels),
+            handles=handles,
+            legend_columns=legend_columns or len(mode_labels),
+            legend_y=legend_y,
+            layout_top=layout_top,
         )
 
     def finish_all_modes_six_panel_row_figure(

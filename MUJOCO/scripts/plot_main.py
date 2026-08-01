@@ -21,6 +21,7 @@ from pathlib import Path
 import re
 
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -48,12 +49,26 @@ MODES = (
     "directional_force",
     "directional_force_indirect",
 )
+TWO_ROW_LEGEND_HANDLE_ORDER = (0, 3, 1, 4, 2)
 MODE_LABELS = {
     "baseline": "Baseline",
-    "velocity": "Velocity optimization",
-    "force": "Force optimization",
-    "directional_force": "Directional-force optimization",
-    "directional_force_indirect": "Indirect directional-force optimization",
+    "velocity": "Velocity Manipulability",
+    "force": "Force Manipulability",
+    "directional_force": "Directional Force Manipulability",
+    "directional_force_indirect": (
+        "Directional Force Manipulability (Indirect)"
+    ),
+}
+MODE_ABBREVIATIONS = {
+    "baseline": "B",
+    "velocity": "V",
+    "force": "F",
+    "directional_force": "DF",
+    "directional_force_indirect": r"DF$_i$",
+}
+ACTUATOR_MODE_LABELS = {
+    mode: f"{MODE_ABBREVIATIONS[mode]}: {MODE_LABELS[mode]}"
+    for mode in MODES
 }
 TORQUE_COLUMNS = tuple(
     f"tau_act_{arm}{joint}"
@@ -131,7 +146,7 @@ class OptimizationPlot:
 OPTIMIZATION_PLOTS = (
     OptimizationPlot(
         mode="velocity",
-        label="Velocity optimization",
+        label="Velocity Manipulability",
         raw_column="velocity_manipulability_raw",
         scaled_column="velocity_manipulability_scaled",
         raw_ylabel="Velocity manipulability",
@@ -140,7 +155,7 @@ OPTIMIZATION_PLOTS = (
     ),
     OptimizationPlot(
         mode="force",
-        label="Force optimization",
+        label="Force Manipulability",
         raw_column="force_manipulability_raw",
         scaled_column="force_manipulability_scaled",
         raw_ylabel="Force manipulability",
@@ -149,7 +164,7 @@ OPTIMIZATION_PLOTS = (
     ),
     OptimizationPlot(
         mode="directional_force",
-        label="Directional-force optimization",
+        label="Directional Force Manipulability",
         raw_column="directional_force_cost_raw",
         scaled_column="directional_force_cost_scaled",
         raw_ylabel="Directional - Force Manipulability",
@@ -159,7 +174,7 @@ OPTIMIZATION_PLOTS = (
     ),
     OptimizationPlot(
         mode="directional_force_indirect",
-        label="Indirect directional-force optimization",
+        label="Directional Force Manipulability (Indirect)",
         raw_column="paper_objective_raw",
         scaled_column="paper_objective_scaled",
         raw_ylabel="Directional - Force Manipulability (Indirect)",
@@ -531,7 +546,10 @@ def plot_optimization_grid(
         axis.set_xlabel("")
         axis.set_ylabel("")
 
-    figure.supxlabel("Simulation time (s)", y=0.005)
+    figure.supxlabel(
+        "Simulation time (s)",
+        y=0.05 if row_count == 4 else 0.005,
+    )
     figure.supylabel(specification.ylabel(metric_scale), x=0.025)
     style.finish_six_panel_row_figure(
         figure,
@@ -588,7 +606,11 @@ def plot_combined_optimization_grid(
         row_count,
         6,
         figsize=(
-            style.FOUR_BY_SIX_SIZE
+            (
+                style.REDUCED_FOUR_BY_SIX_SIZE
+                if stage in ("static", "6d_pick_place")
+                else style.FOUR_BY_SIX_SIZE
+            )
             if row_count == 4
             else style.THREE_BY_SIX_SIZE
         ),
@@ -639,15 +661,25 @@ def plot_combined_optimization_grid(
             axis.set_xlabel("")
             axis.set_ylabel("")
             if row == 0:
-                axis.set_title(subplot_title(case_name))
+                if stage in ("static", "6d_pick_place"):
+                    axis.set_title(subplot_title(case_name), pad=8.0)
+                else:
+                    axis.set_title(subplot_title(case_name))
         metric_label = {
             "velocity": "Velocity\nmanipulability",
             "force": "Force\nmanipulability",
-            "directional_force": "Directional - Force\nManipulability",
+            "directional_force": "Directional - Force\nmanipulability",
             "directional_force_indirect": (
-                "Directional - Force\nManipulability (Indirect)"
+                "Directional - Force\nmanipulability (Indirect)"
             ),
         }[specification.mode]
+        if row_count == 3:
+            direction = {
+                "velocity": r"$\uparrow$",
+                "force": r"$\uparrow$",
+                "directional_force": r"$\downarrow$",
+            }[specification.mode]
+            metric_label = f"{metric_label} ({direction})"
         row_label = (
             f"{metric_label}\n(scaled)"
             if metric_scale == "scaled"
@@ -662,18 +694,33 @@ def plot_combined_optimization_grid(
             fontsize=8.0,
         )
 
-    figure.supxlabel("Simulation time (s)", y=0.005)
+    figure.supxlabel(
+        "Simulation time (s)",
+        y=0.018 if stage in ("static", "6d_pick_place") else 0.005,
+    )
     figure.align_ylabels(axes[:, 0])
+    mode_labels = {
+        "baseline": MODE_LABELS["baseline"],
+        **{
+            specification.mode: MODE_LABELS[specification.mode]
+            for specification in specifications
+        },
+    }
+    two_row_legend = len(mode_labels) == len(MODES)
     style.finish_all_modes_six_panel_figure(
         figure,
         axes,
-        mode_labels={
-            "baseline": MODE_LABELS["baseline"],
-            **{
-                specification.mode: MODE_LABELS[specification.mode]
-                for specification in specifications
-            },
-        },
+        mode_labels=mode_labels,
+        legend_columns=3 if two_row_legend else None,
+        legend_handle_order=(
+            TWO_ROW_LEGEND_HANDLE_ORDER if two_row_legend else None
+        ),
+        legend_y=0.99 if two_row_legend else 0.97,
+        layout_top=(
+            0.89
+            if stage in ("static", "6d_pick_place") and two_row_legend
+            else (0.91 if two_row_legend else 0.89)
+        ),
     )
     return figure
 
@@ -742,7 +789,11 @@ def plot_actuator_effort(stage_runs, *, stage, style):
     style.finish_all_modes_six_panel_figure(
         figure,
         axes,
-        mode_labels=MODE_LABELS,
+        mode_labels=ACTUATOR_MODE_LABELS,
+        legend_columns=3,
+        legend_handle_order=TWO_ROW_LEGEND_HANDLE_ORDER,
+        legend_y=0.99,
+        layout_top=0.78,
     )
     return figure
 
@@ -761,7 +812,19 @@ def plot_total_actuator_effort(stage_runs, *, style):
         style.BASELINE_COLOR,
         *(style.mode_color(mode) for mode in MODES if mode != "baseline"),
     )
-    tick_labels = ("Base", "Vel.", "Force", "Direct", "Indirect")
+    tick_labels = tuple(MODE_ABBREVIATIONS[mode] for mode in MODES)
+    legend_handles = tuple(
+        Patch(
+            facecolor=color,
+            edgecolor="white",
+            linewidth=0.5,
+            label=ACTUATOR_MODE_LABELS[mode],
+        )
+        for mode, color in zip(MODES, colors)
+    )
+    legend_handles = tuple(
+        legend_handles[index] for index in TWO_ROW_LEGEND_HANDLE_ORDER
+    )
 
     for axis, (case_name, runs) in zip(axes.flat, stage_runs.items()):
         comparison_end_time = max(
@@ -790,10 +853,23 @@ def plot_total_actuator_effort(stage_runs, *, style):
 
     sns.despine(fig=figure, offset=2, trim=False)
     figure.tight_layout(
-        rect=(0.035, 0.04, 1.0, 0.94),
+        rect=(0.035, 0.04, 1.0, 0.78),
         pad=0.35,
         h_pad=0.5,
         w_pad=0.45,
+    )
+    figure.legend(
+        handles=legend_handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.99),
+        ncol=3,
+        handlelength=1.2,
+        frameon=True,
+        fancybox=False,
+        framealpha=1.0,
+        facecolor="white",
+        edgecolor="#68737D",
+        borderpad=0.4,
     )
     figure.supxlabel("Optimization mode", y=0.005)
     figure.supylabel(
