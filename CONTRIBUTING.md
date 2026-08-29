@@ -84,3 +84,22 @@ model, a numerical routine, a config format), identify the upstream source
 and its license in the PR description, and preserve any existing
 copyright/license header rather than replacing it. Only contribute material
 you have the right to submit.
+
+## Licensing
+
+Original code in this repository is released under the Apache License 2.0
+(see [`LICENSE`](LICENSE)); third-party components are catalogued in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). By contributing, you
+agree to:
+
+- only contribute code or assets you have the right to submit;
+- preserve third-party attribution and license headers rather than
+  overwriting them;
+- clearly identify any imported external material (robot models, numerical
+  routines, config formats) and its upstream license in your PR description,
+  and add it to `THIRD_PARTY_NOTICES.md`; and
+- avoid introducing dependencies with licenses incompatible with Apache-2.0
+  (for example, strong-copyleft licenses) without first discussing it in an
+  issue or PR.
+
+This project does not require a contributor license agreement (CLA).

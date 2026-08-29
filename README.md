@@ -173,7 +173,9 @@ Contributions are welcome for:
 - analytical/autodiff gradient implementations; and
 - benchmarking/reproduction tooling.
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines, and
+[`docs/UPSTREAMING.md`](docs/UPSTREAMING.md) for which parts of the codebase
+are generic enough to eventually be proposed to other projects.
 
 ## Citation
 
@@ -222,7 +224,6 @@ mathematics.
 
 ## License
 
-Original code in this repository will be released under the Apache License
-2.0 in an upcoming licensing pass; no root `LICENSE` file exists in this
-branch yet. Third-party models, assets, dependencies, and submodules are and
-will remain subject to their respective licenses.
+Original code in this repository is released under the Apache License 2.0.
+Third-party models, assets, dependencies, and submodules remain subject to
+their respective licenses. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

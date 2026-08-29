@@ -5,6 +5,7 @@ message: >-
 title: Bimanual Redundancy Optimization
 type: software
 version: 0.1.0
+license: Apache-2.0
 repository-code: "https://github.com/Debojit-D/Bimanual-Redundancy-Optimization"
 url: "https://debojit-d.github.io/Bimanual-Redundancy-Optimization/"
 authors:
