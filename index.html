@@ -40,6 +40,7 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  #bg-grid,
   #bg-canvas {
     position: fixed;
     inset: 0;
@@ -47,6 +48,50 @@
     height: 100%;
     z-index: 0;
     pointer-events: none;
+  }
+
+  #bg-grid::before,
+  #bg-grid::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(26, 26, 26, 0.9) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(26, 26, 26, 0.9) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  #bg-grid::before {
+    opacity: 0.04;
+  }
+
+  #bg-grid::after {
+    opacity: 0.5;
+    -webkit-mask-image: radial-gradient(circle 260px at var(--mx, 50%) var(--my, 12%), #000 0%, transparent 100%);
+    mask-image: radial-gradient(circle 260px at var(--mx, 50%) var(--my, 12%), #000 0%, transparent 100%);
+  }
+
+  #cursor-ring {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 26px;
+    height: 26px;
+    margin: -13px 0 0 -13px;
+    border: 1px solid var(--text);
+    border-radius: 50%;
+    z-index: 40;
+    pointer-events: none;
+    opacity: 0;
+    mix-blend-mode: difference;
+    transition: opacity 0.2s ease, width 0.2s ease, height 0.2s ease, margin 0.2s ease, background 0.2s ease;
+  }
+
+  #cursor-ring.is-active {
+    width: 44px;
+    height: 44px;
+    margin: -22px 0 0 -22px;
+    background: rgba(255, 255, 255, 0.06);
   }
 
   a { color: var(--link); }
@@ -66,9 +111,20 @@
 
   .content {
     position: relative;
-    max-width: 1080px;
+    max-width: 1180px;
     margin: 0 auto;
     padding: 4.5rem 4rem 5rem;
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
   }
 
   h1 {
@@ -180,8 +236,9 @@
 
   .resource-btn:hover {
     background: var(--button-hover);
-    transform: translateY(-1px);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.07);
+    border-color: var(--text);
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
   }
 
   .resource-btn.is-disabled {
@@ -218,8 +275,27 @@
   }
 
   .abstract {
-    max-width: 720px;
+    position: relative;
+    max-width: 740px;
     margin: 0 auto;
+  }
+
+  .abstract::before,
+  .abstract::after {
+    content: "";
+    position: absolute;
+    top: 0.35rem;
+    bottom: 0.35rem;
+    width: 1px;
+    background: var(--rule);
+  }
+
+  .abstract::before { left: -2.5rem; }
+  .abstract::after { right: -2.5rem; }
+
+  @media (max-width: 900px) {
+    .abstract::before,
+    .abstract::after { display: none; }
   }
 
   .abstract p {
@@ -325,12 +401,20 @@
   @media (prefers-reduced-motion: reduce) {
     .authors a,
     .resource-btn,
-    .lab-logo-link { transition: none; }
+    .lab-logo-link,
+    .reveal { transition: none; }
+    .reveal { opacity: 1; transform: none; }
+  }
+
+  @media (pointer: coarse) {
+    #cursor-ring { display: none; }
   }
 </style>
 </head>
 <body>
+<div id="bg-grid" aria-hidden="true"></div>
 <canvas id="bg-canvas" aria-hidden="true"></canvas>
+<div id="cursor-ring" aria-hidden="true"></div>
 
 <div class="page">
   <main class="content">
@@ -345,7 +429,7 @@
 
     <hr>
 
-    <section class="abstract">
+    <section class="abstract reveal">
       <h2>Abstract</h2>
       <p><strong>Purpose</strong> — This paper investigates how redundant degrees of freedom can be used in cooperative manipulation to improve task-relevant dexterity or force capability without disturbing the commanded object motion. The aim is to compare task-specific manipulability metrics for cooperative robotic grasping, with particular attention to external loads whose direction may differ from the desired motion direction.</p>
       <p><strong>Design/methodology/approach</strong> — An established closed-loop inverse-kinematics and null-space gradient-projection structure is used as a common implementation basis. Three objectives are evaluated: velocity manipulability, force manipulability, and directional-force manipulability. The objectives are compared on a planar dual-arm hardware platform with pin-jointed object coupling, external load trials, and actuator-current-based effort measurement. A dual-Franka 7-DoF simulation studies the scalability of the velocity-manipulability implementation to spatial bimanual manipulation.</p>
@@ -353,9 +437,9 @@
       <p><strong>Originality/value</strong> — The paper provides an implementation-oriented comparison of velocity, force, and directional-force manipulability objectives for cooperative manipulation, offering practical guidance for selecting redundancy objectives according to task condition and external load direction.</p>
     </section>
 
-    <section class="video-section" id="video-section"></section>
+    <section class="video-section reveal" id="video-section"></section>
 
-    <footer class="site-footer" id="site-footer"></footer>
+    <footer class="site-footer reveal" id="site-footer"></footer>
   </main>
 </div>
 
@@ -542,16 +626,62 @@
     if (!reduceMotion) requestAnimationFrame(step);
   }
 
+  var root = document.documentElement;
+
   window.addEventListener('resize', resize, { passive: true });
   window.addEventListener('mousemove', function (e) {
     mouse.x = e.clientX;
     mouse.y = e.clientY;
     mouse.active = true;
+    root.style.setProperty('--mx', e.clientX + 'px');
+    root.style.setProperty('--my', e.clientY + 'px');
   }, { passive: true });
   window.addEventListener('mouseleave', function () { mouse.active = false; });
 
   resize();
   step();
+})();
+</script>
+
+<script>
+(function () {
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var hasFinePointer = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+
+  // --- Custom cursor ring ---
+  var ring = document.getElementById('cursor-ring');
+  if (ring && hasFinePointer) {
+    document.addEventListener('mousemove', function (e) {
+      ring.style.top = e.clientY + 'px';
+      ring.style.left = e.clientX + 'px';
+      ring.style.opacity = '1';
+    }, { passive: true });
+    document.addEventListener('mouseleave', function () { ring.style.opacity = '0'; });
+    document.addEventListener('mouseover', function (e) {
+      if (e.target.closest('a')) ring.classList.add('is-active');
+    });
+    document.addEventListener('mouseout', function (e) {
+      if (e.target.closest('a')) ring.classList.remove('is-active');
+    });
+  } else if (ring) {
+    ring.remove();
+  }
+
+  // --- Scroll reveal ---
+  var revealEls = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window && !reduceMotion) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    Array.prototype.forEach.call(revealEls, function (el) { io.observe(el); });
+  } else {
+    Array.prototype.forEach.call(revealEls, function (el) { el.classList.add('is-visible'); });
+  }
 })();
 </script>
 </body>
