@@ -30,3 +30,6 @@ include = ["bimanual_redundancy*", "MUJOCO*"]
 
 [tool.setuptools.package-dir]
 "" = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

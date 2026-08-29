@@ -546,10 +546,7 @@ def plot_optimization_grid(
         axis.set_xlabel("")
         axis.set_ylabel("")
 
-    figure.supxlabel(
-        "Simulation time (s)",
-        y=0.05 if row_count == 4 else 0.005,
-    )
+    figure.supxlabel("Simulation time (s)", y=0.005)
     figure.supylabel(specification.ylabel(metric_scale), x=0.025)
     style.finish_six_panel_row_figure(
         figure,
