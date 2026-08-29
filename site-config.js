@@ -22,6 +22,16 @@ window.SITE_CONFIG = {
     }
   },
 
+  citation: {
+    bibtex: `@article{das2026taskspecific,
+  title   = {Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation},
+  author  = {Das, Debojit and S., Barat and Palanthandalam-Madapusi, Harish J.},
+  journal = {Industrial Robot: The International Journal of Robotics Research and Application},
+  year    = {2026},
+  note    = {Provisionally accepted}
+}`
+  },
+
   lab: {
     name: "IITGN Robotics Laboratory",
     url: "https://research.iitgn.ac.in/robotics/",

@@ -261,7 +261,8 @@ window.__isDarkTheme = function () {
   a { color: var(--link); }
 
   a:focus-visible,
-  .resource-btn:focus-visible {
+  .resource-btn:focus-visible,
+  .copy-btn:focus-visible {
     outline: 2px solid var(--text);
     outline-offset: 2px;
     border-radius: 2px;
@@ -498,6 +499,52 @@ window.__isDarkTheme = function () {
     color: var(--text);
   }
 
+  .citation-section {
+    max-width: 740px;
+    margin: 3.75rem auto 0;
+  }
+
+  .citation-code {
+    margin: 0;
+    padding: 1.1rem 1.25rem;
+    background: var(--button-hover);
+    border: 1px solid var(--button-border);
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: var(--text);
+  }
+
+  .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--sans);
+    font-size: 0.8rem;
+    color: var(--text);
+    background: var(--page-bg);
+    border: 1px solid var(--button-border);
+    border-radius: 6px;
+    padding: 0.4rem 0.9rem;
+    margin-top: 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  }
+
+  .copy-btn:hover {
+    background: var(--button-hover);
+    border-color: var(--text);
+    transform: translateY(-1px);
+  }
+
+  .copy-btn.is-copied {
+    color: var(--accent);
+    border-color: var(--status-border);
+    background: var(--status-bg);
+  }
+
   .site-footer {
     margin-top: 4.25rem;
     padding-top: 2.5rem;
@@ -551,6 +598,7 @@ window.__isDarkTheme = function () {
   @media (prefers-reduced-motion: reduce) {
     .authors a,
     .resource-btn,
+    .copy-btn,
     .lab-logo-link,
     .reveal { transition: none; }
     .reveal { opacity: 1; transform: none; }
@@ -599,6 +647,8 @@ window.__isDarkTheme = function () {
 
     <section class="video-section reveal" id="video-section"></section>
 
+    <section class="citation-section reveal" id="citation-section"></section>
+
     <footer class="site-footer reveal" id="site-footer"></footer>
   </main>
 </div>
@@ -621,6 +671,31 @@ window.__isDarkTheme = function () {
     if (!url) return null;
     var m = url.match(/(?:v=|\/embed\/|youtu\.be\/)([A-Za-z0-9_-]{11})/);
     return m ? m[1] : null;
+  }
+
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function copyText(text, done) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+      return;
+    }
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    done(ok);
   }
 
   // --- Authors ---
@@ -689,6 +764,30 @@ window.__isDarkTheme = function () {
           'allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe>' +
       '</div>' +
       '<a class="video-caption" ' + externalAttrs(videoCfg.url) + '>Watch on YouTube ↗</a>';
+  }
+
+  // --- Citation ---
+  var citationEl = document.getElementById('citation-section');
+  if (citationEl && cfg.citation && cfg.citation.bibtex) {
+    citationEl.innerHTML =
+      '<h2>Citation</h2>' +
+      '<pre class="citation-code"><code>' + escapeHtml(cfg.citation.bibtex) + '</code></pre>' +
+      '<button type="button" class="copy-btn" id="copy-bibtex-btn">Copy BibTeX</button>';
+
+    var copyBtn = document.getElementById('copy-bibtex-btn');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', function () {
+        var original = 'Copy BibTeX';
+        copyText(cfg.citation.bibtex, function (ok) {
+          copyBtn.textContent = ok ? 'Copied' : 'Copy failed';
+          copyBtn.classList.toggle('is-copied', ok);
+          setTimeout(function () {
+            copyBtn.textContent = original;
+            copyBtn.classList.remove('is-copied');
+          }, 1800);
+        });
+      });
+    }
   }
 
   // --- Footer: lab logo ---
