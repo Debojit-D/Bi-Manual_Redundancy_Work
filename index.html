@@ -15,6 +15,9 @@
     --accent: #8a6d00;
     --status-bg: #fdf6e3;
     --status-border: #e8d9a0;
+    --link: #1a1a1a;
+    --button-border: #d5d5d5;
+    --button-hover: #f5f5f5;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -26,6 +29,9 @@
       --accent: #8a6d00;
       --status-bg: #fdf6e3;
       --status-border: #e8d9a0;
+      --link: #1a1a1a;
+      --button-border: #d5d5d5;
+      --button-hover: #f5f5f5;
     }
   }
 
@@ -59,6 +65,31 @@
     margin: 0 0 0.4rem;
   }
 
+  .authors a {
+    color: var(--link);
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .authors a:hover {
+    border-bottom-color: var(--text);
+  }
+
+  .authors .li-icon {
+    display: inline-flex;
+    vertical-align: -2px;
+    margin-left: 0.15rem;
+    opacity: 0.55;
+  }
+
+  .authors .li-icon:hover {
+    opacity: 0.9;
+  }
+
+  .authors .author-sep {
+    color: var(--muted);
+  }
+
   .affiliation {
     text-align: center;
     font-size: 0.92rem;
@@ -70,7 +101,7 @@
   .status-line {
     display: block;
     text-align: center;
-    margin: 0 auto 3rem;
+    margin: 0 auto 1.5rem;
   }
 
   .status-badge {
@@ -91,6 +122,44 @@
     font-size: 0.85rem;
     color: var(--muted);
     margin-top: 0.6rem;
+  }
+
+  .resources {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin: 0 auto 3rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  .resource-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    color: var(--text);
+    text-decoration: none;
+    border: 1px solid var(--button-border);
+    border-radius: 6px;
+    padding: 0.35rem 0.85rem;
+    transition: background 0.15s ease;
+  }
+
+  .resource-btn:hover {
+    background: var(--button-hover);
+  }
+
+  .resource-btn.is-disabled {
+    color: var(--muted);
+    border-style: dashed;
+    cursor: default;
+  }
+
+  .resource-btn .resource-status {
+    color: var(--muted);
+    font-style: italic;
   }
 
   hr {
@@ -126,6 +195,7 @@
   @media (max-width: 480px) {
     main { padding: 2.5rem 1.25rem 3rem; }
     h1 { font-size: 1.5rem; }
+    .resources { gap: 0.5rem; }
   }
 </style>
 </head>
@@ -133,13 +203,12 @@
 <main>
   <h1>Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation</h1>
 
-  <p class="authors">Debojit Das, Barat S., and Harish J. Palanthandalam-Madapusi</p>
+  <p class="authors" id="authors"></p>
   <p class="affiliation">IITGN Robotics Laboratory, Department of Mechanical Engineering, Indian Institute of Technology Gandhinagar, Gandhinagar, Gujarat 382355, India</p>
 
-  <span class="status-line">
-    <span class="status-badge">Status: Provisionally accepted</span>
-    <span class="venue">Industrial Robot: The International Journal of Robotics Research and Application</span>
-  </span>
+  <span class="status-line" id="status-line"></span>
+
+  <div class="resources" id="resources"></div>
 
   <hr>
 
@@ -151,5 +220,69 @@
     <p><strong>Originality/value</strong> — The paper provides an implementation-oriented comparison of velocity, force, and directional-force manipulability objectives for cooperative manipulation, offering practical guidance for selecting redundancy objectives according to task condition and external load direction.</p>
   </section>
 </main>
+
+<script src="site-config.js"></script>
+<script>
+(function () {
+  var cfg = window.SITE_CONFIG;
+  if (!cfg) return;
+
+  var LI_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+    '<path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45z"/>' +
+    '</svg>';
+
+  function externalAttrs(url) {
+    return 'href="' + url + '" target="_blank" rel="noopener noreferrer"';
+  }
+
+  // --- Authors ---
+  var authorsEl = document.getElementById('authors');
+  if (authorsEl && Array.isArray(cfg.authors)) {
+    var parts = cfg.authors.map(function (author) {
+      var nameHtml;
+      var liHtml = '';
+
+      if (author.website) {
+        nameHtml = '<a ' + externalAttrs(author.website) + '>' + author.name + '</a>';
+        if (author.linkedin) {
+          liHtml = '<a class="li-icon" ' + externalAttrs(author.linkedin) + ' aria-label="' + author.name + ' on LinkedIn" title="LinkedIn">' + LI_ICON + '</a>';
+        }
+      } else if (author.linkedin) {
+        nameHtml = '<a ' + externalAttrs(author.linkedin) + '>' + author.name + '</a>';
+      } else {
+        nameHtml = author.name;
+      }
+
+      return '<span class="author-block">' + nameHtml + liHtml + '</span>';
+    });
+    authorsEl.innerHTML = parts.join('<span class="author-sep">, </span>');
+  }
+
+  // --- Status / venue ---
+  var statusEl = document.getElementById('status-line');
+  if (statusEl && cfg.project) {
+    statusEl.innerHTML =
+      '<span class="status-badge">Status: ' + cfg.project.status + '</span>' +
+      '<span class="venue">' + cfg.project.venue + '</span>';
+  }
+
+  // --- Resource buttons ---
+  var resourcesEl = document.getElementById('resources');
+  if (resourcesEl && cfg.resources) {
+    var order = ['paper', 'code', 'video'];
+    var html = order.map(function (key) {
+      var r = cfg.resources[key];
+      if (!r) return '';
+      if (r.url) {
+        return '<a class="resource-btn" ' + externalAttrs(r.url) + '>' + r.label + '</a>';
+      }
+      return '<span class="resource-btn is-disabled">' + r.label +
+        (r.status ? ' <span class="resource-status">— ' + r.status + '</span>' : '') +
+        '</span>';
+    }).join('');
+    resourcesEl.innerHTML = html;
+  }
+})();
+</script>
 </body>
 </html>
