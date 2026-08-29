@@ -66,14 +66,14 @@
 
   .content {
     position: relative;
-    max-width: 860px;
+    max-width: 1080px;
     margin: 0 auto;
-    padding: 4rem 2.5rem 4.5rem;
+    padding: 4.5rem 4rem 5rem;
   }
 
   h1 {
     font-family: var(--serif);
-    font-size: clamp(1.85rem, 1.1rem + 2.6vw, 2.7rem);
+    font-size: clamp(1.9rem, 1.1rem + 2.9vw, 3.1rem);
     font-weight: 600;
     line-height: 1.32;
     text-align: center;
@@ -217,6 +217,11 @@
     margin: 0 0 1.25rem;
   }
 
+  .abstract {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
   .abstract p {
     margin: 0 0 1.3rem;
     text-align: justify;
@@ -276,17 +281,17 @@
   .lab-caption {
     display: block;
     font-family: var(--sans);
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     color: var(--muted);
-    margin-bottom: 0.85rem;
+    margin-bottom: 1rem;
   }
 
   .lab-logo-link {
     display: inline-block;
-    line-height: 0;
+    text-decoration: none;
     opacity: 0.92;
     transition: opacity 0.15s ease, transform 0.15s ease;
   }
@@ -306,7 +311,7 @@
 
   @media (max-width: 900px) {
     .page { padding: 3rem 1.25rem 4.5rem; }
-    .content { padding: 2.75rem 1.75rem 3.25rem; }
+    .content { padding: 3rem 2rem 3.5rem; }
   }
 
   @media (max-width: 640px) {
