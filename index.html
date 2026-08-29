@@ -61,29 +61,29 @@
   .page {
     position: relative;
     z-index: 1;
-    padding: 3.5rem 1.25rem 5rem;
+    padding: 5rem 1.5rem 7rem;
   }
 
   .content {
     position: relative;
-    max-width: 760px;
+    max-width: 860px;
     margin: 0 auto;
-    padding: 3rem 1.5rem 3.5rem;
+    padding: 4rem 2.5rem 4.5rem;
   }
 
   h1 {
     font-family: var(--serif);
-    font-size: clamp(1.6rem, 1.05rem + 2vw, 2.25rem);
+    font-size: clamp(1.85rem, 1.1rem + 2.6vw, 2.7rem);
     font-weight: 600;
-    line-height: 1.35;
+    line-height: 1.32;
     text-align: center;
-    margin: 0 0 1.75rem;
+    margin: 0 0 2rem;
   }
 
   .authors {
     text-align: center;
-    font-size: 1.08rem;
-    margin: 0 0 0.4rem;
+    font-size: 1.15rem;
+    margin: 0 0 0.5rem;
   }
 
   .authors a {
@@ -123,17 +123,17 @@
 
   .affiliation {
     text-align: center;
-    font-size: 0.92rem;
+    font-size: 0.96rem;
     font-family: var(--sans);
     color: var(--muted);
-    margin: 0 auto 1.75rem;
-    max-width: 560px;
+    margin: 0 auto 2.25rem;
+    max-width: 600px;
   }
 
   .status-line {
     display: block;
     text-align: center;
-    margin: 0 auto 1.5rem;
+    margin: 0 auto 2.25rem;
     font-family: var(--sans);
   }
 
@@ -160,8 +160,8 @@
     justify-content: center;
     align-items: center;
     flex-wrap: wrap;
-    gap: 0.6rem;
-    margin: 0 auto 3rem;
+    gap: 0.75rem;
+    margin: 0 auto 3.5rem;
     font-family: var(--sans);
   }
 
@@ -169,12 +169,12 @@
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     color: var(--text);
     text-decoration: none;
     border: 1px solid var(--button-border);
     border-radius: 6px;
-    padding: 0.4rem 0.95rem;
+    padding: 0.5rem 1.15rem;
     transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   }
 
@@ -204,23 +204,23 @@
   hr {
     border: none;
     border-top: 1px solid var(--rule);
-    margin: 0 0 2.5rem;
+    margin: 0 0 2.75rem;
   }
 
   h2 {
     font-family: var(--sans);
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--muted);
-    margin: 0 0 1rem;
+    margin: 0 0 1.25rem;
   }
 
   .abstract p {
-    margin: 0 0 1.1rem;
+    margin: 0 0 1.3rem;
     text-align: justify;
-    font-size: 1.04rem;
+    font-size: 1.1rem;
   }
 
   .abstract p:last-child {
@@ -232,7 +232,7 @@
   }
 
   .video-section {
-    margin-top: 3rem;
+    margin-top: 3.75rem;
   }
 
   .video-wrap {
@@ -267,16 +267,27 @@
   }
 
   .site-footer {
-    margin-top: 3.5rem;
-    padding-top: 2rem;
+    margin-top: 4.25rem;
+    padding-top: 2.5rem;
     border-top: 1px solid var(--rule);
     text-align: center;
+  }
+
+  .lab-caption {
+    display: block;
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 0.85rem;
   }
 
   .lab-logo-link {
     display: inline-block;
     line-height: 0;
-    opacity: 0.9;
+    opacity: 0.92;
     transition: opacity 0.15s ease, transform 0.15s ease;
   }
 
@@ -287,20 +298,23 @@
   }
 
   .lab-logo-link img {
-    height: 30px;
+    height: 52px;
     width: auto;
     display: block;
+    margin: 0 auto;
   }
 
   @media (max-width: 900px) {
-    .content { padding: 2.5rem 1.5rem 3rem; }
+    .page { padding: 3rem 1.25rem 4.5rem; }
+    .content { padding: 2.75rem 1.75rem 3.25rem; }
   }
 
   @media (max-width: 640px) {
     .page { padding: 0.5rem 0 2rem; }
-    .content { padding: 1.75rem 1.15rem 2.5rem; }
+    .content { padding: 1.85rem 1.25rem 2.5rem; }
     .resources { gap: 0.5rem; }
     .abstract p { text-align: left; }
+    .lab-logo-link img { height: 42px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -430,6 +444,7 @@
   if (footerEl && cfg.lab) {
     footerEl.innerHTML =
       '<a class="lab-logo-link" ' + externalAttrs(cfg.lab.url) + ' aria-label="' + cfg.lab.name + '" title="' + cfg.lab.name + '">' +
+        '<span class="lab-caption">A project of the</span>' +
         '<img src="' + cfg.lab.logo + '" alt="' + cfg.lab.name + '">' +
       '</a>';
   }
