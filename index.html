@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation</title>
+<meta name="description" content="Project page for &quot;Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation&quot; — a comparison of velocity, force, and directional-force manipulability objectives for bimanual cooperative manipulation, with planar dual-arm hardware experiments and dual-Franka MuJoCo simulation.">
+<meta name="keywords" content="Bimanual Manipulation, Redundancy Optimization, Manipulability, Cooperative Manipulation, Dual-Arm Robotics, Null-Space Optimization">
+<style>
+  :root {
+    --bg: #ffffff;
+    --text: #1a1a1a;
+    --muted: #5c5c5c;
+    --rule: #e2e2e2;
+    --accent: #8a6d00;
+    --status-bg: #fdf6e3;
+    --status-border: #e8d9a0;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #ffffff;
+      --text: #1a1a1a;
+      --muted: #5c5c5c;
+      --rule: #e2e2e2;
+      --accent: #8a6d00;
+      --status-bg: #fdf6e3;
+      --status-border: #e8d9a0;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Georgia", "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    line-height: 1.6;
+  }
+
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 5rem;
+  }
+
+  h1 {
+    font-size: 1.9rem;
+    line-height: 1.35;
+    font-weight: 600;
+    text-align: center;
+    margin: 0 0 1.75rem;
+  }
+
+  .authors {
+    text-align: center;
+    font-size: 1.05rem;
+    margin: 0 0 0.4rem;
+  }
+
+  .affiliation {
+    text-align: center;
+    font-size: 0.92rem;
+    color: var(--muted);
+    margin: 0 auto 1.75rem;
+    max-width: 560px;
+  }
+
+  .status-line {
+    display: block;
+    text-align: center;
+    margin: 0 auto 3rem;
+  }
+
+  .status-badge {
+    display: inline-block;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    background: var(--status-bg);
+    border: 1px solid var(--status-border);
+    border-radius: 999px;
+    padding: 0.3rem 0.9rem;
+  }
+
+  .venue {
+    display: block;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.6rem;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 0 0 2.5rem;
+  }
+
+  h2 {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 0 0 1rem;
+  }
+
+  .abstract p {
+    margin: 0 0 1.1rem;
+    text-align: justify;
+    font-size: 1.02rem;
+  }
+
+  .abstract p:last-child {
+    margin-bottom: 0;
+  }
+
+  .abstract strong {
+    font-weight: 600;
+  }
+
+  @media (max-width: 480px) {
+    main { padding: 2.5rem 1.25rem 3rem; }
+    h1 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation</h1>
+
+  <p class="authors">Debojit Das, Barat S., and Harish J. Palanthandalam-Madapusi</p>
+  <p class="affiliation">IITGN Robotics Laboratory, Department of Mechanical Engineering, Indian Institute of Technology Gandhinagar, Gandhinagar, Gujarat 382355, India</p>
+
+  <span class="status-line">
+    <span class="status-badge">Status: Provisionally accepted</span>
+    <span class="venue">Industrial Robot: The International Journal of Robotics Research and Application</span>
+  </span>
+
+  <hr>
+
+  <section class="abstract">
+    <h2>Abstract</h2>
+    <p><strong>Purpose</strong> — This paper investigates how redundant degrees of freedom can be used in cooperative manipulation to improve task-relevant dexterity or force capability without disturbing the commanded object motion. The aim is to compare task-specific manipulability metrics for cooperative robotic grasping, with particular attention to external loads whose direction may differ from the desired motion direction.</p>
+    <p><strong>Design/methodology/approach</strong> — An established closed-loop inverse-kinematics and null-space gradient-projection structure is used as a common implementation basis. Three objectives are evaluated: velocity manipulability, force manipulability, and directional-force manipulability. The objectives are compared on a planar dual-arm hardware platform with pin-jointed object coupling, external load trials, and actuator-current-based effort measurement. A dual-Franka 7-DoF simulation studies the scalability of the velocity-manipulability implementation to spatial bimanual manipulation.</p>
+    <p><strong>Findings</strong> — Hardware experiments show that the objectives produce distinct internal joint configurations while preserving object motion. Velocity manipulability improves kinematic dexterity during holding, translation, and rotation. Force manipulability reduces actuator-current effort when the load direction is aligned with the main force requirement. When motion and external-load directions differ, directional-force manipulability achieves lower effort than force-only optimization. The dual-Franka simulation shows that velocity-manipulability optimization improves or maintains manipulability without degrading object tracking.</p>
+    <p><strong>Originality/value</strong> — The paper provides an implementation-oriented comparison of velocity, force, and directional-force manipulability objectives for cooperative manipulation, offering practical guidance for selecting redundancy objectives according to task condition and external load direction.</p>
+  </section>
+</main>
+</body>
+</html>
