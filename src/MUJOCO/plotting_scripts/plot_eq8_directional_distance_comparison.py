@@ -1,0 +1,16 @@
+"""Deprecated shim — import from ``bimanual_redundancy.plotting.plot_eq8_directional_distance_comparison`` instead."""
+
+import warnings
+
+warnings.warn(
+    "MUJOCO.plotting_scripts.plot_eq8_directional_distance_comparison is deprecated; import from bimanual_redundancy.plotting.plot_eq8_directional_distance_comparison instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+from bimanual_redundancy.plotting.plot_eq8_directional_distance_comparison import *  # noqa: F401,F403
+
+from bimanual_redundancy.plotting.plot_eq8_directional_distance_comparison import main  # noqa: F401
+
+if __name__ == "__main__":
+    main()

@@ -48,38 +48,47 @@ stable physical frictional grasping.
 ## Repository layout
 
 ```text
-MUJOCO/
-├── assets/                         Furniture and scene assets
-├── plotting_scripts/
-│   ├── plot_eq8_pick_place_comparison.py
-│   ├── plot_eq8_static_comparison.py
-│   └── plot_eq8_static_optimization.py
-├── robot_descriptions/             Franka and object MJCF models
-├── scripts/
-│   ├── dual_franka_eq8_baseline_pick_place.py
-│   ├── dual_franka_eq8_6d_pick_place_comparison.py
-│   ├── dual_franka_eq8_optimized_6d_pick_place.py
-│   ├── dual_franka_eq8_optimized_pick_place.py
-│   ├── dual_franka_eq8_pick_place_comparison.py
-│   ├── dual_franka_eq8_static_comparison.py
-│   ├── dual_franka_eq8_static_optimization.py
-│   └── legacy_code/                Earlier MuJoCo experiments
-└── utils/
-    ├── data_recording/              Equation (8) CSV recording
-    ├── grasping_kinematics/
-    │   └── cooperative_manipulation_kinematics.py
-    ├── redundancy_optimization/
-    │   ├── equation_8_controller.py
-    │   └── manipulability_optimization.py
-    ├── scene_builder/
-    │   └── dual_franka_mujoco_scene.py
-    └── video_recording.py           Headless dual-view MP4 recording
+src/
+├── bimanual_redundancy/             Active package (import bimanual_redundancy)
+│   ├── core/                        Math: kinematics, controller, objectives
+│   │   ├── cooperative_kinematics.py
+│   │   ├── controller.py            Equation (8) controller
+│   │   ├── objectives.py            Manipulability objectives (Eq. 13-15)
+│   │   └── directional_distance_optimization.py
+│   ├── simulation/                  MuJoCo backend
+│   │   ├── scene.py                 Scene/robot construction
+│   │   ├── collisions.py            Collision-sphere viewer overlays
+│   │   ├── cameras.py               Camera presets
+│   │   ├── grasp_safety.py, control_timing.py, cli.py, comparison_run_safety.py
+│   │   └── recording/               video.py, csv_recorder.py
+│   ├── experiments/                 Runnable experiment scripts
+│   ├── plotting/                    Publication/data plotting
+│   └── paths.py                     Repository-relative resource paths
+└── MUJOCO/                          Deprecated compatibility shim (see below)
 
-src/legacy_code/                    Earlier ROS Python experiments
-src/legacy_gazebo_stack/            Archived ROS/Gazebo packages
-data/legacy_data/                   Earlier recorded results
-mujoco_curobo_bridge/               Pinned external bridge submodule
+models/
+├── robots/                          Franka (and other) MJCF models
+└── objects/                         Furniture/object MJCF models
+
+configs/
+└── robots/                          cuRobo sphere-fitting profiles
+
+tests/                                Top-level pytest suite
+
+legacy/
+├── ros1/                            Earlier ROS 1 Python/catkin experiments
+├── gazebo/                          Archived ROS/Gazebo packages
+├── early_mujoco/                    Superseded MuJoCo scripts
+└── data/                            Earlier recorded results/images
+
+mujoco_curobo_bridge/                Pinned external bridge submodule
 ```
+
+The old `MUJOCO.*` import paths (`MUJOCO.scripts.*`, `MUJOCO.utils.*`,
+`MUJOCO.plotting_scripts.*`) still work as deprecated wrappers around the new
+`bimanual_redundancy` package — see `src/MUJOCO/`. They emit a
+`DeprecationWarning` and will be removed in a future release; new code should
+import from `bimanual_redundancy` directly.
 
 ## Quick environment setup
 
@@ -187,7 +196,7 @@ Run commands from the repository root after activating `.venv`.
 ### Scene preview
 
 ```bash
-python MUJOCO/utils/scene_builder/dual_franka_mujoco_scene.py
+python -m bimanual_redundancy.simulation.scene
 ```
 
 This opens the shared scene at the home configuration, keeps the arm targets
@@ -199,7 +208,7 @@ uses separate configurable look-at targets for the perspective and top views.
 ### Equation (8) baseline
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_baseline_pick_place
+python -m bimanual_redundancy.experiments.dual_franka_eq8_baseline_pick_place
 ```
 
 Sequence:
@@ -213,7 +222,7 @@ Sequence:
 ### Optimized Equation (8) lift
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place
+python -m bimanual_redundancy.experiments.dual_franka_eq8_optimized_pick_place
 ```
 
 This grasps the table, executes a 0.26 m quintic lift, smoothly lowers it back
@@ -225,7 +234,7 @@ objectives can be selected in the runner settings.
 ### Optimized 6D pick-and-place trajectory
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_optimized_6d_pick_place
+python -m bimanual_redundancy.experiments.dual_franka_eq8_optimized_6d_pick_place
 ```
 
 This example initializes the physical table at an editable start pose, grasps
@@ -256,13 +265,13 @@ Run the baseline, velocity, force, and directional-force modes through the
 same lift-and-return trajectory:
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison
+python -m bimanual_redundancy.experiments.dual_franka_eq8_pick_place_comparison
 ```
 
 Run the same four modes through the configurable full-SE(3) trajectory:
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison
+python -m bimanual_redundancy.experiments.dual_franka_eq8_6d_pick_place_comparison
 ```
 
 Both runners use four independent MuJoCo scenes and accept `--record-data`,
@@ -274,7 +283,7 @@ both trajectory-segment durations through its CLI. Run either command with
 ### Static null-space optimization
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_static_optimization
+python -m bimanual_redundancy.experiments.dual_franka_eq8_static_optimization
 ```
 
 Sequence:
@@ -297,7 +306,7 @@ Run baseline and all three paper objectives as four independent viewer
 sessions:
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_static_comparison
+python -m bimanual_redundancy.experiments.dual_franka_eq8_static_comparison
 ```
 
 The order is baseline, velocity manipulability, force manipulability, and
@@ -308,7 +317,7 @@ minimum run time of `1 s`). Closing a viewer early also advances to the next
 mode. Customize the convergence rule or record the sequence with:
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
+python -m bimanual_redundancy.experiments.dual_franka_eq8_static_comparison \
   --convergence-speed 0.005 --convergence-hold 0.5 --record-data
 ```
 
@@ -317,7 +326,7 @@ pass `--duration`; this disables convergence stopping and gives every mode the
 same requested recording interval:
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_static_comparison \
+python -m bimanual_redundancy.experiments.dual_franka_eq8_static_comparison \
   --duration 10 --record-data
 ```
 
@@ -331,9 +340,9 @@ Every four-mode comparison can run without opening the interactive viewer and
 record both the tuned perspective camera and the overhead camera:
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_static_comparison --record-video
-python -m MUJOCO.scripts.dual_franka_eq8_pick_place_comparison --record-video
-python -m MUJOCO.scripts.dual_franka_eq8_6d_pick_place_comparison --record-video
+python -m bimanual_redundancy.experiments.dual_franka_eq8_static_comparison --record-video
+python -m bimanual_redundancy.experiments.dual_franka_eq8_pick_place_comparison --record-video
+python -m bimanual_redundancy.experiments.dual_franka_eq8_6d_pick_place_comparison --record-video
 ```
 
 Headless recording skips real-time sleeping and displays simulation progress
@@ -360,7 +369,7 @@ The experimental directional-distance optimizer has a separate four-case
 runner; it does not replace the paper's static optimizer:
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_directional_distance_comparison
+python -m bimanual_redundancy.experiments.dual_franka_eq8_directional_distance_comparison
 ```
 
 It runs force-capability minimize/maximize followed by velocity-capability
@@ -368,14 +377,14 @@ minimize/maximize in independent viewer sessions. Convergence stopping is the
 default. Use a fixed interval and record all four cases with:
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_directional_distance_comparison \
+python -m bimanual_redundancy.experiments.dual_franka_eq8_directional_distance_comparison \
   --duration 10 --record-data
 ```
 
 Plot the newest four permutation recordings with:
 
 ```bash
-python -m MUJOCO.plotting_scripts.plot_eq8_directional_distance_comparison
+python -m bimanual_redundancy.plotting.plot_eq8_directional_distance_comparison
 ```
 
 The plotter creates four separate raw-distance figures, one combined `[0, 1]`
@@ -385,7 +394,7 @@ normalized-progress figure, one actuator-effort figure, and a text summary in
 Plot the newest four-mode dataset with:
 
 ```bash
-python -m MUJOCO.plotting_scripts.plot_eq8_static_comparison
+python -m bimanual_redundancy.plotting.plot_eq8_static_comparison
 ```
 
 This produces five paper-oriented figures in
@@ -399,7 +408,7 @@ computed directly from the 14 recorded joint torques as `sqrt(tau @ tau.T)`.
 Plot the newest simple pick-and-place four-mode dataset with:
 
 ```bash
-python -m MUJOCO.plotting_scripts.plot_eq8_pick_place_comparison
+python -m bimanual_redundancy.plotting.plot_eq8_pick_place_comparison
 ```
 
 Use `--experiment 6d` for the newest 6D comparison dataset. This plotter
@@ -414,14 +423,14 @@ The static and optimized lift-and-lower experiments can record every Equation
 (8) control step:
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_static_optimization --record-data
-python -m MUJOCO.scripts.dual_franka_eq8_optimized_pick_place --record-data
+python -m bimanual_redundancy.experiments.dual_franka_eq8_static_optimization --record-data
+python -m bimanual_redundancy.experiments.dual_franka_eq8_optimized_pick_place --record-data
 ```
 
 Timestamped files are written to `outputs/mujoco_data/`. To choose a path:
 
 ```bash
-python -m MUJOCO.scripts.dual_franka_eq8_static_optimization \
+python -m bimanual_redundancy.experiments.dual_franka_eq8_static_optimization \
   --output-csv outputs/my_static_run.csv
 ```
 
@@ -439,7 +448,7 @@ DoFs.
 Create publication-oriented plots for a recorded static run with:
 
 ```bash
-python -m MUJOCO.plotting_scripts.plot_eq8_static_optimization \
+python -m bimanual_redundancy.plotting.plot_eq8_static_optimization \
   outputs/mujoco_data/<recording>.csv
 ```
 
@@ -448,7 +457,7 @@ The CSV argument is optional. Running the module without it uses the
 edited for IDE Run/Debug use:
 
 ```bash
-python -m MUJOCO.plotting_scripts.plot_eq8_static_optimization
+python -m bimanual_redundancy.plotting.plot_eq8_static_optimization
 ```
 
 By default, the script creates a sibling `<recording>_figures/` directory with
@@ -463,10 +472,10 @@ claims require additional matched recordings.
 Both module commands can also be run as file paths after the editable install:
 
 ```bash
-python MUJOCO/scripts/dual_franka_eq8_baseline_pick_place.py
-python MUJOCO/scripts/dual_franka_eq8_optimized_6d_pick_place.py
-python MUJOCO/scripts/dual_franka_eq8_optimized_pick_place.py
-python MUJOCO/scripts/dual_franka_eq8_static_optimization.py
+python src/bimanual_redundancy/experiments/dual_franka_eq8_baseline_pick_place.py
+python src/bimanual_redundancy/experiments/dual_franka_eq8_optimized_6d_pick_place.py
+python src/bimanual_redundancy/experiments/dual_franka_eq8_optimized_pick_place.py
+python src/bimanual_redundancy/experiments/dual_franka_eq8_static_optimization.py
 ```
 
 ## Main experiment settings
@@ -572,7 +581,7 @@ is available:
 python -c "from qpsolvers import available_solvers; print(available_solvers)"
 ```
 
-### `ModuleNotFoundError: MUJOCO`
+### `ModuleNotFoundError: bimanual_redundancy`
 
 Install the repository editable from its root:
 
