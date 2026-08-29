@@ -209,8 +209,8 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
                 optimizer.force_manipulability_scaled,
             ),
             (
-                optimizer.directional_force_cost_raw,
-                optimizer.directional_force_cost_scaled,
+                optimizer.directional_force_direct_cost_raw,
+                optimizer.directional_force_direct_cost_scaled,
             ),
         ):
             self.assertAlmostEqual(raw_method(None), scaled_method(None))
@@ -238,8 +238,8 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
             optimizer.force_manipulability_raw(None),
         )
         self.assertEqual(
-            optimizer.directional_force_cost(None),
-            optimizer.directional_force_cost_raw(None),
+            optimizer.directional_force_direct_cost(None),
+            optimizer.directional_force_direct_cost_raw(None),
         )
         self.assertEqual(
             optimizer.directional_force_indirect_cost(None),
@@ -292,7 +292,7 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
         )
         with patch(
             "bimanual_redundancy.core."
-            "objectives.mujoco.mj_forward"
+            "gradients.mujoco.mj_forward"
         ):
             gradient = optimizer.gradient(data)
         self.assertAlmostEqual(gradient[0], 1.0, places=9)
@@ -312,7 +312,7 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
             ),
             (
                 ManipulabilityObjective.DIRECTIONAL_FORCE,
-                optimizer.directional_force_cost_raw(data)
+                optimizer.directional_force_direct_cost_raw(data)
                 + collision_cost,
             ),
             (
@@ -330,7 +330,7 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
 
         with patch(
             "bimanual_redundancy.core."
-            "objectives.mujoco.mj_forward"
+            "gradients.mujoco.mj_forward"
         ):
             for objective in ManipulabilityObjective:
                 short.objective = objective
@@ -373,8 +373,7 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
             short, long = optimizers
             with patch(
                 "bimanual_redundancy.core."
-                "directional_distance_optimization."
-                "mujoco.mj_forward"
+                "gradients.mujoco.mj_forward"
             ):
                 self.assertAlmostEqual(short.value(data), long.value(data))
                 np.testing.assert_allclose(

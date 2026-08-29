@@ -208,7 +208,7 @@ class ArmTableCollisionTests(unittest.TestCase):
             optimizer.value(data, ManipulabilityObjective.FORCE),
             force_base - weighted_cost,
         )
-        directional_base = optimizer.directional_force_cost(data)
+        directional_base = optimizer.directional_force_direct_cost(data)
         self.assertAlmostEqual(
             optimizer.value(data, ManipulabilityObjective.DIRECTIONAL_FORCE),
             directional_base + weighted_cost,
@@ -224,7 +224,7 @@ class ArmTableCollisionTests(unittest.TestCase):
         force_value = optimizer.value(data, ManipulabilityObjective.FORCE)
         self.assertAlmostEqual(force_value, force_base - weighted_cost)
 
-        directional_base = optimizer.directional_force_cost(data)
+        directional_base = optimizer.directional_force_direct_cost(data)
         directional_value = optimizer.value(
             data,
             ManipulabilityObjective.DIRECTIONAL_FORCE,

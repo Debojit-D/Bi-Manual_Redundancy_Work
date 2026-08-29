@@ -1,11 +1,12 @@
 # Architecture
 
 This document describes the package layout produced by Refactor 1
-(`refactor/01-package-layout`): a reorganization of the research codebase
-into a conventional src-layout Python package. It changes where code lives,
-not what it computes — see the root `README.md` for the physics/control
+(`refactor/01-package-layout`) and the internal `core/` reorganization from
+Refactor 2 (`refactor/02-paper-code-map`). Both change where code lives, not
+what it computes — see the root `README.md` for the physics/control
 description of the Equation (8) controller and the manipulability
-objectives.
+objectives, and `docs/PAPER_CODE_MAP.md` for the equation-by-equation
+paper-to-function map.
 
 ## Package ownership
 
@@ -18,8 +19,11 @@ src/bimanual_redundancy/
 │                       up-to-date mujoco.MjData, not the simulation loop itself.
 │   ├── cooperative_kinematics.py    Grasp matrix G, hand Jacobian J_H, Eq.(8) projector
 │   ├── controller.py                 Equation (8) closed-loop update
-│   ├── objectives.py                 Manipulability objectives (Eq. 13-15), collision
-│   │                                   costs, and their finite-difference gradients
+│   ├── objectives.py                 Manipulability objectives only (Eq. 12-17);
+│   │                                   evaluable without any collision state
+│   ├── gradients.py                  Shared finite-difference dW/dphi mechanics (Eq. 4)
+│   ├── collision_penalties.py        Collision/safety penalty shaping (not a paper
+│   │                                   equation), mixed into ManipulabilityOptimizer
 │   └── directional_distance_optimization.py
 │                                      Experimental 2x2 directional-distance permutation
 │                                      study (sits beside objectives.py by design — see
@@ -81,9 +85,16 @@ construction, for every active module).
 
 - **Mathematical core** (`core/`): Equation (8) controller update,
   cooperative kinematics (grasp matrix, hand Jacobian), and the
-  velocity/force/directional-force manipulability objectives with their
-  finite-difference gradients and collision-cost terms. This is the part of
-  the codebase that encodes the paper's equations.
+  velocity/force/directional-force manipulability objectives (Eq. 12-17),
+  with their finite-difference gradients (`gradients.py`) factored out as
+  shared, reusable mechanics. This is the part of the codebase that encodes
+  the paper's equations. Collision/safety penalty shaping
+  (`collision_penalties.py`) is not part of the paper formulation — see
+  `docs/PAPER_CODE_MAP.md`'s "Math vs. gradients vs. collision penalties" —
+  but is kept in `core/` rather than `simulation/` because, like
+  `objectives.py`, it only queries an already-stepped `mujoco.MjData`
+  (`data.xpos`, `data.geom_xpos`, ...), never drives the simulation loop or
+  owns a viewer.
 - **MuJoCo backend** (`simulation/`): everything needed to actually run those
   equations inside a MuJoCo simulation — model/scene construction, the
   viewer, camera presets, video/CSV recording, and run-safety/timing
@@ -115,12 +126,6 @@ splitting any function/class bodies (the refactor's explicit constraint).
 Where the real codebase didn't collapse cleanly into that shape, it was kept
 as-is and documented here rather than forced:
 
-- **No standalone `gradients.py`.** Finite-difference gradient evaluation is
-  a method (`ManipulabilityOptimizer.gradient` /
-  `DirectionalDistancePermutationOptimizer.gradient`) embedded in
-  `objectives.py` and `directional_distance_optimization.py`, not a
-  free-standing module. Extracting it would mean splitting those classes,
-  which this refactor was explicitly told not to do.
 - **`core/directional_distance_optimization.py` is an extra file** beyond the
   four named in the target tree. It is an experimental permutation study
   that intentionally sits beside `objectives.py` rather than inside it (see
@@ -150,6 +155,27 @@ as-is and documented here rather than forced:
   scripts, so they were kept there rather than introducing a fifth
   `common/`-style package for four small files.
 
+## Resolved in Refactor 2
+
+- **Standalone `gradients.py`** now exists:
+  `core.gradients.central_difference_gradient` holds the finite-difference
+  mechanics behind Equation (4)'s `dW/dphi`, shared by
+  `ManipulabilityOptimizer.gradient` and
+  `DirectionalDistancePermutationOptimizer.gradient` (previously
+  duplicated). This was listed as a "known deviation" after Refactor 1;
+  Refactor 2 lifted the earlier "don't split classes" constraint enough to
+  extract this one reusable function without changing any class's public
+  surface.
+- **Collision-cost computation separated from the paper objectives**:
+  `core.collision_penalties.CollisionPenaltiesMixin` now holds every
+  collision-sphere-loading, clearance, and penalty-cost method, mixed into
+  `ManipulabilityOptimizer` so its public attributes/methods are unchanged
+  for external callers. `core/objectives.py` shrank from ~1010 lines mixing
+  three concerns to ~590 lines (the added paper-faithful docstrings account
+  for some of that) of objectives-only code; the ~330 lines of collision
+  logic now live in `collision_penalties.py`. See
+  `docs/PAPER_CODE_MAP.md`'s "Math vs. gradients vs. collision penalties".
+
 ## Unresolved architectural debt
 
 - The `src/MUJOCO/` compatibility shim should be removed once downstream
@@ -157,12 +183,6 @@ as-is and documented here rather than forced:
   `bimanual_redundancy`.
 - `experiments/` would benefit from the `static/` / `translational/` /
   `six_d/` / `batch/` subdivision described above.
-- Collision-cost *computation* (as opposed to its viewer *visualization* in
-  `simulation/collisions.py`) still lives inside
-  `core.objectives.ManipulabilityOptimizer` alongside the manipulability
-  objectives themselves. Separating "objective value" from "collision
-  penalty" into distinct classes would clarify `core/` further but is a
-  behavior-risking change, not a move, so it was left untouched.
 - `models/objects/furniture/ventionTable.xml` (as opposed to the
   `ventionTable/` subdirectory actually included by the active scene) embeds
   a hardcoded absolute path from a different machine and appears unused by

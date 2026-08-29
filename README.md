@@ -294,23 +294,28 @@ Sequence:
 4. continuously apply `(I - J_H^dagger J_H) phi_dot_opt`.
 
 The standalone runner remains independently usable. Select an objective with
-`--objective velocity`, `--objective force`, or
-`--objective directional_force`; use `--baseline` to suppress the null-space
-term while monitoring the selected metric. It starts immediately after the
+`--objective velocity`, `--objective force`, `--objective
+directional_force` (Eq. 16, direct), or `--objective
+directional_force_indirect` (Eq. 17, indirect); use `--baseline` to
+suppress the null-space term while monitoring the selected metric. It
+starts immediately after the
 grasp is established and can either run until the viewer closes or for a fixed
 `--duration`.
 
-### Four-mode static comparison
+### Static comparison (baseline plus four objectives)
 
-Run baseline and all three paper objectives as four independent viewer
+Run baseline and all four paper objectives as five independent viewer
 sessions:
 
 ```bash
 python -m bimanual_redundancy.experiments.dual_franka_eq8_static_comparison
 ```
 
-The order is baseline, velocity manipulability, force manipulability, and
-directional-force manipulability. Each mode starts immediately after the
+The order is baseline, velocity manipulability, force manipulability,
+direct directional-force manipulability (Eq. 16), and indirect
+directional-force manipulability (Eq. 17) -- the manuscript's matched
+static comparison of both directional-force formulations. Each mode starts
+immediately after the
 grasp is established. It advances automatically once the maximum applied
 null-space joint speed remains at or below `0.005 rad/s` for `0.5 s` (after a
 minimum run time of `1 s`). Closing a viewer early also advances to the next
@@ -331,8 +336,8 @@ python -m bimanual_redundancy.experiments.dual_franka_eq8_static_comparison \
 ```
 
 Recording creates a separately named, timestamped CSV for each mode. The
-`optimization_mode` column distinguishes `baseline`, `velocity`, `force`, and
-`directional_force` samples.
+`optimization_mode` column distinguishes `baseline`, `velocity`, `force`,
+`directional_force`, and `directional_force_indirect` samples.
 
 ### Headless dual-view video recording
 
@@ -515,7 +520,8 @@ unchanged. Its footprint is configured once in
 
 ### Optimization settings
 
-- `OBJECTIVE`: `VELOCITY`, `FORCE`, or `DIRECTIONAL_FORCE`;
+- `OBJECTIVE`: `VELOCITY`, `FORCE`, `DIRECTIONAL_FORCE` (Eq. 16, direct), or
+  `DIRECTIONAL_FORCE_INDIRECT` (Eq. 17, indirect);
 - `OPTIMIZATION_GAIN`: the Equation (4) gain `Lambda`;
 - `MAXIMUM_OPTIMIZATION_JOINT_SPEED`: final safety limit for `phi_dot_opt`;
 - `FINITE_DIFFERENCE_STEP`: joint perturbation used to evaluate `dW/dphi`;
@@ -523,21 +529,42 @@ unchanged. Its footprint is configured once in
 - `CHARACTERISTIC_LENGTH`: converts moment entries to force-equivalent units
   for the spatial directional-force objective.
 
-The directional-force cost is minimized automatically; the velocity and force
-objectives are maximized.
+The direct directional-force cost (Eq. 16) is minimized automatically; the
+velocity, force, and indirect directional-force (Eq. 17) objectives are
+maximized.
 
 ## Manipulability objectives
 
-The optimization utilities implement the three paper costs:
+The optimization utilities implement four paper costs. "Directional force"
+is not one formula: the manuscript defines two distinct, non-equivalent
+objectives (Appendix A), and this repository implements both.
 
 ```text
-Velocity:          W_v = sqrt(det(A A.T))
-Force:             W_f = sqrt(det((A A.T)^dagger))
-Directional force: normalized Frobenius distance between A A.T and F
+Velocity (Eq. 13, maximized):
+    W_v = sqrt(det(A A.T))
+
+Force (Eq. 14, maximized):
+    W_f = sqrt(det((A A.T)^dagger))
+
+Directional force, direct (Eq. 16, minimized):
+    normalized Frobenius distance between (A A.T)^dagger and F
+
+Directional force, indirect (Eq. 17, maximized):
+    normalized Frobenius distance between A A.T and F
 ```
 
-Joint gradients are computed with central finite differences and then passed
-to the Equation (8) controller for null-space projection.
+The direct formulation (`--objective directional_force`) compares in
+force-capability space and is used by default in this spatial study. The
+indirect formulation (`--objective directional_force_indirect`) compares in
+velocity-capability space and is additionally evaluated in the static and
+six-dimensional comparisons, matching the manuscript's planar-hardware
+formulation. Full equation-by-function detail, including which experiment
+scripts use which formulation, is in
+[`docs/PAPER_CODE_MAP.md`](docs/PAPER_CODE_MAP.md).
+
+Joint gradients are computed with central finite differences
+(`core/gradients.py`) and then passed to the Equation (8) controller for
+null-space projection.
 
 ## Actuation and gravity compensation
 

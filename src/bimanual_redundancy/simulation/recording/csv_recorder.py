@@ -273,10 +273,10 @@ class Equation8CSVRecorder:
             self.optimizer.force_manipulability_scaled(data)
         )
         directional_force_cost_raw = (
-            self.optimizer.directional_force_cost_raw(data)
+            self.optimizer.directional_force_direct_cost_raw(data)
         )
         directional_force_cost_scaled = (
-            self.optimizer.directional_force_cost_scaled(data)
+            self.optimizer.directional_force_direct_cost_scaled(data)
         )
         paper_objective_raw, paper_objective_scaled = (
             self.optimizer.paper_objective_values(data)
