@@ -21,6 +21,8 @@
     --status-bg: #fdf6e3;
     --status-border: #e8d9a0;
     --link: #1a1a1a;
+    --link-blue: #1a56db;
+    --link-blue-hover: #1341ab;
     --button-border: #d6d6d4;
     --button-hover: #f5f5f5;
     --serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
@@ -62,13 +64,46 @@
   }
 
   #bg-grid::before {
-    opacity: 0.04;
+    opacity: 0.03;
   }
 
   #bg-grid::after {
-    opacity: 0.5;
+    opacity: 0.22;
     -webkit-mask-image: radial-gradient(circle 260px at var(--mx, 50%) var(--my, 12%), #000 0%, transparent 100%);
     mask-image: radial-gradient(circle 260px at var(--mx, 50%) var(--my, 12%), #000 0%, transparent 100%);
+  }
+
+  .eq-field {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .eq {
+    position: absolute;
+    width: 190px;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 0.92rem;
+    line-height: 1.4;
+    color: var(--text);
+    opacity: 0.11;
+  }
+
+  .eq-l { left: calc(50% - 808px); text-align: right; }
+  .eq-r { left: calc(50% + 618px); text-align: left; }
+
+  .eq-1 { top: 10vh; }
+  .eq-2 { top: 26vh; }
+  .eq-3 { top: 44vh; width: 210px; }
+  .eq-4 { top: 62vh; }
+  .eq-5 { top: 78vh; }
+  .eq-6 { top: 92vh; }
+
+  @media (min-width: 1680px) {
+    .eq-field { display: block; }
   }
 
   #cursor-ring {
@@ -143,19 +178,16 @@
   }
 
   .authors a {
-    color: var(--link);
-    text-decoration: none;
-    background-image: linear-gradient(var(--text), var(--text));
-    background-position: 0 100%;
-    background-repeat: no-repeat;
-    background-size: 0% 1px;
-    transition: background-size 0.25s ease;
-    padding-bottom: 1px;
+    color: var(--link-blue);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+    transition: color 0.15s ease;
   }
 
   .authors a:hover,
   .authors a:focus-visible {
-    background-size: 100% 1px;
+    color: var(--link-blue-hover);
   }
 
   .authors .li-icon {
@@ -209,6 +241,20 @@
     font-size: 0.85rem;
     color: var(--muted);
     margin-top: 0.6rem;
+  }
+
+  .venue a {
+    color: var(--muted);
+    text-decoration: underline;
+    text-decoration-color: var(--rule);
+    text-underline-offset: 2px;
+    transition: color 0.15s ease, text-decoration-color 0.15s ease;
+  }
+
+  .venue a:hover,
+  .venue a:focus-visible {
+    color: var(--text);
+    text-decoration-color: var(--text);
   }
 
   .resources {
@@ -416,6 +462,15 @@
 <canvas id="bg-canvas" aria-hidden="true"></canvas>
 <div id="cursor-ring" aria-hidden="true"></div>
 
+<div class="eq-field" aria-hidden="true">
+  <span class="eq eq-l eq-1">J<sub>H</sub>φ̇ = G<sup>T</sup>q̇</span>
+  <span class="eq eq-r eq-2">q̇ = Aφ̇</span>
+  <span class="eq eq-l eq-3">φ̇ = A<sup>†</sup>q̇ + (I<sub>N</sub> − A<sup>†</sup>A)φ̇<sub>opt</sub></span>
+  <span class="eq eq-r eq-4">φ̇<sub>opt</sub> = Λ(∂W/∂φ)<sup>T</sup></span>
+  <span class="eq eq-l eq-5">W<sub>v</sub> = √(det(AA<sup>T</sup>))</span>
+  <span class="eq eq-r eq-6">W<sub>f</sub> = √(det((AA<sup>T</sup>)<sup>†</sup>))</span>
+</div>
+
 <div class="page">
   <main class="content">
     <h1>Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation</h1>
@@ -489,9 +544,12 @@
   // --- Status / venue ---
   var statusEl = document.getElementById('status-line');
   if (statusEl && cfg.project) {
+    var venueHtml = cfg.project.venueUrl
+      ? '<a ' + externalAttrs(cfg.project.venueUrl) + '>' + cfg.project.venue + '</a>'
+      : cfg.project.venue;
     statusEl.innerHTML =
       '<span class="status-badge">Status: ' + cfg.project.status + '</span>' +
-      '<span class="venue">' + cfg.project.venue + '</span>';
+      '<span class="venue">' + venueHtml + '</span>';
   }
 
   // --- Resource buttons ---

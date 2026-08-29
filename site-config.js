@@ -2,7 +2,8 @@ window.SITE_CONFIG = {
   project: {
     title: "Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation",
     status: "Provisionally accepted",
-    venue: "Industrial Robot: The International Journal of Robotics Research and Application"
+    venue: "Industrial Robot: The International Journal of Robotics Research and Application",
+    venueUrl: "https://www.emerald.com/ir"
   },
 
   resources: {
