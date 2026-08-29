@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem('theme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+})();
+</script>
 <title>Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation</title>
 <meta name="description" content="Project page for &quot;Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation&quot; — a comparison of velocity, force, and directional-force manipulability objectives for bimanual cooperative manipulation, with planar dual-arm hardware experiments and dual-Franka MuJoCo simulation.">
 <meta name="keywords" content="Bimanual Manipulation, Redundancy Optimization, Manipulability, Cooperative Manipulation, Dual-Arm Robotics, Null-Space Optimization">
@@ -25,8 +33,43 @@
     --link-blue-hover: #1341ab;
     --button-border: #d6d6d4;
     --button-hover: #f5f5f5;
+    --grid-rgb: 26, 26, 26;
     --serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
     --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page-bg: #121316;
+      --text: #e9e9e6;
+      --muted: #9b9b96;
+      --rule: #2c2d31;
+      --accent: #d9b64a;
+      --status-bg: #332a10;
+      --status-border: #5c4a1e;
+      --link: #e9e9e6;
+      --link-blue: #6ea8ff;
+      --link-blue-hover: #9dc4ff;
+      --button-border: #3a3c41;
+      --button-hover: #1c1e22;
+      --grid-rgb: 255, 255, 255;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --page-bg: #121316;
+    --text: #e9e9e6;
+    --muted: #9b9b96;
+    --rule: #2c2d31;
+    --accent: #d9b64a;
+    --status-bg: #332a10;
+    --status-border: #5c4a1e;
+    --link: #e9e9e6;
+    --link-blue: #6ea8ff;
+    --link-blue-hover: #9dc4ff;
+    --button-border: #3a3c41;
+    --button-hover: #1c1e22;
+    --grid-rgb: 255, 255, 255;
   }
 
   * { box-sizing: border-box; }
@@ -40,6 +83,7 @@
     font-family: var(--serif);
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
+    transition: background 0.2s ease, color 0.2s ease;
   }
 
   #bg-grid,
@@ -58,8 +102,8 @@
     position: absolute;
     inset: 0;
     background-image:
-      linear-gradient(rgba(26, 26, 26, 0.9) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(26, 26, 26, 0.9) 1px, transparent 1px);
+      linear-gradient(rgba(var(--grid-rgb), 0.9) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(var(--grid-rgb), 0.9) 1px, transparent 1px);
     background-size: 48px 48px;
   }
 
@@ -170,6 +214,41 @@
     height: 44px;
     margin: -22px 0 0 -22px;
     background: rgba(255, 255, 255, 0.06);
+  }
+
+  .theme-toggle {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    z-index: 30;
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--button-border);
+    border-radius: 50%;
+    background: var(--page-bg);
+    color: var(--text);
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  }
+
+  .theme-toggle:hover {
+    background: var(--button-hover);
+    border-color: var(--text);
+    transform: translateY(-1px);
+  }
+
+  .theme-toggle svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+  }
+
+  @media (max-width: 640px) {
+    .theme-toggle { top: 0.85rem; right: 0.85rem; width: 34px; height: 34px; }
   }
 
   a { color: var(--link); }
@@ -347,12 +426,6 @@
     font-style: italic;
   }
 
-  hr {
-    border: none;
-    border-top: 1px solid var(--rule);
-    margin: 0 0 2.75rem;
-  }
-
   h2 {
     font-family: var(--sans);
     font-size: 0.8rem;
@@ -366,25 +439,7 @@
   .abstract {
     position: relative;
     max-width: 740px;
-    margin: 0 auto;
-  }
-
-  .abstract::before,
-  .abstract::after {
-    content: "";
-    position: absolute;
-    top: 0.35rem;
-    bottom: 0.35rem;
-    width: 1px;
-    background: var(--rule);
-  }
-
-  .abstract::before { left: -2.5rem; }
-  .abstract::after { right: -2.5rem; }
-
-  @media (max-width: 900px) {
-    .abstract::before,
-    .abstract::after { display: none; }
+    margin: 2.75rem auto 0;
   }
 
   .abstract p {
@@ -439,7 +494,6 @@
   .site-footer {
     margin-top: 4.25rem;
     padding-top: 2.5rem;
-    border-top: 1px solid var(--rule);
     text-align: center;
   }
 
@@ -472,7 +526,14 @@
     width: auto;
     display: block;
     margin: 0 auto;
+    transition: filter 0.2s ease;
   }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .lab-logo-link img { filter: brightness(0) invert(1); }
+  }
+
+  :root[data-theme="dark"] .lab-logo-link img { filter: brightness(0) invert(1); }
 
   @media (max-width: 900px) {
     .page { padding: 3rem 1.25rem 4.5rem; }
@@ -504,6 +565,7 @@
 <div id="bg-grid" aria-hidden="true"></div>
 <canvas id="bg-canvas" aria-hidden="true"></canvas>
 <div id="cursor-ring" aria-hidden="true"></div>
+<button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode"></button>
 
 <div class="eq-field" aria-hidden="true">
   <span class="eq eq-l eq-1"><span class="eq-text">J<sub>H</sub>φ̇ = G<sup>T</sup>q̇</span></span>
@@ -526,8 +588,6 @@
     <span class="status-line" id="status-line"></span>
 
     <div class="resources" id="resources"></div>
-
-    <hr>
 
     <section class="abstract reveal">
       <h2>Abstract</h2>
@@ -658,6 +718,13 @@
   var LINK_DIST = 130;
   var MOUSE_DIST = 170;
 
+  function isDarkTheme() {
+    var attr = document.documentElement.getAttribute('data-theme');
+    if (attr === 'dark') return true;
+    if (attr === 'light') return false;
+    return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  }
+
   function resize() {
     w = window.innerWidth;
     h = window.innerHeight;
@@ -681,6 +748,7 @@
 
   function step() {
     ctx.clearRect(0, 0, w, h);
+    var rgb = isDarkTheme() ? '255,255,255' : '26,26,26';
 
     for (var i = 0; i < points.length; i++) {
       var p = points[i];
@@ -698,7 +766,7 @@
         var dx = a.x - b.x, dy = a.y - b.y;
         var dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < LINK_DIST) {
-          ctx.strokeStyle = 'rgba(26,26,26,' + (0.09 * (1 - dist / LINK_DIST)) + ')';
+          ctx.strokeStyle = 'rgba(' + rgb + ',' + (0.09 * (1 - dist / LINK_DIST)) + ')';
           ctx.beginPath();
           ctx.moveTo(a.x, a.y);
           ctx.lineTo(b.x, b.y);
@@ -710,7 +778,7 @@
         var dxm = a.x - mouse.x, dym = a.y - mouse.y;
         var dm = Math.sqrt(dxm * dxm + dym * dym);
         if (dm < MOUSE_DIST) {
-          ctx.strokeStyle = 'rgba(26,26,26,' + (0.28 * (1 - dm / MOUSE_DIST)) + ')';
+          ctx.strokeStyle = 'rgba(' + rgb + ',' + (0.28 * (1 - dm / MOUSE_DIST)) + ')';
           ctx.beginPath();
           ctx.moveTo(a.x, a.y);
           ctx.lineTo(mouse.x, mouse.y);
@@ -722,7 +790,7 @@
     for (var i = 0; i < points.length; i++) {
       ctx.beginPath();
       ctx.arc(points[i].x, points[i].y, 1.5, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(26,26,26,0.32)';
+      ctx.fillStyle = 'rgba(' + rgb + ',0.32)';
       ctx.fill();
     }
 
@@ -741,6 +809,8 @@
   }, { passive: true });
   window.addEventListener('mouseleave', function () { mouse.active = false; });
 
+  window.__redrawBgCanvas = step;
+
   resize();
   step();
 })();
@@ -750,6 +820,32 @@
 (function () {
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var hasFinePointer = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+
+  // --- Dark mode toggle ---
+  var SUN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
+  var MOON_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+  var toggleBtn = document.getElementById('theme-toggle');
+  if (toggleBtn) {
+    var getTheme = function () {
+      var attr = document.documentElement.getAttribute('data-theme');
+      if (attr === 'light' || attr === 'dark') return attr;
+      return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    };
+    var syncIcon = function () {
+      var isDark = getTheme() === 'dark';
+      toggleBtn.innerHTML = isDark ? SUN_ICON : MOON_ICON;
+      toggleBtn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+    };
+    toggleBtn.addEventListener('click', function () {
+      var next = getTheme() === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('theme', next); } catch (e) {}
+      syncIcon();
+      if (window.__redrawBgCanvas) window.__redrawBgCanvas();
+    });
+    syncIcon();
+  }
 
   // --- Custom cursor ring ---
   var ring = document.getElementById('cursor-ring');
