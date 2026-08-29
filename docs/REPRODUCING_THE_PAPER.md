@@ -5,7 +5,7 @@ used for *Task-Specific Manipulability Metrics for Redundancy Optimization in
 Cooperative Manipulation*. They reproduce experiment campaigns and raw data;
 they do not currently promise pixel-identical final manuscript figures.
 
-Install the project in a Python 3.11+ environment, including its pinned MuJoCo,
+Install the project in a Python 3.12 environment, including its pinned MuJoCo,
 Mink, NumPy, and SciPy dependencies. From the repository root, run one campaign:
 
 ```bash

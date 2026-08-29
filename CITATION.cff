@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite the associated article
+  (see preferred-citation below).
+title: Bimanual Redundancy Optimization
+type: software
+version: 0.1.0
+repository-code: "https://github.com/Debojit-D/Bimanual-Redundancy-Optimization"
+url: "https://debojit-d.github.io/Bimanual-Redundancy-Optimization/"
+authors:
+  - family-names: Das
+    given-names: Debojit
+  - family-names: "S."
+    given-names: Barat
+  - family-names: Palanthandalam-Madapusi
+    given-names: "Harish J."
+preferred-citation:
+  type: article
+  title: >-
+    Task-Specific Manipulability Metrics for Redundancy Optimization in
+    Cooperative Manipulation
+  authors:
+    - family-names: Das
+      given-names: Debojit
+    - family-names: "S."
+      given-names: Barat
+    - family-names: Palanthandalam-Madapusi
+      given-names: "Harish J."
+  journal: >-
+    Industrial Robot: The International Journal of Robotics Research and
+    Application
+  year: 2026
+  notes: >-
+    Provisionally accepted. DOI, volume, issue, and page numbers will be
+    added once available.

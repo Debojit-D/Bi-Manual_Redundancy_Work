@@ -157,7 +157,8 @@ W_df^indirect = || AA^T/tr(AA^T) - F/tr(F) ||_F
 `_scaled`). Operates on the **velocity-capability matrix** `AA^T` (Eq. 13's
 matrix), not the force-capability matrix.
 `ManipulabilityObjective.DIRECTIONAL_FORCE_INDIRECT` selects it. This is the
-formulation used by the planar hardware experiments (see "Planar vs.
+formulation used by the manuscript's separate planar hardware experiments,
+which this repository does not implement or reproduce (see "Planar vs.
 spatial usage" below). Per Appendix A.2: "The direct and indirect
 formulations share the same task-level motivation but are not mathematically
 equivalent" — they generally produce different objective gradients,
@@ -236,6 +237,14 @@ not active, so a reader does not have to trace every runner by hand to find
 out.
 
 ## Planar vs. spatial usage (paper implementation notes)
+
+The manuscript reports both planar physical-hardware experiments and spatial
+MuJoCo simulation experiments. **This repository implements and reproduces
+only the spatial simulation study.** The planar hardware implementation is
+not distributed here (see the "Hardware implementation" note in the top-level
+`README.md`); the quotes below are reproduced only to document which
+directional-force formulation corresponds to which manuscript context, since
+that distinction determines which formulation this codebase uses where.
 
 Quoting the manuscript directly, since this is exactly the distinction the
 codebase must preserve and previously did not document:

@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      MUJOCO_GL: osmesa
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libosmesa6-dev
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Run test suite
+        run: python -m pytest
+
+      - name: Validate paper configs
+        run: |
+          for config in configs/paper/*.toml; do
+            echo "::group::$config"
+            bimanual-redopt run --config "$config" --smoke
+            echo "::endgroup::"
+          done
+
+      - name: Validate reference robot embodiment
+        run: bimanual-redopt validate-robot --robot dual_franka_panda
+
+      - name: Headless reproduction smoke test
+        run: bimanual-redopt reproduce-paper --smoke
