@@ -29,9 +29,6 @@ from scipy.spatial.transform import Rotation
 
 from bimanual_redundancy.plotting.equation8_plot_style import Equation8PlotStyle
 from bimanual_redundancy.simulation.cli import run_cli
-from bimanual_redundancy.core import (
-    CooperativeManipulationKinematics,
-)
 from bimanual_redundancy.simulation import DualFrankaMuJoCoScene
 
 
@@ -372,11 +369,7 @@ def add_indirect_baseline_metrics(loaded):
         show_mocap_targets=False,
         enable_bias_compensation=True,
     )
-    kinematics = CooperativeManipulationKinematics(
-        scene.model,
-        scene.left_arm_dofs,
-        scene.right_arm_dofs,
-    )
+    kinematics = scene.make_kinematics()
     desired = np.diag([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
 
     for runs in loaded.values():

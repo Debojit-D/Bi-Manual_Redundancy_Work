@@ -35,6 +35,9 @@ def _kinematics_and_data(object_position, left_position, right_position):
         _SiteModel(),
         np.arange(7),
         np.arange(7, 14),
+        object_reference_site="site_top_middle",
+        object_contact_sites=("site_left", "site_right"),
+        hand_sites=("left_hand", "right_hand"),
     )
     data = SimpleNamespace(
         site_xpos=np.asarray(

@@ -14,8 +14,6 @@ import warnings
 import numpy as np
 
 from .collision_penalties import (
-    LEFT_COLLISION_BODIES,
-    RIGHT_COLLISION_BODIES,
     CollisionModelVersion,
     CollisionPenaltiesMixin,
 )
@@ -106,6 +104,10 @@ class ManipulabilityOptimizer(CollisionPenaltiesMixin):
     ):
         self.kinematics = kinematics
         self.model = kinematics.model
+        system_spec = getattr(kinematics, "system_spec", None)
+        self.collision_spec = (
+            system_spec.collision if system_spec is not None else None
+        )
         self.arm_qpos_indices = np.asarray(arm_qpos_indices, dtype=int)
         self.objective = ManipulabilityObjective(objective)
         self.gain = float(gain)
@@ -144,12 +146,22 @@ class ManipulabilityOptimizer(CollisionPenaltiesMixin):
             self_collision_proximity_scale
         )
         # Resolve names once: finite-difference evaluations reuse these IDs.
+        left_collision_bodies = (
+            self.collision_spec.left_inter_arm_bodies
+            if self.collision_spec is not None
+            else ()
+        )
+        right_collision_bodies = (
+            self.collision_spec.right_inter_arm_bodies
+            if self.collision_spec is not None
+            else ()
+        )
         self.left_collision_body_ids = np.array(
-            [self.model.body(name).id for name in LEFT_COLLISION_BODIES],
+            [self.model.body(name).id for name in left_collision_bodies],
             dtype=int,
         )
         self.right_collision_body_ids = np.array(
-            [self.model.body(name).id for name in RIGHT_COLLISION_BODIES],
+            [self.model.body(name).id for name in right_collision_bodies],
             dtype=int,
         )
         self.left_detailed_body_ids = np.empty(0, dtype=int)

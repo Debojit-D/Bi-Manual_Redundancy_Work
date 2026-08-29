@@ -66,9 +66,6 @@ from bimanual_redundancy import paths
 import numpy as np
 from loop_rate_limiters import RateLimiter
 
-from bimanual_redundancy.core import (
-    CooperativeManipulationKinematics,
-)
 from bimanual_redundancy.simulation.recording import Equation8CSVRecorder
 from bimanual_redundancy.simulation.cli import add_camera_view_arguments, run_cli
 from bimanual_redundancy.simulation.control_timing import timed_equation_8_update
@@ -522,11 +519,7 @@ def main(
     scene.set_table_reference_pose(
         np.asarray(table_spawn_position, dtype=float)
     )
-    kinematics = CooperativeManipulationKinematics(
-        scene.model,
-        scene.left_arm_dofs,
-        scene.right_arm_dofs,
-    )
+    kinematics = scene.make_kinematics()
     # Resolve once from the initialized rigid grasp; keep it fixed for the run.
     (
         selected_characteristic_length,
@@ -551,14 +544,8 @@ def main(
         f"{selected_characteristic_length:.9f} m "
         f"({'automatic' if characteristic_length is None else 'manual override'})"
     )
-    left_limits = scene.model.actuator_ctrlrange[0:7]
-    right_limits = scene.model.actuator_ctrlrange[8:15]
-    joint_position_lower = np.concatenate(
-        (left_limits[:, 0], right_limits[:, 0])
-    )
-    joint_position_upper = np.concatenate(
-        (left_limits[:, 1], right_limits[:, 1])
-    )
+    joint_position_lower = scene.joint_position_limits[:, 0]
+    joint_position_upper = scene.joint_position_limits[:, 1]
     equation_8 = Equation8Controller(
         kinematics,
         control_dt=scene.control_dt,

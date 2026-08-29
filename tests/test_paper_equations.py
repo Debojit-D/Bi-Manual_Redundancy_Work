@@ -190,11 +190,7 @@ class Equation8NullSpaceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.scene = DualFrankaMuJoCoScene()
-        cls.kinematics = CooperativeManipulationKinematics(
-            cls.scene.model,
-            cls.scene.left_arm_dofs,
-            cls.scene.right_arm_dofs,
-        )
+        cls.kinematics = cls.scene.make_kinematics()
 
     def test_null_space_term_produces_zero_hand_velocity(self):
         data = self.scene.data

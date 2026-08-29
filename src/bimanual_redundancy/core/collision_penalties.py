@@ -20,51 +20,6 @@ import numpy as np
 from enum import Enum
 
 
-LEFT_COLLISION_BODIES = (
-    "link3_l",
-    "link4_l",
-    "link5_l",
-    "link6_l",
-    "link7_l",
-    "hand_l",
-)
-
-RIGHT_COLLISION_BODIES = (
-    "link3_r",
-    "link4_r",
-    "link5_r",
-    "link6_r",
-    "link7_r",
-    "hand_r",
-)
-
-LEFT_TABLE_COLLISION_BODIES = (
-    "link1_l",
-    "link2",
-    "link3_l",
-    "link4_l",
-    "link5_l",
-    "link6_l",
-    "link7_l",
-)
-
-RIGHT_TABLE_COLLISION_BODIES = (
-    "link1_r",
-    "link2_r",
-    "link3_r",
-    "link4_r",
-    "link5_r",
-    "link6_r",
-    "link7_r",
-)
-
-TABLE_TOP_HALF_SIZE = np.array([0.202, 0.134, 0.005])
-KNOWN_TABLE_TOP_GEOM_NAMES = (
-    "vention_table_top_collision",
-    "table_top_collision",
-)
-
-
 class CollisionModelVersion(str, Enum):
     """Selectable inter-arm collision approximations."""
 
@@ -91,22 +46,28 @@ class CollisionPenaltiesMixin:
 
     def _load_detailed_collision_spheres(self, model_path):
         """Load fitted body-local spheres and map them onto this MuJoCo model."""
+        collision_spec = self.collision_spec
+        if collision_spec is None:
+            raise ValueError(
+                "a collision-enabled optimizer requires system_spec.collision"
+            )
+        model_path = model_path or collision_spec.sphere_resource
         if model_path is None:
             raise ValueError(
                 "collision_sphere_model_path is required for collision version2"
             )
         sphere_model = mujoco.MjModel.from_xml_path(str(model_path))
-        left_root = sphere_model.body("franka1").id
-        right_root = sphere_model.body("franka2").id
+        left_root = sphere_model.body(collision_spec.left_root_body).id
+        right_root = sphere_model.body(collision_spec.right_root_body).id
         # Fixed bases cannot move away from one another, so exclude them from
         # the optimization cost and retain all articulated arm/hand spheres.
-        excluded_bodies = {"franka1", "franka2", "link0_l", "link0_r"}
+        excluded_bodies = set(collision_spec.excluded_bodies)
         detailed = {"left": [], "right": []}
         table = {"left": [], "right": []}
 
         for geom_id in range(sphere_model.ngeom):
             geom_name = sphere_model.geom(geom_id).name
-            if not geom_name.startswith("spherefit_"):
+            if not geom_name.startswith(collision_spec.sphere_geom_prefix):
                 continue
             body_id = int(sphere_model.geom_bodyid[geom_id])
             body_name = sphere_model.body(body_id).name
@@ -135,9 +96,9 @@ class CollisionPenaltiesMixin:
             )
             detailed[side].append(entry)
             table_bodies = (
-                LEFT_TABLE_COLLISION_BODIES
+                collision_spec.left_table_bodies
                 if side == "left"
-                else RIGHT_TABLE_COLLISION_BODIES
+                else collision_spec.right_table_bodies
             )
             if body_name in table_bodies:
                 table[side].append(entry)
@@ -171,8 +132,8 @@ class CollisionPenaltiesMixin:
     def _store_table_collision_spheres(self, table):
         """Store fitted spheres belonging only to non-grasping arm links."""
         for side, allowed_bodies in (
-            ("left", LEFT_TABLE_COLLISION_BODIES),
-            ("right", RIGHT_TABLE_COLLISION_BODIES),
+            ("left", self.collision_spec.left_table_bodies),
+            ("right", self.collision_spec.right_table_bodies),
         ):
             entries = table[side]
             if not entries:
@@ -181,12 +142,13 @@ class CollisionPenaltiesMixin:
                 )
             body_ids = np.array([entry[0] for entry in entries], dtype=int)
             body_names = {self.model.body(body_id).name for body_id in body_ids}
+            gripper_bodies = set(
+                self.collision_spec.left_gripper_bodies
+                + self.collision_spec.right_gripper_bodies
+            )
             invalid_names = {
-                name
-                for name in body_names
-                if name not in allowed_bodies
-                or "finger" in name.lower()
-                or name in {"hand_l", "hand_r"}
+                name for name in body_names
+                if name not in allowed_bodies or name in gripper_bodies
             }
             if invalid_names:
                 raise ValueError(
@@ -221,14 +183,21 @@ class CollisionPenaltiesMixin:
             body_names = np.array(
                 [self.model.body(int(body_id)).name for body_id in body_ids]
             )
+            configured_grippers = set(
+                self.collision_spec.left_gripper_bodies
+                if side == "left"
+                else self.collision_spec.right_gripper_bodies
+            )
+            configured_terminals = set(
+                self.collision_spec.left_terminal_bodies
+                if side == "left"
+                else self.collision_spec.right_terminal_bodies
+            )
             gripper_bodies = np.array(
-                [
-                    "hand" in name.lower() or "finger" in name.lower()
-                    for name in body_names
-                ]
+                [name in configured_grippers for name in body_names]
             )
             terminal_links = np.array(
-                [name in {"link7_l", "link7_r"} for name in body_names]
+                [name in configured_terminals for name in body_names]
             )
             internal_gripper_pair = (
                 gripper_bodies[first] & gripper_bodies[second]
@@ -268,7 +237,10 @@ class CollisionPenaltiesMixin:
             self._validate_table_box_geom(geom_id)
             return geom_id
 
-        for geom_name in KNOWN_TABLE_TOP_GEOM_NAMES:
+        collision_spec = self.collision_spec
+        if collision_spec is None:
+            raise ValueError("table collision requires system_spec.collision")
+        for geom_name in collision_spec.table_geom_names:
             geom_id = mujoco.mj_name2id(
                 self.model,
                 mujoco.mjtObj.mjOBJ_GEOM,
@@ -281,12 +253,12 @@ class CollisionPenaltiesMixin:
         table_root_id = mujoco.mj_name2id(
             self.model,
             mujoco.mjtObj.mjOBJ_BODY,
-            "vention_table",
+            collision_spec.table_root_body or "",
         )
         if table_root_id < 0:
             raise ValueError(
                 "Could not auto-detect the table top collision geom: "
-                "body 'vention_table' is absent"
+                f"body {collision_spec.table_root_body!r} is absent"
             )
         candidates = []
         for geom_id in range(self.model.ngeom):
@@ -297,7 +269,7 @@ class CollisionPenaltiesMixin:
                 continue
             if np.allclose(
                 self.model.geom_size[geom_id],
-                TABLE_TOP_HALF_SIZE,
+                collision_spec.table_top_half_size,
                 rtol=0.0,
                 atol=1e-4,
             ):
@@ -305,7 +277,8 @@ class CollisionPenaltiesMixin:
         if len(candidates) != 1:
             raise ValueError(
                 "Could not uniquely auto-detect the table top collision box "
-                f"with half-size {TABLE_TOP_HALF_SIZE.tolist()}; found "
+                "with half-size "
+                f"{list(collision_spec.table_top_half_size or ())}; found "
                 f"{len(candidates)} candidates. Pass table_collision_geom_name."
             )
         return candidates[0]
@@ -497,7 +470,10 @@ class CollisionPenaltiesMixin:
 
     def minimum_inter_arm_clearance(self, data):
         """Return the closest inter-arm sphere clearance in metres."""
-        return float(np.min(self._inter_arm_clearances(data)))
+        clearances = self._inter_arm_clearances(data)
+        if not clearances.size:
+            return float("inf")
+        return float(np.min(clearances))
 
     def minimum_arm_table_clearance(self, data):
         """Return the closest arm-sphere clearance to the tabletop plane."""

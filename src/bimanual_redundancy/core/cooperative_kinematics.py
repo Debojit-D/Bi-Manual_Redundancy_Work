@@ -13,9 +13,10 @@ class CooperativeManipulationKinematics:
         left_arm_dofs,
         right_arm_dofs,
         *,
-        object_reference_site="site_top_middle",
-        object_contact_sites=("site_left", "site_right"),
-        hand_sites=("attachment_site_left", "attachment_site_right"),
+        system_spec=None,
+        object_reference_site=None,
+        object_contact_sites=None,
+        hand_sites=None,
         pinv_rcond=1e-6,
     ):
         self.model = model
@@ -24,6 +25,26 @@ class CooperativeManipulationKinematics:
         self.arm_dofs = np.concatenate(
             (self.left_arm_dofs, self.right_arm_dofs)
         )
+        self.system_spec = system_spec
+        if system_spec is not None:
+            object_reference_site = (
+                object_reference_site or system_spec.object.reference_site
+            )
+            object_contact_sites = (
+                object_contact_sites or system_spec.object.contact_sites
+            )
+            hand_sites = hand_sites or (
+                system_spec.left_arm.hand_site,
+                system_spec.right_arm.hand_site,
+            )
+        if (
+            object_reference_site is None
+            or object_contact_sites is None
+            or hand_sites is None
+        ):
+            raise ValueError(
+                "supply system_spec or explicit object/contact/hand sites"
+            )
         self.object_reference_site = object_reference_site
         self.object_contact_sites = tuple(object_contact_sites)
         self.hand_sites = tuple(hand_sites)
@@ -154,10 +175,10 @@ class CooperativeManipulationKinematics:
         return jacobian[:, dof_indices]
 
     def hand_jacobian(self, data):
-        """Return the 12x14 block-diagonal hand Jacobian ``J_H`` (Eq. 1, 9).
+        """Return the block-diagonal hand Jacobian ``J_H`` (Eq. 1, 9).
 
-        ``J_H in R^(kp x N) = R^(12x14)`` for two 7-DoF arms (``N=14``) and
-        two full-contact points (``kp=12``). Appears in the
+        ``J_H in R^(kp x N)`` for the configured arm DoFs and two
+        full-contact points (``kp=12``). Appears in the
         contact-compatibility constraint ``J_H phi_dot = G^T q_dot``
         (Eq. 1, restated as Eq. 9).
         """
@@ -177,7 +198,7 @@ class CooperativeManipulationKinematics:
     def paper_object_velocity_map(self, data):
         """Return the raw paper quantity ``A = (G.T)^dagger J_H``.
 
-        Equations (1), (2), (10). ``A in R^(m x N) = R^(6x14)``: the local
+        Equations (1), (2), (10). ``A in R^(m x N)``: the local
         object-velocity map induced by the grasp compatibility constraint,
         evaluated with the Moore-Penrose pseudoinverse rather than an
         explicit inverse of ``G^T`` since the grasp matrix is not
@@ -213,7 +234,7 @@ class CooperativeManipulationKinematics:
         return np.linalg.pinv(object_to_joint_map, rcond=self.pinv_rcond)
 
     def null_space_projector(self, data):
-        """Return ``I - J_H^dagger J_H`` (Eq. 8), 14x14.
+        """Return ``I - J_H^dagger J_H`` (Eq. 8), ``N x N``.
 
         Projects any candidate ``phi_dot_opt`` (Eq. 4) into the null space of
         the hand Jacobian, so applying it leaves the primary hand/object

@@ -194,9 +194,7 @@ def test_reference_initial_objective_values_are_unchanged():
         enable_bias_compensation=config["controller"]["arm_bias_compensation"],
     )
     scene.set_table_reference_pose(config["initial_configurations"][0]["position"])
-    kinematics = CooperativeManipulationKinematics(
-        scene.model, scene.left_arm_dofs, scene.right_arm_dofs
-    )
+    kinematics = scene.make_kinematics()
     characteristic_length = kinematics.grasp_characteristic_length(scene.data)
     optimizer = ManipulabilityOptimizer(
         kinematics,

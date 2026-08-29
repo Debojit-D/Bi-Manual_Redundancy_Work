@@ -412,6 +412,9 @@ class SpatialManipulabilityScalingTests(unittest.TestCase):
             _FakeModel(),
             np.arange(7),
             np.arange(7, 14),
+            object_reference_site="site_top_middle",
+            object_contact_sites=("site_left", "site_right"),
+            hand_sites=("left_hand", "right_hand"),
         )
         geometry_data = SimpleNamespace(
             site_xpos=np.array(

@@ -6,6 +6,11 @@ import argparse
 from pathlib import Path
 
 from bimanual_redundancy.paper_reproduction import reproduce_paper, run_config
+from bimanual_redundancy.systems import (
+    SYSTEM_SPECS,
+    get_cooperative_system_spec,
+    validate_cooperative_system_spec,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -20,11 +25,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     reproduce.add_argument("--output-root", type=Path)
     reproduce.add_argument("--smoke", action="store_true")
+    validate_robot = commands.add_parser(
+        "validate-robot", help="validate a registered cooperative robot"
+    )
+    validate_robot.add_argument(
+        "--robot", required=True, choices=tuple(SYSTEM_SPECS)
+    )
     return parser
 
 
 def main(argv=None) -> int:
     arguments = build_parser().parse_args(argv)
+    if arguments.command == "validate-robot":
+        result = validate_cooperative_system_spec(
+            get_cooperative_system_spec(arguments.robot)
+        )
+        print(
+            f"Robot {result['identifier']} is valid: "
+            f"{result['controlled_joint_count']} controlled joints; "
+            f"qpos={result['qpos_indices']}; dofs={result['dof_indices']}"
+        )
+        return 0
     if arguments.command == "run":
         output = run_config(
             arguments.config,

@@ -13,9 +13,6 @@ import argparse
 import numpy as np
 from loop_rate_limiters import RateLimiter
 
-from bimanual_redundancy.core import (
-    CooperativeManipulationKinematics,
-)
 from bimanual_redundancy.simulation.cli import add_camera_view_arguments, run_cli
 from bimanual_redundancy.core import Equation8Controller
 from bimanual_redundancy.simulation import DualFrankaMuJoCoScene
@@ -161,11 +158,7 @@ def main(*, top_view=False, front_view=False):
         show_mocap_targets=SHOW_MOCAP_TARGETS,
         enable_bias_compensation=ENABLE_ARM_BIAS_COMPENSATION,
     )
-    kinematics = CooperativeManipulationKinematics(
-        scene.model,
-        scene.left_arm_dofs,
-        scene.right_arm_dofs,
-    )
+    kinematics = scene.make_kinematics()
     equation_8 = Equation8Controller(
         kinematics,
         control_dt=scene.control_dt,

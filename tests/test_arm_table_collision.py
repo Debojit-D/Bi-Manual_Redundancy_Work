@@ -23,11 +23,7 @@ class ArmTableCollisionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.scene = DualFrankaMuJoCoScene()
-        cls.kinematics = CooperativeManipulationKinematics(
-            cls.scene.model,
-            cls.scene.left_arm_dofs,
-            cls.scene.right_arm_dofs,
-        )
+        cls.kinematics = cls.scene.make_kinematics()
         cls.optimizer = ManipulabilityOptimizer(
             cls.kinematics,
             cls.scene.arm_qpos,

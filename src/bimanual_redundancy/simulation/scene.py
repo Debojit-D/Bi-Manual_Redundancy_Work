@@ -22,7 +22,7 @@ import numpy as np
 from loop_rate_limiters import RateLimiter
 from scipy.spatial.transform import Rotation
 
-from bimanual_redundancy import paths
+from bimanual_redundancy.systems import DUAL_FRANKA_PANDA
 from bimanual_redundancy.simulation import cameras as camera_presets
 from bimanual_redundancy.simulation.cli import add_camera_view_arguments, run_cli
 from bimanual_redundancy.simulation.recording import HeadlessDualViewRecorder
@@ -58,8 +58,8 @@ class HeadlessSimulationViewer(AbstractContextManager):
         self.close()
 
 
-class DualFrankaMuJoCoScene:
-    """Own the MuJoCo model, actuators, viewer targets, and grasp approach."""
+class CooperativeMuJoCoScene:
+    """Own a specified MuJoCo model, actuators, targets, and grasp approach."""
 
     PERSPECTIVE_CAMERA_LOOKAT = np.array([0.1, 0.0, 0.1])
     FRONT_CAMERA_LOOKAT = np.array([0.3, 0.0, 0.25])
@@ -77,22 +77,22 @@ class DualFrankaMuJoCoScene:
     HEADLIGHT_DIFFUSE = np.array([0.55, 0.55, 0.55])
     MODEL_LIGHT_INTENSITY_SCALE = 0.90
 
-    DEFAULT_MODEL_PATH = (
-        paths.ROBOT_MODELS_DIR / "franka_emika_panda" / "dual_panda_scene.xml"
-    )
-    LEFT_JOINT_NAMES = tuple(f"joint{i}_l" for i in range(1, 8))
-    RIGHT_JOINT_NAMES = tuple(f"joint{i}_r" for i in range(1, 8))
+    DEFAULT_SYSTEM_SPEC = DUAL_FRANKA_PANDA
+    DEFAULT_MODEL_PATH = DEFAULT_SYSTEM_SPEC.model_path
+    LEFT_JOINT_NAMES = DEFAULT_SYSTEM_SPEC.left_arm.joint_names
+    RIGHT_JOINT_NAMES = DEFAULT_SYSTEM_SPEC.right_arm.joint_names
     DEFAULT_LEFT_ARM_BASE_POSITION = np.array([0.0, -0.2, 0.0])
     DEFAULT_RIGHT_ARM_BASE_POSITION = np.array([0.0, 0.2, 0.0])
     DEFAULT_LEFT_ARM_BASE_EULER_XYZ = np.zeros(3)
     DEFAULT_RIGHT_ARM_BASE_EULER_XYZ = np.zeros(3)
     MOUNTING_PLATFORM_HALF_SIZE_XY = np.array([0.16, 0.58])
     MOUNTING_PLATFORM_RGBA = np.array([0.28, 0.30, 0.34, 1.0])
-    MOUNTING_PLATFORM_GEOM = "dual_arm_mounting_platform"
+    MOUNTING_PLATFORM_GEOM = DEFAULT_SYSTEM_SPEC.mounting_platform_geom
 
     def __init__(
         self,
         *,
+        system_spec=None,
         model_path=None,
         left_arm_base_position=None,
         right_arm_base_position=None,
@@ -115,7 +115,8 @@ class DualFrankaMuJoCoScene:
         postgrasp_vertical_offset=0.09,
         use_alternate_grasp_orientation=False,
     ):
-        self.model_path = Path(model_path or self.DEFAULT_MODEL_PATH)
+        self.system_spec = system_spec or self.DEFAULT_SYSTEM_SPEC
+        self.model_path = Path(model_path or self.system_spec.model_path)
         self.control_hz = float(control_hz)
         self.control_dt = 1.0 / self.control_hz
         self.solver = solver
@@ -148,6 +149,18 @@ class DualFrankaMuJoCoScene:
             )
 
         self.model = mujoco.MjModel.from_xml_path(self.model_path.as_posix())
+        self.left_arm_actuators = self._actuator_indices(
+            self.system_spec.left_arm.actuator_names
+        )
+        self.right_arm_actuators = self._actuator_indices(
+            self.system_spec.right_arm.actuator_names
+        )
+        self.left_gripper_actuator = self.model.actuator(
+            self.system_spec.left_arm.gripper_actuator
+        ).id
+        self.right_gripper_actuator = self.model.actuator(
+            self.system_spec.right_arm.gripper_actuator
+        ).id
         self._configure_lighting()
         self._set_arm_base_poses(
             left_arm_base_position,
@@ -160,22 +173,22 @@ class DualFrankaMuJoCoScene:
         self._set_mocap_target_visibility(show_mocap_targets)
         self.data = mujoco.MjData(self.model)
         mujoco.mj_resetDataKeyframe(
-            self.model, self.data, self.model.key("home1").id
+            self.model, self.data, self.model.key(self.system_spec.home_keyframe).id
         )
         # Establish the intended open-gripper command before the first forward
         # dynamics evaluation.  This also protects against future keyframes
         # that omit actuator controls.
-        self.data.ctrl[7] = self.gripper_open
-        self.data.ctrl[15] = self.gripper_open
+        self.data.ctrl[self.left_gripper_actuator] = self.gripper_open
+        self.data.ctrl[self.right_gripper_actuator] = self.gripper_open
         mujoco.mj_forward(self.model, self.data)
 
         self.configuration = mink.Configuration(self.model)
         self.configuration.update(self.data.qpos)
         self.left_arm_qpos, self.left_arm_dofs = self._joint_indices(
-            self.LEFT_JOINT_NAMES
+            self.system_spec.left_arm.joint_names
         )
         self.right_arm_qpos, self.right_arm_dofs = self._joint_indices(
-            self.RIGHT_JOINT_NAMES
+            self.system_spec.right_arm.joint_names
         )
         self.arm_qpos = np.concatenate(
             (self.left_arm_qpos, self.right_arm_qpos)
@@ -183,18 +196,25 @@ class DualFrankaMuJoCoScene:
         self.arm_dofs = np.concatenate(
             (self.left_arm_dofs, self.right_arm_dofs)
         )
+        self.joint_position_limits = np.vstack(
+            (
+                self.model.actuator_ctrlrange[self.left_arm_actuators],
+                self.model.actuator_ctrlrange[self.right_arm_actuators],
+            )
+        )
         self.home_arm_configuration = self.arm_configuration()
         self.left_task, self.right_task, self.posture_task = self._make_tasks()
         self.tasks = [self.left_task, self.right_task, self.posture_task]
 
     def set_table_reference_pose(self, position, rotation=None):
-        """Place ``site_top_middle`` at a requested world-frame pose."""
+        """Place the specified object reference at a requested world pose."""
         position = np.asarray(position, dtype=float)
         if position.shape != (3,):
             raise ValueError("Table reference position must have shape (3,)")
-        site_id = self.model.site("site_top_middle").id
-        body_id = self.model.body("vention_table").id
-        joint_id = self.model.joint("table_joint").id
+        object_spec = self.system_spec.object
+        site_id = self.model.site(object_spec.reference_site).id
+        body_id = self.model.body(object_spec.body).id
+        joint_id = self.model.joint(object_spec.joint).id
 
         current_body_rotation = self.data.xmat[body_id].reshape(3, 3)
         current_site_rotation = self.data.site_xmat[site_id].reshape(3, 3)
@@ -269,8 +289,8 @@ class DualFrankaMuJoCoScene:
                 "Arm base Euler orientations must have shape (3,)"
             )
 
-        left_body_id = self.model.body("franka1").id
-        right_body_id = self.model.body("franka2").id
+        left_body_id = self.model.body(self.system_spec.left_arm.base_body).id
+        right_body_id = self.model.body(self.system_spec.right_arm.base_body).id
         self.model.body_pos[left_body_id] = left_position
         self.model.body_pos[right_body_id] = right_position
         self.model.body_quat[left_body_id] = np.roll(
@@ -302,7 +322,7 @@ class DualFrankaMuJoCoScene:
         geom_id = mujoco.mj_name2id(
             self.model,
             mujoco.mjtObj.mjOBJ_GEOM,
-            self.MOUNTING_PLATFORM_GEOM,
+            self.system_spec.mounting_platform_geom or "",
         )
         # Keep custom scene files without the optional pedestal geoms usable.
         if geom_id < 0:
@@ -359,11 +379,17 @@ class DualFrankaMuJoCoScene:
             self.model.jnt_dofadr[joint_ids],
         )
 
+    def _actuator_indices(self, actuator_names):
+        return np.array(
+            [self.model.actuator(name).id for name in actuator_names],
+            dtype=int,
+        )
+
     def _set_mocap_target_visibility(self, visible):
         alpha = 1.0 if visible else 0.0
         target_body_ids = {
-            self.model.body("target_left").id,
-            self.model.body("target_right").id,
+            self.model.body(self.system_spec.left_arm.target_body).id,
+            self.model.body(self.system_spec.right_arm.target_body).id,
         }
         for geom_id in range(self.model.ngeom):
             if self.model.geom_bodyid[geom_id] in target_body_ids:
@@ -371,14 +397,14 @@ class DualFrankaMuJoCoScene:
 
     def _make_tasks(self):
         left_task = mink.FrameTask(
-            "attachment_site_left",
+            self.system_spec.left_arm.hand_site,
             "site",
             position_cost=1.0,
             orientation_cost=1.0,
             lm_damping=1.0,
         )
         right_task = mink.FrameTask(
-            "attachment_site_right",
+            self.system_spec.right_arm.hand_site,
             "site",
             position_cost=1.0,
             orientation_cost=1.0,
@@ -391,11 +417,20 @@ class DualFrankaMuJoCoScene:
     def arm_configuration(self):
         return self.data.qpos[self.arm_qpos].copy()
 
+    def make_kinematics(self):
+        """Build generic cooperative kinematics from this scene's spec."""
+        from bimanual_redundancy.core import CooperativeManipulationKinematics
+
+        return CooperativeManipulationKinematics(
+            self.model,
+            self.left_arm_dofs,
+            self.right_arm_dofs,
+            system_spec=self.system_spec,
+        )
+
     def clip_arm_configuration(self, phi):
-        left_range = self.model.actuator_ctrlrange[0:7]
-        right_range = self.model.actuator_ctrlrange[8:15]
-        lower = np.concatenate((left_range[:, 0], right_range[:, 0]))
-        upper = np.concatenate((left_range[:, 1], right_range[:, 1]))
+        lower = self.joint_position_limits[:, 0]
+        upper = self.joint_position_limits[:, 1]
         return np.clip(phi, lower, upper)
 
     def command(self, phi, gripper_command):
@@ -404,10 +439,11 @@ class DualFrankaMuJoCoScene:
         if phi.shape != (14,):
             raise ValueError(f"Expected 14 arm positions, got {phi.shape}")
         phi = self.clip_arm_configuration(phi)
-        self.data.ctrl[0:7] = phi[:7]
-        self.data.ctrl[8:15] = phi[7:]
-        self.data.ctrl[7] = gripper_command
-        self.data.ctrl[15] = gripper_command
+        split = self.left_arm_qpos.size
+        self.data.ctrl[self.left_arm_actuators] = phi[:split]
+        self.data.ctrl[self.right_arm_actuators] = phi[split:]
+        self.data.ctrl[self.left_gripper_actuator] = gripper_command
+        self.data.ctrl[self.right_gripper_actuator] = gripper_command
 
     def step(self, viewer=None):
         """Advance one control period with model-bias compensation."""
@@ -556,8 +592,14 @@ class DualFrankaMuJoCoScene:
 
     def _initialize_mocap_targets(self):
         pairs = (
-            ("target_left", "site_left"),
-            ("target_right", "site_right"),
+            (
+                self.system_spec.left_arm.target_body,
+                self.system_spec.object.contact_sites[0],
+            ),
+            (
+                self.system_spec.right_arm.target_body,
+                self.system_spec.object.contact_sites[1],
+            ),
         )
         quaternions = []
         for body_name, site_name in pairs:
@@ -585,13 +627,13 @@ class DualFrankaMuJoCoScene:
     def _approach_waypoints(self):
         left_quaternion, right_quaternion = self._initialize_mocap_targets()
         object_position = self.data.site_xpos[
-            self.model.site("site_top_middle").id
+            self.model.site(self.system_spec.object.reference_site).id
         ].copy()
         left_position = self.data.site_xpos[
-            self.model.site("site_left").id
+            self.model.site(self.system_spec.object.contact_sites[0]).id
         ].copy()
         right_position = self.data.site_xpos[
-            self.model.site("site_right").id
+            self.model.site(self.system_spec.object.contact_sites[1]).id
         ].copy()
 
         # Derive each approach direction from the live object geometry. These
@@ -632,7 +674,10 @@ class DualFrankaMuJoCoScene:
 
     def _set_mocap_targets(self, left_target, right_target):
         for body_name, target in zip(
-            ("target_left", "target_right"),
+            (
+                self.system_spec.left_arm.target_body,
+                self.system_spec.right_arm.target_body,
+            ),
             (left_target, right_target),
         ):
             position, quaternion = target
@@ -677,13 +722,15 @@ class DualFrankaMuJoCoScene:
 
         left_position, left_quaternion = left_target
         right_position, right_quaternion = right_target
-        left_site = self.model.site("attachment_site_left").id
-        right_site = self.model.site("attachment_site_right").id
+        left_hand_site = self.system_spec.left_arm.hand_site
+        right_hand_site = self.system_spec.right_arm.hand_site
+        left_site = self.model.site(left_hand_site).id
+        right_site = self.model.site(right_hand_site).id
         return (
             np.linalg.norm(self.data.site_xpos[left_site] - left_position)
             <= 0.008
             and quaternion_distance(
-                self._site_quaternion("attachment_site_left"),
+                self._site_quaternion(left_hand_site),
                 left_quaternion,
             )
             <= 0.008
@@ -692,7 +739,7 @@ class DualFrankaMuJoCoScene:
             )
             <= 0.008
             and quaternion_distance(
-                self._site_quaternion("attachment_site_right"),
+                self._site_quaternion(right_hand_site),
                 right_quaternion,
             )
             <= 0.008
@@ -718,9 +765,7 @@ class DualFrankaMuJoCoScene:
         self.configuration.integrate_inplace(
             controlled_velocity, self.control_dt
         )
-        phi = np.concatenate(
-            (self.configuration.q[0:7], self.configuration.q[9:16])
-        )
+        phi = self.configuration.q[self.arm_qpos].copy()
         self.command(phi, self.gripper_open)
         self.step(viewer)
         rate.sleep()
@@ -748,15 +793,15 @@ class DualFrankaMuJoCoScene:
             print(f"{action} waypoint {index}...")
             left_start = (
                 self.data.site_xpos[
-                    self.model.site("attachment_site_left").id
+                    self.model.site(self.system_spec.left_arm.hand_site).id
                 ].copy(),
-                self._site_quaternion("attachment_site_left"),
+                self._site_quaternion(self.system_spec.left_arm.hand_site),
             )
             right_start = (
                 self.data.site_xpos[
-                    self.model.site("attachment_site_right").id
+                    self.model.site(self.system_spec.right_arm.hand_site).id
                 ].copy(),
-                self._site_quaternion("attachment_site_right"),
+                self._site_quaternion(self.system_spec.right_arm.hand_site),
             )
 
             for step in range(1, trajectory_steps + 1):
@@ -844,11 +889,13 @@ class DualFrankaMuJoCoScene:
             [0.0, 0.0, self.postgrasp_vertical_offset]
         )
         object_position = self.data.site_xpos[
-            self.model.site("site_top_middle").id
+            self.model.site(self.system_spec.object.reference_site).id
         ]
-        left_contact = self.data.site_xpos[self.model.site("site_left").id]
+        left_contact = self.data.site_xpos[
+            self.model.site(self.system_spec.object.contact_sites[0]).id
+        ]
         right_contact = self.data.site_xpos[
-            self.model.site("site_right").id
+            self.model.site(self.system_spec.object.contact_sites[1]).id
         ]
         left_outward = left_contact - object_position
         right_outward = right_contact - object_position
@@ -889,14 +936,18 @@ class DualFrankaMuJoCoScene:
     def _update_mink_targets(self):
         self.left_task.set_target(
             mink.SE3.from_mocap_name(
-                self.model, self.data, "target_left"
+                self.model, self.data, self.system_spec.left_arm.target_body
             )
         )
         self.right_task.set_target(
             mink.SE3.from_mocap_name(
-                self.model, self.data, "target_right"
+                self.model, self.data, self.system_spec.right_arm.target_body
             )
         )
+
+
+# Historical public name retained for the reference paper runners.
+DualFrankaMuJoCoScene = CooperativeMuJoCoScene
 
 
 # Standalone scene-preview settings [x, y, z] in the world frame.

@@ -29,9 +29,6 @@ from bimanual_redundancy.plotting.plot_main import (
     subplot_title,
 )
 from bimanual_redundancy.simulation.cli import run_cli
-from bimanual_redundancy.core import (
-    CooperativeManipulationKinematics,
-)
 from bimanual_redundancy.simulation import DualFrankaMuJoCoScene
 
 
@@ -261,11 +258,7 @@ def make_kinematic_recomputer():
         show_mocap_targets=False,
         enable_bias_compensation=True,
     )
-    kinematics = CooperativeManipulationKinematics(
-        scene.model,
-        scene.left_arm_dofs,
-        scene.right_arm_dofs,
-    )
+    kinematics = scene.make_kinematics()
     return scene, kinematics
 
 

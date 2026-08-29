@@ -20,3 +20,12 @@ mujoco-fit-spheres --config MUJOCO/configs/dual_panda_full_arm.json
 
 The profile deliberately uses the robot-only MJCF. Environment geometry such
 as tables should remain analytic obstacles and should not be sphere-fitted.
+
+The runtime reference embodiment is registered as `dual_franka_panda` in
+`bimanual_redundancy.systems`. Validate it with:
+
+```bash
+bimanual-redopt validate-robot --robot dual_franka_panda
+```
+
+See `docs/ADDING_A_ROBOT.md` for the minimal specification interface.
