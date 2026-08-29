@@ -6,8 +6,14 @@
 <title>Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation</title>
 <meta name="description" content="Project page for &quot;Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation&quot; — a comparison of velocity, force, and directional-force manipulability objectives for bimanual cooperative manipulation, with planar dual-arm hardware experiments and dual-Franka MuJoCo simulation.">
 <meta name="keywords" content="Bimanual Manipulation, Redundancy Optimization, Manipulability, Cooperative Manipulation, Dual-Arm Robotics, Null-Space Optimization">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+
 <style>
   :root {
+    --page-bg: #f5f5f4;
     --bg: #ffffff;
     --text: #1a1a1a;
     --muted: #5c5c5c;
@@ -16,74 +22,126 @@
     --status-bg: #fdf6e3;
     --status-border: #e8d9a0;
     --link: #1a1a1a;
-    --button-border: #d5d5d5;
+    --button-border: #d6d6d4;
     --button-hover: #f5f5f5;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #ffffff;
-      --text: #1a1a1a;
-      --muted: #5c5c5c;
-      --rule: #e2e2e2;
-      --accent: #8a6d00;
-      --status-bg: #fdf6e3;
-      --status-border: #e8d9a0;
-      --link: #1a1a1a;
-      --button-border: #d5d5d5;
-      --button-hover: #f5f5f5;
-    }
+    --serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
   * { box-sizing: border-box; }
 
+  html { background: var(--page-bg); }
+
   body {
     margin: 0;
-    background: var(--bg);
+    background: var(--page-bg);
     color: var(--text);
-    font-family: "Georgia", "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    font-family: var(--serif);
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
 
-  main {
-    max-width: 760px;
+  #bg-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  a { color: var(--link); }
+
+  a:focus-visible,
+  .resource-btn:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    padding: 3.5rem 1.25rem 5rem;
+  }
+
+  .paper {
+    position: relative;
+    max-width: 800px;
     margin: 0 auto;
-    padding: 4rem 1.5rem 5rem;
+    background: var(--bg);
+    padding: 3rem 3rem 3.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.06);
+  }
+
+  .paper::before,
+  .paper::after {
+    content: "";
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--text);
+    opacity: 0.5;
+  }
+
+  .paper::before {
+    top: -10px;
+    left: -10px;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  .paper::after {
+    bottom: -10px;
+    right: -10px;
+    border-left: none;
+    border-top: none;
   }
 
   h1 {
-    font-size: 1.9rem;
-    line-height: 1.35;
+    font-family: var(--serif);
+    font-size: clamp(1.6rem, 1.05rem + 2vw, 2.25rem);
     font-weight: 600;
+    line-height: 1.35;
     text-align: center;
     margin: 0 0 1.75rem;
   }
 
   .authors {
     text-align: center;
-    font-size: 1.05rem;
+    font-size: 1.08rem;
     margin: 0 0 0.4rem;
   }
 
   .authors a {
     color: var(--link);
     text-decoration: none;
-    border-bottom: 1px solid var(--rule);
+    background-image: linear-gradient(var(--text), var(--text));
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    background-size: 0% 1px;
+    transition: background-size 0.25s ease;
+    padding-bottom: 1px;
   }
 
-  .authors a:hover {
-    border-bottom-color: var(--text);
+  .authors a:hover,
+  .authors a:focus-visible {
+    background-size: 100% 1px;
   }
 
   .authors .li-icon {
     display: inline-flex;
     vertical-align: -2px;
     margin-left: 0.15rem;
-    opacity: 0.55;
+    color: var(--muted);
+    opacity: 0.6;
+    transition: opacity 0.15s ease, color 0.15s ease;
   }
 
-  .authors .li-icon:hover {
-    opacity: 0.9;
+  .authors .li-icon:hover,
+  .authors .li-icon:focus-visible {
+    opacity: 1;
+    color: var(--text);
   }
 
   .authors .author-sep {
@@ -93,6 +151,7 @@
   .affiliation {
     text-align: center;
     font-size: 0.92rem;
+    font-family: var(--sans);
     color: var(--muted);
     margin: 0 auto 1.75rem;
     max-width: 560px;
@@ -102,23 +161,22 @@
     display: block;
     text-align: center;
     margin: 0 auto 1.5rem;
+    font-family: var(--sans);
   }
 
   .status-badge {
     display: inline-block;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 0.78rem;
     letter-spacing: 0.02em;
     color: var(--accent);
     background: var(--status-bg);
     border: 1px solid var(--status-border);
     border-radius: 999px;
-    padding: 0.3rem 0.9rem;
+    padding: 0.32rem 0.9rem;
   }
 
   .venue {
     display: block;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 0.85rem;
     color: var(--muted);
     margin-top: 0.6rem;
@@ -131,7 +189,7 @@
     flex-wrap: wrap;
     gap: 0.6rem;
     margin: 0 auto 3rem;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: var(--sans);
   }
 
   .resource-btn {
@@ -143,18 +201,26 @@
     text-decoration: none;
     border: 1px solid var(--button-border);
     border-radius: 6px;
-    padding: 0.35rem 0.85rem;
-    transition: background 0.15s ease;
+    padding: 0.4rem 0.95rem;
+    transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   }
 
   .resource-btn:hover {
     background: var(--button-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.07);
   }
 
   .resource-btn.is-disabled {
     color: var(--muted);
     border-style: dashed;
     cursor: default;
+  }
+
+  .resource-btn.is-disabled:hover {
+    background: none;
+    transform: none;
+    box-shadow: none;
   }
 
   .resource-btn .resource-status {
@@ -169,7 +235,7 @@
   }
 
   h2 {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: var(--sans);
     font-size: 0.78rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -181,7 +247,7 @@
   .abstract p {
     margin: 0 0 1.1rem;
     text-align: justify;
-    font-size: 1.02rem;
+    font-size: 1.04rem;
   }
 
   .abstract p:last-child {
@@ -192,34 +258,119 @@
     font-weight: 600;
   }
 
-  @media (max-width: 480px) {
-    main { padding: 2.5rem 1.25rem 3rem; }
-    h1 { font-size: 1.5rem; }
+  .video-section {
+    margin-top: 3rem;
+  }
+
+  .video-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #111;
+    overflow: hidden;
+  }
+
+  .video-wrap iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  .video-caption {
+    display: block;
+    text-align: right;
+    font-family: var(--sans);
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-decoration: none;
+    margin-top: 0.6rem;
+  }
+
+  .video-caption:hover,
+  .video-caption:focus-visible {
+    color: var(--text);
+  }
+
+  .site-footer {
+    margin-top: 3.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--rule);
+    text-align: center;
+  }
+
+  .lab-logo-link {
+    display: inline-block;
+    line-height: 0;
+    opacity: 0.9;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  .lab-logo-link:hover,
+  .lab-logo-link:focus-visible {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+
+  .lab-logo-link img {
+    height: 30px;
+    width: auto;
+    display: block;
+  }
+
+  @media (max-width: 900px) {
+    .paper { padding: 2.5rem 2rem 3rem; }
+  }
+
+  @media (max-width: 640px) {
+    .page { padding: 2rem 0.9rem 3rem; }
+    .paper {
+      padding: 2.25rem 1.35rem 2.5rem;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .paper::before,
+    .paper::after { display: none; }
     .resources { gap: 0.5rem; }
+    .abstract p { text-align: left; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .authors a,
+    .resource-btn,
+    .lab-logo-link { transition: none; }
   }
 </style>
 </head>
 <body>
-<main>
-  <h1>Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation</h1>
+<canvas id="bg-canvas" aria-hidden="true"></canvas>
 
-  <p class="authors" id="authors"></p>
-  <p class="affiliation">IITGN Robotics Laboratory, Department of Mechanical Engineering, Indian Institute of Technology Gandhinagar, Gandhinagar, Gujarat 382355, India</p>
+<div class="page">
+  <main class="paper">
+    <h1>Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation</h1>
 
-  <span class="status-line" id="status-line"></span>
+    <p class="authors" id="authors"></p>
+    <p class="affiliation">IITGN Robotics Laboratory, Department of Mechanical Engineering, Indian Institute of Technology Gandhinagar, Gandhinagar, Gujarat 382355, India</p>
 
-  <div class="resources" id="resources"></div>
+    <span class="status-line" id="status-line"></span>
 
-  <hr>
+    <div class="resources" id="resources"></div>
 
-  <section class="abstract">
-    <h2>Abstract</h2>
-    <p><strong>Purpose</strong> — This paper investigates how redundant degrees of freedom can be used in cooperative manipulation to improve task-relevant dexterity or force capability without disturbing the commanded object motion. The aim is to compare task-specific manipulability metrics for cooperative robotic grasping, with particular attention to external loads whose direction may differ from the desired motion direction.</p>
-    <p><strong>Design/methodology/approach</strong> — An established closed-loop inverse-kinematics and null-space gradient-projection structure is used as a common implementation basis. Three objectives are evaluated: velocity manipulability, force manipulability, and directional-force manipulability. The objectives are compared on a planar dual-arm hardware platform with pin-jointed object coupling, external load trials, and actuator-current-based effort measurement. A dual-Franka 7-DoF simulation studies the scalability of the velocity-manipulability implementation to spatial bimanual manipulation.</p>
-    <p><strong>Findings</strong> — Hardware experiments show that the objectives produce distinct internal joint configurations while preserving object motion. Velocity manipulability improves kinematic dexterity during holding, translation, and rotation. Force manipulability reduces actuator-current effort when the load direction is aligned with the main force requirement. When motion and external-load directions differ, directional-force manipulability achieves lower effort than force-only optimization. The dual-Franka simulation shows that velocity-manipulability optimization improves or maintains manipulability without degrading object tracking.</p>
-    <p><strong>Originality/value</strong> — The paper provides an implementation-oriented comparison of velocity, force, and directional-force manipulability objectives for cooperative manipulation, offering practical guidance for selecting redundancy objectives according to task condition and external load direction.</p>
-  </section>
-</main>
+    <hr>
+
+    <section class="abstract">
+      <h2>Abstract</h2>
+      <p><strong>Purpose</strong> — This paper investigates how redundant degrees of freedom can be used in cooperative manipulation to improve task-relevant dexterity or force capability without disturbing the commanded object motion. The aim is to compare task-specific manipulability metrics for cooperative robotic grasping, with particular attention to external loads whose direction may differ from the desired motion direction.</p>
+      <p><strong>Design/methodology/approach</strong> — An established closed-loop inverse-kinematics and null-space gradient-projection structure is used as a common implementation basis. Three objectives are evaluated: velocity manipulability, force manipulability, and directional-force manipulability. The objectives are compared on a planar dual-arm hardware platform with pin-jointed object coupling, external load trials, and actuator-current-based effort measurement. A dual-Franka 7-DoF simulation studies the scalability of the velocity-manipulability implementation to spatial bimanual manipulation.</p>
+      <p><strong>Findings</strong> — Hardware experiments show that the objectives produce distinct internal joint configurations while preserving object motion. Velocity manipulability improves kinematic dexterity during holding, translation, and rotation. Force manipulability reduces actuator-current effort when the load direction is aligned with the main force requirement. When motion and external-load directions differ, directional-force manipulability achieves lower effort than force-only optimization. The dual-Franka simulation shows that velocity-manipulability optimization improves or maintains manipulability without degrading object tracking.</p>
+      <p><strong>Originality/value</strong> — The paper provides an implementation-oriented comparison of velocity, force, and directional-force manipulability objectives for cooperative manipulation, offering practical guidance for selecting redundancy objectives according to task condition and external load direction.</p>
+    </section>
+
+    <section class="video-section" id="video-section"></section>
+
+    <footer class="site-footer" id="site-footer"></footer>
+  </main>
+</div>
 
 <script src="site-config.js"></script>
 <script>
@@ -233,6 +384,12 @@
 
   function externalAttrs(url) {
     return 'href="' + url + '" target="_blank" rel="noopener noreferrer"';
+  }
+
+  function getYouTubeId(url) {
+    if (!url) return null;
+    var m = url.match(/(?:v=|\/embed\/|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
   }
 
   // --- Authors ---
@@ -266,10 +423,10 @@
       '<span class="venue">' + cfg.project.venue + '</span>';
   }
 
-  // --- Resource buttons ---
+  // --- Resource buttons (Paper, Code — Video is embedded below the abstract) ---
   var resourcesEl = document.getElementById('resources');
   if (resourcesEl && cfg.resources) {
-    var order = ['paper', 'code', 'video'];
+    var order = ['paper', 'code'];
     var html = order.map(function (key) {
       var r = cfg.resources[key];
       if (!r) return '';
@@ -282,6 +439,131 @@
     }).join('');
     resourcesEl.innerHTML = html;
   }
+
+  // --- Video embed ---
+  var videoEl = document.getElementById('video-section');
+  var videoCfg = cfg.resources && cfg.resources.video;
+  var videoId = videoCfg && getYouTubeId(videoCfg.url);
+  if (videoEl && videoId) {
+    videoEl.innerHTML =
+      '<h2>Video</h2>' +
+      '<div class="video-wrap">' +
+        '<iframe src="https://www.youtube-nocookie.com/embed/' + videoId + '?rel=0" ' +
+          'title="' + (cfg.project ? cfg.project.title : videoCfg.label) + '" ' +
+          'loading="lazy" allowfullscreen ' +
+          'referrerpolicy="strict-origin-when-cross-origin" ' +
+          'allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe>' +
+      '</div>' +
+      '<a class="video-caption" ' + externalAttrs(videoCfg.url) + '>Watch on YouTube ↗</a>';
+  }
+
+  // --- Footer: lab logo ---
+  var footerEl = document.getElementById('site-footer');
+  if (footerEl && cfg.lab) {
+    footerEl.innerHTML =
+      '<a class="lab-logo-link" ' + externalAttrs(cfg.lab.url) + ' aria-label="' + cfg.lab.name + '" title="' + cfg.lab.name + '">' +
+        '<img src="' + cfg.lab.logo + '" alt="' + cfg.lab.name + '">' +
+      '</a>';
+  }
+})();
+</script>
+
+<script>
+(function () {
+  var canvas = document.getElementById('bg-canvas');
+  if (!canvas || !canvas.getContext) return;
+  var ctx = canvas.getContext('2d');
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  var w = 0, h = 0, points = [];
+  var mouse = { x: 0, y: 0, active: false };
+  var MAX_POINTS = 90;
+  var MIN_POINTS = 22;
+  var LINK_DIST = 130;
+  var MOUSE_DIST = 170;
+
+  function resize() {
+    w = window.innerWidth;
+    h = window.innerHeight;
+    canvas.width = Math.round(w * DPR);
+    canvas.height = Math.round(h * DPR);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    var count = Math.round(Math.min(MAX_POINTS, Math.max(MIN_POINTS, (w * h) / 22000)));
+    points = [];
+    for (var i = 0; i < count; i++) {
+      points.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.18,
+        vy: (Math.random() - 0.5) * 0.18
+      });
+    }
+  }
+
+  function step() {
+    ctx.clearRect(0, 0, w, h);
+
+    for (var i = 0; i < points.length; i++) {
+      var p = points[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x <= 0 || p.x >= w) p.vx *= -1;
+      if (p.y <= 0 || p.y >= h) p.vy *= -1;
+    }
+
+    for (var i = 0; i < points.length; i++) {
+      var a = points[i];
+
+      for (var j = i + 1; j < points.length; j++) {
+        var b = points[j];
+        var dx = a.x - b.x, dy = a.y - b.y;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < LINK_DIST) {
+          ctx.strokeStyle = 'rgba(26,26,26,' + (0.09 * (1 - dist / LINK_DIST)) + ')';
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+
+      if (mouse.active) {
+        var dxm = a.x - mouse.x, dym = a.y - mouse.y;
+        var dm = Math.sqrt(dxm * dxm + dym * dym);
+        if (dm < MOUSE_DIST) {
+          ctx.strokeStyle = 'rgba(26,26,26,' + (0.28 * (1 - dm / MOUSE_DIST)) + ')';
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(mouse.x, mouse.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    for (var i = 0; i < points.length; i++) {
+      ctx.beginPath();
+      ctx.arc(points[i].x, points[i].y, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(26,26,26,0.32)';
+      ctx.fill();
+    }
+
+    if (!reduceMotion) requestAnimationFrame(step);
+  }
+
+  window.addEventListener('resize', resize, { passive: true });
+  window.addEventListener('mousemove', function (e) {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+    mouse.active = true;
+  }, { passive: true });
+  window.addEventListener('mouseleave', function () { mouse.active = false; });
+
+  resize();
+  step();
 })();
 </script>
 </body>
