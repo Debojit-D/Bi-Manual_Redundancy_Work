@@ -132,6 +132,15 @@ def parse_arguments(argv=None):
         action="store_true",
         help="open figures after saving",
     )
+    parser.add_argument(
+        "--strict-fonts",
+        action="store_true",
+        help=(
+            "require Times New Roman for publication typography instead of "
+            "falling back to DejaVu Serif; errors if it is not installed "
+            "locally"
+        ),
+    )
     arguments = parser.parse_args(argv)
     if arguments.dpi <= 0:
         parser.error("--dpi must be greater than zero")
@@ -573,7 +582,7 @@ def main(argv=None):
     )
     stages = STAGES if arguments.stage == "all" else (arguments.stage,)
 
-    style = Equation8PlotStyle(dpi=arguments.dpi)
+    style = Equation8PlotStyle(dpi=arguments.dpi, strict=arguments.strict_fonts)
     style.apply()
     figures = []
     written = []

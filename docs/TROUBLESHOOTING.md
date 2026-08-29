@@ -84,3 +84,9 @@ the current machine. Confirm `ffmpeg -version` succeeds before recording.
 For fully headless environments (including CI), set `MUJOCO_GL=osmesa` (or
 `egl` if a GPU/EGL driver is available) before running any command that
 constructs a MuJoCo scene.
+
+### Publication figures use a fallback font instead of Times New Roman
+
+Times New Roman must be supplied locally (project-relative
+`outputs/.fonts/times-new-roman/`, or installed system-wide) for strict
+publication typography — it is never bundled or downloaded by this project.

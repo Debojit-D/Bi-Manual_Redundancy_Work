@@ -21,6 +21,7 @@ class Equation8PlotStyle:
     FOUR_BY_SIX_SIZE = (DOUBLE_COLUMN_WIDTH, 5.27)
     REDUCED_FOUR_BY_SIX_SIZE = (DOUBLE_COLUMN_WIDTH, 4.96)
     TIMES_NEW_ROMAN_DIR = paths.OUTPUT_FONTS_DIR / "times-new-roman"
+    FALLBACK_SERIF_FONT = "DejaVu Serif"
     BASELINE_COLOR = "#68737D"
     COMMAND_COLOR = "#111111"
     MODE_COLORS = {
@@ -30,14 +31,15 @@ class Equation8PlotStyle:
         "directional_force_indirect": "#CC79A7",
     }
 
-    def __init__(self, *, dpi=300):
+    def __init__(self, *, dpi=300, strict=False):
         self.dpi = int(dpi)
         if self.dpi <= 0:
             raise ValueError("dpi must be greater than zero")
+        self.strict = bool(strict)
 
     def apply(self):
         """Apply the common Seaborn theme before figures are created."""
-        self._register_times_new_roman()
+        font_family = self._resolve_serif_font()
         sns.set_theme(
             context="paper",
             style="whitegrid",
@@ -62,7 +64,7 @@ class Equation8PlotStyle:
         )
         plt.rcParams.update(
             {
-                "font.family": "Times New Roman",
+                "font.family": font_family,
                 "axes.titlesize": 8.5,
                 "axes.labelsize": 9.5,
                 "xtick.labelsize": 8,
@@ -73,8 +75,17 @@ class Equation8PlotStyle:
             }
         )
 
-    def _register_times_new_roman(self):
-        """Register the project-local Times files and reject substitution."""
+    def _resolve_serif_font(self):
+        """Register project-local Times New Roman files if present and
+        return the serif font family to use.
+
+        Times New Roman is a proprietary font that is never bundled or
+        downloaded by this project; it must be supplied locally (project-
+        relative ``outputs/.fonts/times-new-roman/``) for exact publication
+        typography. When it is unavailable, plotting falls back to "DejaVu
+        Serif" (bundled with Matplotlib, so always available) unless strict
+        mode was requested, in which case the missing font is an error.
+        """
         for path in sorted(self.TIMES_NEW_ROMAN_DIR.glob("*.[Tt][Tt][Ff]")):
             font_manager.fontManager.addfont(path)
         try:
@@ -82,11 +93,15 @@ class Equation8PlotStyle:
                 "Times New Roman",
                 fallback_to_default=False,
             )
+            return "Times New Roman"
         except ValueError as error:
-            raise RuntimeError(
-                "Times New Roman is unavailable. Expected font files in "
-                f"{self.TIMES_NEW_ROMAN_DIR}"
-            ) from error
+            if self.strict:
+                raise RuntimeError(
+                    "Times New Roman is unavailable. Expected font files in "
+                    f"{self.TIMES_NEW_ROMAN_DIR}, or install Times New Roman "
+                    "locally for strict publication typography."
+                ) from error
+            return self.FALLBACK_SERIF_FONT
 
     def mode_color(self, mode):
         try:
