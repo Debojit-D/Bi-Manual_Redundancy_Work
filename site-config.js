@@ -25,7 +25,8 @@ window.SITE_CONFIG = {
   lab: {
     name: "IITGN Robotics Laboratory",
     url: "https://research.iitgn.ac.in/robotics/",
-    logo: "assets/iitgn-robotics-logo.png"
+    logo: "assets/iitgn-robotics-logo.png",
+    logoDark: "assets/iitgn-robotics-logo-dark.png"
   },
 
   authors: [

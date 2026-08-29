@@ -10,6 +10,13 @@
     if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
   } catch (e) {}
 })();
+
+window.__isDarkTheme = function () {
+  var attr = document.documentElement.getAttribute('data-theme');
+  if (attr === 'dark') return true;
+  if (attr === 'light') return false;
+  return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+};
 </script>
 <title>Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation</title>
 <meta name="description" content="Project page for &quot;Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation&quot; — a comparison of velocity, force, and directional-force manipulability objectives for bimanual cooperative manipulation, with planar dual-arm hardware experiments and dual-Franka MuJoCo simulation.">
@@ -687,10 +694,13 @@
   // --- Footer: lab logo ---
   var footerEl = document.getElementById('site-footer');
   if (footerEl && cfg.lab) {
+    var isDark = window.__isDarkTheme && window.__isDarkTheme();
+    var logoSrc = (isDark && cfg.lab.logoDark) ? cfg.lab.logoDark : cfg.lab.logo;
+    window.__labLogos = { light: cfg.lab.logo, dark: cfg.lab.logoDark || cfg.lab.logo };
     footerEl.innerHTML =
       '<a class="lab-logo-link" ' + externalAttrs(cfg.lab.url) + ' aria-label="' + cfg.lab.name + '" title="' + cfg.lab.name + '">' +
         '<span class="lab-caption">A project of the</span>' +
-        '<img src="' + cfg.lab.logo + '" alt="' + cfg.lab.name + '">' +
+        '<img id="lab-logo-img" src="' + logoSrc + '" alt="' + cfg.lab.name + '">' +
       '</a>';
   }
 })();
@@ -710,13 +720,6 @@
   var MIN_POINTS = 22;
   var LINK_DIST = 130;
   var MOUSE_DIST = 170;
-
-  function isDarkTheme() {
-    var attr = document.documentElement.getAttribute('data-theme');
-    if (attr === 'dark') return true;
-    if (attr === 'light') return false;
-    return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  }
 
   function resize() {
     w = window.innerWidth;
@@ -741,7 +744,7 @@
 
   function step() {
     ctx.clearRect(0, 0, w, h);
-    var rgb = isDarkTheme() ? '255,255,255' : '26,26,26';
+    var rgb = window.__isDarkTheme && window.__isDarkTheme() ? '255,255,255' : '26,26,26';
 
     for (var i = 0; i < points.length; i++) {
       var p = points[i];
@@ -821,9 +824,7 @@
   var toggleBtn = document.getElementById('theme-toggle');
   if (toggleBtn) {
     var getTheme = function () {
-      var attr = document.documentElement.getAttribute('data-theme');
-      if (attr === 'light' || attr === 'dark') return attr;
-      return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+      return window.__isDarkTheme && window.__isDarkTheme() ? 'dark' : 'light';
     };
     var syncIcon = function () {
       var isDark = getTheme() === 'dark';
@@ -836,6 +837,10 @@
       try { localStorage.setItem('theme', next); } catch (e) {}
       syncIcon();
       if (window.__redrawBgCanvas) window.__redrawBgCanvas();
+      var logoImg = document.getElementById('lab-logo-img');
+      if (logoImg && window.__labLogos) {
+        logoImg.src = next === 'dark' ? window.__labLogos.dark : window.__labLogos.light;
+      }
     });
     syncIcon();
   }
