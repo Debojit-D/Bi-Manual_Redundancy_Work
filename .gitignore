@@ -30,6 +30,7 @@ rosbag/
 # Generated experiment data, figures, and videos
 outputs/
 
-# Native crash dumps
-core
-core.*
+# Native crash dumps (repo-root only: an unanchored "core" pattern also
+# matches src/bimanual_redundancy/core/, silently untracking the package).
+/core
+/core.*
