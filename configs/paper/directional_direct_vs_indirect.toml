@@ -1,0 +1,94 @@
+schema_version = 1
+
+[paper]
+experiment = "directional_direct_vs_indirect"
+robot = "dual_franka_panda"
+objectives = ["directional_force", "directional_force_indirect"]
+sweep_order = "initial_configuration_first"
+
+[robot_bases]
+left_position = [0.0, -0.25, 0.0]
+right_position = [0.0, 0.25, 0.0]
+left_euler_xyz_degrees = [0.0, 0.0, 0.0]
+right_euler_xyz_degrees = [0.0, 0.0, 0.0]
+
+[controller]
+frequency_hz = 50.0
+feedback_gains = [8.0, 8.0, 8.0, 4.0, 4.0, 4.0]
+grasp_feedback_enabled = true
+grasp_feedback_gains = [8.0, 8.0, 8.0, 6.0, 6.0, 6.0]
+arm_bias_compensation = true
+
+[optimization]
+gain = 5000.0
+finite_difference_step = 0.0001
+maximum_joint_velocity = 5.0
+desired_wrench_direction = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+characteristic_length_mode = "automatic"
+
+[joint_limits]
+margin = 0.05
+stop_distance = 0.07
+slow_distance = 0.25
+
+[collision]
+sphere_model = "models/robots/franka_emika_panda/dual_panda_robots_only_spherefit.xml"
+version = "version2"
+
+[collision.inter_arm]
+enabled = true
+weight = 5000.0
+safety_margin = 0.05
+proximity_scale = 0.01
+
+[collision.table]
+enabled = true
+weight = 20000.0
+safety_margin = 0.05
+proximity_scale = 0.003
+geom_name = ""
+
+[collision.self]
+enabled = true
+weight = 20000.0
+safety_margin = 0.01
+proximity_scale = 0.003
+
+[stopping]
+mode = "convergence"
+convergence_speed = 0.005
+convergence_hold_seconds = 0.5
+minimum_run_seconds = 1.0
+
+[recording]
+data = true
+video = true
+video_width = 1280
+video_height = 720
+video_fps = 30
+video_encoder = "nvenc"
+video_views = ["perspective", "top", "front"]
+
+[[initial_configurations]]
+id = "position_1"
+position = [0.30, 0.18, 0.28]
+
+[[initial_configurations]]
+id = "position_2"
+position = [0.60, 0.18, 0.28]
+
+[[initial_configurations]]
+id = "position_3"
+position = [0.30, 0.00, 0.28]
+
+[[initial_configurations]]
+id = "position_4"
+position = [0.60, 0.00, 0.28]
+
+[[initial_configurations]]
+id = "position_5"
+position = [0.30, -0.18, 0.28]
+
+[[initial_configurations]]
+id = "position_6"
+position = [0.60, -0.18, 0.28]

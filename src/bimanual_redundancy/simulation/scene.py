@@ -10,7 +10,9 @@ Press Ctrl+C at any time to close the viewer and stop cleanly.
 """
 
 import argparse
+from contextlib import AbstractContextManager
 from pathlib import Path
+from types import SimpleNamespace
 
 import glfw
 import mink
@@ -24,6 +26,36 @@ from bimanual_redundancy import paths
 from bimanual_redundancy.simulation import cameras as camera_presets
 from bimanual_redundancy.simulation.cli import add_camera_view_arguments, run_cli
 from bimanual_redundancy.simulation.recording import HeadlessDualViewRecorder
+
+
+class HeadlessSimulationViewer(AbstractContextManager):
+    """Viewer-compatible no-render sink for automated controller smoke runs."""
+
+    user_scn = None
+
+    def __init__(self):
+        self.cam = SimpleNamespace(
+            distance=0.0,
+            lookat=np.zeros(3),
+            azimuth=0.0,
+            elevation=0.0,
+        )
+        self._running = True
+
+    def is_running(self):
+        return self._running
+
+    def sync(self):
+        pass
+
+    def close(self):
+        self._running = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
 
 
 class DualFrankaMuJoCoScene:
@@ -473,6 +505,10 @@ class DualFrankaMuJoCoScene:
         finally:
             if maximized:
                 glfw.default_window_hints()
+
+    def launch_headless(self):
+        """Advance dynamics without OpenGL; intended for smoke validation."""
+        return HeadlessSimulationViewer()
 
     def launch_video_recorder(
         self,

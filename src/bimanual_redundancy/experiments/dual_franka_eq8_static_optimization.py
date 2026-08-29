@@ -323,6 +323,7 @@ def main(
     video_encoder="x264",
     video_nvenc_view_limit=None,
     table_spawn_position=TABLE_SPAWN_POSITION,
+    headless=False,
 ):
     objective = ManipulabilityObjective(objective)
     if duration is not None and duration <= 0.0:
@@ -459,11 +460,16 @@ def main(
         visual_geoms = scene.model.geom_group == 2
         scene.model.geom_rgba[visual_geoms, 3] = 0.25
     video_mode = video_output_dir is not None
+    if headless and video_mode:
+        raise ValueError("headless no-render mode cannot record video")
     if video_mode and show_collision_spheres:
         raise ValueError(
             "collision-sphere overlays are unavailable with headless video"
         )
-    if video_mode:
+    if headless:
+        viewer_context = scene.launch_headless()
+        rate_context = TqdmSimulationRate(f"Smoke static {optimization_mode}")
+    elif video_mode:
         viewer_context = scene.launch_video_recorder(
             video_output_dir,
             width=video_width,
@@ -499,7 +505,7 @@ def main(
 
     try:
         with rate_context as rate, viewer_context as viewer:
-            if not video_mode:
+            if not video_mode and not headless:
                 scene.configure_viewer_camera(
                     viewer,
                     top_view=top_view,

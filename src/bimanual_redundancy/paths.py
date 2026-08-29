@@ -20,5 +20,6 @@ OUTPUT_VIDEOS_DIR = OUTPUTS_DIR / "mujoco_videos"
 OUTPUT_DATA_DIR = OUTPUTS_DIR / "mujoco_data"
 OUTPUT_FONTS_DIR = OUTPUTS_DIR / ".fonts"
 OUTPUT_COMPARISON_BATCHES_DIR = OUTPUTS_DIR / "equation8_comparison_batches"
+OUTPUT_PAPER_REPRODUCTION_DIR = OUTPUTS_DIR / "paper_reproduction"
 
 MUJOCO_CUROBO_BRIDGE_DIR = REPO_ROOT / "mujoco_curobo_bridge"
