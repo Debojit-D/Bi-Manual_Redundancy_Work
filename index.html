@@ -64,11 +64,11 @@
   }
 
   #bg-grid::before {
-    opacity: 0.03;
+    opacity: 0.02;
   }
 
   #bg-grid::after {
-    opacity: 0.22;
+    opacity: 0.13;
     -webkit-mask-image: radial-gradient(circle 260px at var(--mx, 50%) var(--my, 12%), #000 0%, transparent 100%);
     mask-image: radial-gradient(circle 260px at var(--mx, 50%) var(--my, 12%), #000 0%, transparent 100%);
   }
@@ -84,19 +84,24 @@
   .eq {
     position: absolute;
     width: 190px;
+    pointer-events: auto;
+    cursor: default;
+    animation: eq-float 9s ease-in-out infinite;
+  }
+
+  .eq-text {
+    display: block;
     font-family: var(--serif);
     font-style: italic;
     font-size: 0.92rem;
     line-height: 1.4;
     color: var(--text);
     opacity: 0.11;
-    pointer-events: auto;
-    cursor: default;
     transition: opacity 0.4s ease, transform 0.4s ease;
   }
 
-  .eq:hover {
-    opacity: 0.55;
+  .eq:hover .eq-text {
+    opacity: 1;
     color: transparent;
     transform: scale(1.04);
     background-image: linear-gradient(120deg, #ff3d68, #ff9d3d, #f4e04d, #4dd88b, #3dc9ff, #8a6dff, #ff3d68);
@@ -113,19 +118,32 @@
     100% { background-position: 0% 50%; }
   }
 
+  @keyframes eq-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-16px); }
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .eq:hover { animation: none; background-position: 30% 50%; }
+    .eq { animation: none; }
+    .eq:hover .eq-text { animation: none; background-position: 30% 50%; }
   }
 
   .eq-l { left: calc(50% - 808px); text-align: right; }
   .eq-r { left: calc(50% + 618px); text-align: left; }
 
-  .eq-1 { top: 10vh; }
-  .eq-2 { top: 26vh; }
-  .eq-3 { top: 44vh; width: 210px; }
-  .eq-4 { top: 62vh; }
-  .eq-5 { top: 78vh; }
-  .eq-6 { top: 92vh; }
+  .eq-1 { top: 6vh; animation-delay: 0s; }
+  .eq-2 { top: 17vh; animation-delay: -1.4s; }
+  .eq-3 { top: 28vh; animation-delay: -2.8s; }
+  .eq-4 { top: 39vh; animation-delay: -4.2s; }
+  .eq-5 { top: 50vh; animation-delay: -5.6s; }
+  .eq-6 { top: 61vh; width: 260px; animation-delay: -7s; }
+  .eq-7 { top: 72vh; left: calc(50% - 878px); width: 260px; animation-delay: -3.5s; }
+  .eq-8 { top: 83vh; width: 210px; animation-delay: -6.3s; }
+
+  .eq-6 .eq-text,
+  .eq-7 .eq-text {
+    font-size: 0.8rem;
+  }
 
   @media (min-width: 1680px) {
     .eq-field { display: block; }
@@ -174,7 +192,6 @@
     max-width: 1180px;
     margin: 0 auto;
     padding: 4.5rem 4rem 5rem;
-    background: var(--page-bg);
   }
 
   .reveal {
@@ -489,12 +506,14 @@
 <div id="cursor-ring" aria-hidden="true"></div>
 
 <div class="eq-field" aria-hidden="true">
-  <span class="eq eq-l eq-1">J<sub>H</sub>φ̇ = G<sup>T</sup>q̇</span>
-  <span class="eq eq-r eq-2">q̇ = Aφ̇</span>
-  <span class="eq eq-l eq-3">φ̇ = A<sup>†</sup>q̇ + (I<sub>N</sub> − A<sup>†</sup>A)φ̇<sub>opt</sub></span>
-  <span class="eq eq-r eq-4">φ̇<sub>opt</sub> = Λ(∂W/∂φ)<sup>T</sup></span>
-  <span class="eq eq-l eq-5">W<sub>v</sub> = √(det(AA<sup>T</sup>))</span>
-  <span class="eq eq-r eq-6">W<sub>f</sub> = √(det((AA<sup>T</sup>)<sup>†</sup>))</span>
+  <span class="eq eq-l eq-1"><span class="eq-text">J<sub>H</sub>φ̇ = G<sup>T</sup>q̇</span></span>
+  <span class="eq eq-r eq-2"><span class="eq-text">φ̇<sub>opt</sub> = Λ(∂W/∂φ)<sup>T</sup></span></span>
+  <span class="eq eq-l eq-3"><span class="eq-text">W<sub>v</sub> = √(det(AA<sup>T</sup>))</span></span>
+  <span class="eq eq-r eq-4"><span class="eq-text">W<sub>f</sub> = √(det((AA<sup>T</sup>)<sup>†</sup>))</span></span>
+  <span class="eq eq-l eq-5"><span class="eq-text">F = diag(|F<sub>x</sub>|, |F<sub>y</sub>|, |F<sub>z</sub>|, |M<sub>x</sub>|, |M<sub>y</sub>|, |M<sub>z</sub>|)</span></span>
+  <span class="eq eq-r eq-6"><span class="eq-text">W<sub>df</sub><sup>direct</sup> = √(tr[((AA<sup>T</sup>)<sup>†</sup>⁄tr((AA<sup>T</sup>)<sup>†</sup>) − F⁄tr(F))((AA<sup>T</sup>)<sup>†</sup>⁄tr((AA<sup>T</sup>)<sup>†</sup>) − F⁄tr(F))<sup>T</sup>])</span></span>
+  <span class="eq eq-l eq-7"><span class="eq-text">W<sub>df</sub><sup>indirect</sup> = √(tr[(AA<sup>T</sup>⁄tr(AA<sup>T</sup>) − F⁄tr(F))(AA<sup>T</sup>⁄tr(AA<sup>T</sup>) − F⁄tr(F))<sup>T</sup>])</span></span>
+  <span class="eq eq-r eq-8"><span class="eq-text">φ̇ = A<sup>†</sup>q̇ + (I<sub>N</sub> − A<sup>†</sup>A)φ̇<sub>opt</sub></span></span>
 </div>
 
 <div class="page">
