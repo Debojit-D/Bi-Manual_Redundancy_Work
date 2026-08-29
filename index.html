@@ -14,7 +14,6 @@
 <style>
   :root {
     --page-bg: #f5f5f4;
-    --bg: #ffffff;
     --text: #1a1a1a;
     --muted: #5c5c5c;
     --rule: #e2e2e2;
@@ -65,37 +64,11 @@
     padding: 3.5rem 1.25rem 5rem;
   }
 
-  .paper {
+  .content {
     position: relative;
-    max-width: 800px;
+    max-width: 760px;
     margin: 0 auto;
-    background: var(--bg);
-    padding: 3rem 3rem 3.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.06);
-  }
-
-  .paper::before,
-  .paper::after {
-    content: "";
-    position: absolute;
-    width: 22px;
-    height: 22px;
-    border: 2px solid var(--text);
-    opacity: 0.5;
-  }
-
-  .paper::before {
-    top: -10px;
-    left: -10px;
-    border-right: none;
-    border-bottom: none;
-  }
-
-  .paper::after {
-    bottom: -10px;
-    right: -10px;
-    border-left: none;
-    border-top: none;
+    padding: 3rem 1.5rem 3.5rem;
   }
 
   h1 {
@@ -320,17 +293,12 @@
   }
 
   @media (max-width: 900px) {
-    .paper { padding: 2.5rem 2rem 3rem; }
+    .content { padding: 2.5rem 1.5rem 3rem; }
   }
 
   @media (max-width: 640px) {
-    .page { padding: 2rem 0.9rem 3rem; }
-    .paper {
-      padding: 2.25rem 1.35rem 2.5rem;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    }
-    .paper::before,
-    .paper::after { display: none; }
+    .page { padding: 0.5rem 0 2rem; }
+    .content { padding: 1.75rem 1.15rem 2.5rem; }
     .resources { gap: 0.5rem; }
     .abstract p { text-align: left; }
   }
@@ -346,7 +314,7 @@
 <canvas id="bg-canvas" aria-hidden="true"></canvas>
 
 <div class="page">
-  <main class="paper">
+  <main class="content">
     <h1>Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation</h1>
 
     <p class="authors" id="authors"></p>
@@ -423,10 +391,10 @@
       '<span class="venue">' + cfg.project.venue + '</span>';
   }
 
-  // --- Resource buttons (Paper, Code — Video is embedded below the abstract) ---
+  // --- Resource buttons ---
   var resourcesEl = document.getElementById('resources');
   if (resourcesEl && cfg.resources) {
-    var order = ['paper', 'code'];
+    var order = ['paper', 'code', 'video'];
     var html = order.map(function (key) {
       var r = cfg.resources[key];
       if (!r) return '';
