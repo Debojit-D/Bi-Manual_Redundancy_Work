@@ -78,7 +78,8 @@ used to build every manipulability objective (Eq. 12-17) via
   2. an additional `q_dot_grasp` grasp-feedback correction term (active only
      when `grasp_feedback_gain` is set) compensates for position-level
      hand/object drift that Eq. (8)'s instantaneous-velocity form does not
-     model. It is zero by default.
+     model. Zero by default; see "Implementation details: the Equation (8)
+     controller in simulation" below for exactly which runners enable it.
 - Null-space property test: `J_H @ [(I - J_H^dagger J_H) phi_dot_opt] ~= 0`,
   verified numerically in
   `tests/test_paper_equations.py::Equation8NullSpaceTests` on a real grasped
@@ -162,6 +163,77 @@ formulations share the same task-level motivation but are not mathematically
 equivalent" — they generally produce different objective gradients,
 null-space motions, and stationary configurations even under the same
 prescribed load direction.
+
+## Implementation details: the Equation (8) controller in simulation
+
+These are numerical/simulation implementation details around the published
+Equation (8) controller, not changes to the manipulability mathematics
+(Eq. 12-17), the controller's own update law, or any reported result. The
+manuscript has completed peer review; nothing in this section alters Eq.
+(8), an experiment default, or an existing plot/output.
+
+**Two least-squares solutions of the same constraint.** Eq. (1)/(9)
+(`J_H phi_dot = G^T q_dot`) is under-determined and admits more than one
+least-squares solution. `core/objectives.py` uses
+`paper_object_velocity_map` (`A = (G^T)^dagger J_H`, Eq. 10) to build the
+manipulability objectives (Eq. 12-17). `core/controller.py`'s
+`Equation8Controller.update` instead uses
+`kinematics.tracking_object_velocity_map(data)` (call it `A_control`,
+defined as `B^dagger` where `B = J_H^dagger G^T` solves
+`phi_dot = J_H^dagger G^T q_dot` directly) for the primary tracking term, so
+`A_control^dagger = B = J_H^dagger G^T` recovers that compatible
+minimum-norm joint motion. Both matrices solve the same Eq. (1)/(9)
+constraint; they are generally not equal. This separation is intentional
+and pre-dates this documentation pass — see `tracking_object_velocity_map`'s
+own docstring ("This is kept separate from the paper map used by the
+manipulability objectives") — but a reader matching Eq. (8) line-for-line
+against `update()` should know the `A^dagger` there is `A_control^dagger`,
+not `paper_object_velocity_map`'s pseudoinverse.
+
+**Optional grasp-drift correction term (`q_dot_grasp`).**
+`Equation8Controller.update` adds one term to Eq. (8)'s update beyond the
+manuscript's formula:
+
+```
+phi_next = phi + [A_control^dagger(q_dot_d + K_p e) + q_dot_grasp
+                   + (I-J_H^dagger J_H)phi_dot_opt] dt
+```
+
+`q_dot_grasp = J_H^dagger (grasp_feedback_gain @ grasp_pose_error)` is a
+hand-pose feedback correction that compensates for position-level
+hand/object drift from numerical integration, actuator lag, and contact
+compliance — effects Eq. (8)'s idealized instantaneous-velocity form does
+not model. It is added to the primary tracking term only; it does not
+modify the null-space term `(I-J_H^dagger J_H)phi_dot_opt` or any
+manipulability objective.
+
+Whether it is active is a per-runner constructor choice, not a global
+setting:
+
+- **Constructor default**: `Equation8Controller(..., grasp_feedback_gain=
+  None)`, i.e. `q_dot_grasp=0` (disabled), unless a caller explicitly
+  supplies a gain.
+- **Enabled** (`grasp_feedback_gain=GRASP_K_P = diag([8, 8, 8, 6, 6, 6])`)
+  by `dual_franka_eq8_optimized_pick_place.py`,
+  `dual_franka_eq8_optimized_6d_pick_place.py`,
+  `dual_franka_eq8_static_optimization.py`, and
+  `dual_franka_eq8_directional_distance_comparison.py` (which imports the
+  same `GRASP_K_P` as `static_setup.GRASP_K_P`) — active in every recorded
+  run from these runners.
+- **Disabled** by `dual_franka_eq8_baseline_pick_place.py`, which does not
+  pass `grasp_feedback_gain` — the pure baseline runner uses the primary
+  tracking term alone.
+- **Comparison wrapper scripts** — `dual_franka_eq8_pick_place_comparison.py`,
+  `dual_franka_eq8_6d_pick_place_comparison.py`, and
+  `dual_franka_eq8_static_comparison.py` — construct no
+  `Equation8Controller` of their own; they call into the `main()`/functions
+  of the runners above, so their optimized modes inherit whichever setting
+  the wrapped runner uses (all enabled, per the list above).
+
+`GRASP_K_P` and this term's wiring existed before this documentation pass
+and are unchanged by it; this section only records where the term is and is
+not active, so a reader does not have to trace every runner by hand to find
+out.
 
 ## Planar vs. spatial usage (paper implementation notes)
 
@@ -284,23 +356,12 @@ not used by any of the manuscript's reported results.
 
 ## Known code/paper discrepancies (flagged, not silently fixed)
 
-- **Eq. (8)'s tracking map vs. Eq. (10)'s objective map.** As noted above,
-  `Equation8Controller.update` solves the primary tracking term with
-  `kinematics.tracking_object_velocity_map(data)`, a different
-  least-squares solution of the Eq. (1)/(9) constraint than the `A` (Eq. 10)
-  used by every manipulability objective. This was already true before this
-  refactor and is intentional per the existing code comments ("This is kept
-  separate from the paper map used by the manipulability objectives"), but
-  the manuscript's Eq. (8) does not itself distinguish two different `A`
-  matrices — a reader matching Eq. (8) line-for-line against `update()`
-  should know `A^dagger` there is not literally `paper_object_velocity_map`.
-- **`q_dot_grasp` term.** `Equation8Controller.update` adds a grasp-feedback
-  correction term not present in the manuscript's Eq. (8). It is zero unless
-  `grasp_feedback_gain` is explicitly configured, and exists to correct
-  physical drift that Eq. (8)'s idealized instantaneous-velocity model does
-  not capture (see the controller's docstring). Not changed by this
-  refactor; flagged here per the task's request to surface, not silently
-  patch, discrepancies.
+- **Eq. (8)'s tracking map vs. Eq. (10)'s objective map**, and **the
+  `q_dot_grasp` term** (including exactly which experiment runners enable
+  it) — both pre-existing, intentional, not changed by any refactor. See
+  "Implementation details: the Equation (8) controller in simulation"
+  above for the full account; not duplicated here to avoid the two
+  descriptions drifting out of sync.
 - **Eq. (11) has no standalone implementation.** It is a derivation step
   (unit joint-velocity input used to derive the Eq. 12 ellipsoid from Eq. 10)
   rather than a quantity the code evaluates directly; see the Eq. (11)
