@@ -192,10 +192,11 @@ metadata is also available in [`CITATION.cff`](CITATION.cff).
 
 ## Development
 
-After the [Quick start](#quick-start) setup, run the test suite from the
-repository root:
+After the [Quick start](#quick-start) setup, install the test dependencies
+and run the suite from the repository root:
 
 ```bash
+uv pip install -e ".[dev]"
 pytest
 ```
 

@@ -15,9 +15,11 @@ as documented.
 
 ## Tests
 
-Run the full suite from the repository root:
+Install the test dependencies and run the full suite from the repository
+root:
 
 ```bash
+uv pip install -e ".[dev]"
 pytest
 ```
 

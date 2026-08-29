@@ -24,6 +24,9 @@ dependencies = [
     "tqdm>=4.66",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
 [project.urls]
 Homepage = "https://debojit-d.github.io/Bimanual-Redundancy-Optimization/"
 Repository = "https://github.com/Debojit-D/Bimanual-Redundancy-Optimization"
