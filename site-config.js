@@ -32,6 +32,23 @@ window.SITE_CONFIG = {
 }`
   },
 
+  acknowledgements: {
+    funding: "Supported by SERB (CRG/2022/005196), GUJCOST (GUJCOST/STI/2023-24/338), and Addverb Technologies Pvt. Ltd. (RES/ATL/ME/P0079/2425/0045). Barat S. acknowledges support from the Prime Minister’s Research Fellowship (PMRF).",
+    contributors: [
+      {
+        name: "Saniya Patwardhan",
+        url: "https://github.com/saniya2912",
+        contribution: "assistance with preliminary exploration"
+      },
+      {
+        name: "Samay Jain",
+        url: "https://github.com/Samay-J",
+        contribution: "assistance with collision handling in the spatial simulations"
+      }
+    ],
+    license: "Code is released under the Apache License 2.0. Third-party assets remain subject to their respective licenses."
+  },
+
   lab: {
     name: "IITGN Robotics Laboratory",
     url: "https://research.iitgn.ac.in/robotics/",

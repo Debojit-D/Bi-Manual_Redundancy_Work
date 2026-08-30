@@ -545,6 +545,41 @@ window.__isDarkTheme = function () {
     background: var(--status-bg);
   }
 
+  .acknowledgements-section {
+    max-width: 740px;
+    margin: 3.25rem auto 0;
+    padding-top: 1.35rem;
+    border-top: 1px solid var(--button-border);
+  }
+
+  .acknowledgements-item + .acknowledgements-item {
+    margin-top: 0.9rem;
+  }
+
+  .acknowledgements-item h2 {
+    margin-bottom: 0.25rem;
+    font-size: 0.7rem;
+  }
+
+  .acknowledgements-item p {
+    margin: 0;
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+
+  .acknowledgements-item a {
+    color: var(--text);
+    text-decoration-color: var(--button-border);
+    text-underline-offset: 0.15em;
+  }
+
+  .acknowledgements-item a:hover,
+  .acknowledgements-item a:focus-visible {
+    text-decoration-color: var(--text);
+  }
+
   .site-footer {
     margin-top: 4.25rem;
     padding-top: 2.5rem;
@@ -648,6 +683,8 @@ window.__isDarkTheme = function () {
     <section class="video-section reveal" id="video-section"></section>
 
     <section class="citation-section reveal" id="citation-section"></section>
+
+    <section class="acknowledgements-section reveal" id="acknowledgements-section" aria-label="Funding, acknowledgements, and license"></section>
 
     <footer class="site-footer reveal" id="site-footer"></footer>
   </main>
@@ -788,6 +825,25 @@ window.__isDarkTheme = function () {
         });
       });
     }
+  }
+
+  // --- Funding, acknowledgements, and license ---
+  var acknowledgementsEl = document.getElementById('acknowledgements-section');
+  var acknowledgementsCfg = cfg.acknowledgements;
+  if (acknowledgementsEl && acknowledgementsCfg) {
+    var contributors = Array.isArray(acknowledgementsCfg.contributors)
+      ? acknowledgementsCfg.contributors.map(function (contributor) {
+          return '<a ' + externalAttrs(contributor.url) + '>' + contributor.name + '</a> for ' + contributor.contribution;
+        })
+      : [];
+    var contributorsHtml = contributors.length
+      ? 'We thank ' + contributors.join(' and ') + '.'
+      : '';
+
+    acknowledgementsEl.innerHTML =
+      '<div class="acknowledgements-item"><h2>Funding</h2><p>' + acknowledgementsCfg.funding + '</p></div>' +
+      '<div class="acknowledgements-item"><h2>Acknowledgements</h2><p>' + contributorsHtml + '</p></div>' +
+      '<div class="acknowledgements-item"><h2>License</h2><p>' + acknowledgementsCfg.license + '</p></div>';
   }
 
   // --- Footer: lab logo ---
