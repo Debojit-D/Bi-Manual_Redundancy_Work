@@ -174,6 +174,12 @@ grasp configurations, new task-specific objectives, analytical/autodiff
 gradient implementations, and benchmarking/reproduction tooling. See
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
+## Acknowledgements
+
+We thank Shail Jadav and Saniya Patwardhan for assistance with preliminary
+exploration of this work and Samay Jain for assistance with collision handling
+in the spatial simulations.
+
 ## Citation
 
 If you use this code, please cite the associated manuscript. Machine-readable
