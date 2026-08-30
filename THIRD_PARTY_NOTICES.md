@@ -41,16 +41,16 @@ terms attach to `qpsolvers` itself, not to this repository's Apache-2.0 code.
 
 | Name | Upstream | License | Location | Relationship |
 |---|---|---|---|---|
-| `mujoco_curobo_bridge` | https://github.com/Debojit-D/mujoco_curobo_bridge | **Requires manual licensing review**: no `LICENSE` file and no `license` field in its `pyproject.toml` | `mujoco_curobo_bridge/` (git submodule) | Submodule (same author, separate repository) |
+| `mujoco_curobo_bridge` | https://github.com/Debojit-D/mujoco_curobo_bridge | Apache-2.0 (`LICENSE` + `NOTICE`, Copyright 2026 Debojit Das) | `mujoco_curobo_bridge/` (git submodule) | Submodule (same author, separate repository). **Under active development**: APIs, structure, and functionality may change. |
 
 `mujoco_curobo_bridge` is the same author's own separate GitHub repository,
 pinned here via `.gitmodules` as a git submodule. It is not vendored source
-in this repository, and this repository's Apache-2.0 license does not cover
-it (submodules are independent repositories with independent licensing).
-It currently has no license file of its own, so by default no reuse
-permissions are granted for it beyond what its own repository maintainer
-states. **Recommendation**: add a `LICENSE` in the `mujoco_curobo_bridge`
-repository directly (a separate action outside this repository).
+in this repository; it carries its own Apache-2.0 `LICENSE` and `NOTICE`
+files, independent of (though compatible with) this repository's own
+Apache-2.0 license (submodules are independent repositories with
+independent licensing). Its README notes that the repository is under
+active development, so pins to it should track a specific commit rather
+than assume API stability.
 
 That submodule's own `README.md` documents that it talks to **NVIDIA
 cuRobo** (Apache-2.0, https://github.com/NVlabs/curobo) as an external
@@ -158,7 +158,7 @@ license headers).
 | Component | Relationship | License | Status |
 |---|---|---|---|
 | Python dependencies (11 packages, table above) | dependency | Apache-2.0 / MIT / BSD-3-Clause / LGPL-3.0 / PSF / MPL-2.0+MIT (per-package) | Resolved |
-| `mujoco_curobo_bridge` | submodule | none declared | **Requires manual licensing review** |
+| `mujoco_curobo_bridge` | submodule | Apache-2.0 | Resolved; under active development (own repo, own copyright) |
 | `models/robots/franka_emika_panda/` | copied asset (modified) | Apache-2.0 | Resolved, embedded LICENSE preserved |
 | `models/robots/franka_fr3/` | copied asset | Apache-2.0 | Resolved, embedded LICENSE preserved |
 | `models/robots/heal/` | unknown | unknown | **Requires manual licensing review** |
