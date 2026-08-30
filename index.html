@@ -270,7 +270,10 @@ window.__isDarkTheme = function () {
 
   a:focus-visible,
   .resource-btn:focus-visible,
-  .copy-btn:focus-visible {
+  .copy-btn:focus-visible,
+  .posture-tab:focus-visible,
+  .direction-toggle-btn:focus-visible,
+  .posture-panel:focus-visible {
     outline: 2px solid var(--text);
     outline-offset: 2px;
     border-radius: 2px;
@@ -459,6 +462,241 @@ window.__isDarkTheme = function () {
     margin-right: auto;
   }
 
+  .central-question-section {
+    padding: 2.5rem 0 2.75rem;
+    border-top: 1px solid var(--button-border);
+    border-bottom: 1px solid var(--button-border);
+  }
+
+  .central-question-eyebrow {
+    margin: 0 0 0.7rem;
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-align: center;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .central-question-title {
+    max-width: 780px;
+    margin: 0 auto 0.9rem;
+    font-family: var(--serif);
+    font-size: clamp(1.65rem, 1.25rem + 1.4vw, 2.35rem);
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: center;
+    color: var(--text);
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  .central-question-support {
+    max-width: 820px;
+    margin: 0 auto;
+    font-size: 1.05rem;
+    line-height: 1.65;
+    text-align: center;
+  }
+
+  .central-question-takeaway {
+    max-width: 760px;
+    margin: 1rem auto 0;
+    font-family: var(--sans);
+    font-size: 0.94rem;
+    font-weight: 600;
+    line-height: 1.55;
+    text-align: center;
+    color: var(--text);
+  }
+
+  .posture-comparison {
+    margin-top: 2.15rem;
+  }
+
+  .posture-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+    font-family: var(--sans);
+  }
+
+  .posture-tab,
+  .direction-toggle-btn {
+    appearance: none;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--button-border);
+    border-radius: 999px;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .posture-tab {
+    padding: 0.45rem 0.9rem;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .posture-tab:hover,
+  .direction-toggle-btn:hover {
+    color: var(--text);
+    border-color: var(--text);
+  }
+
+  .posture-tab[aria-selected="true"],
+  .direction-toggle-btn[aria-pressed="true"] {
+    color: var(--page-bg);
+    background: var(--text);
+    border-color: var(--text);
+  }
+
+  .posture-panel {
+    transition: opacity 0.16s ease;
+  }
+
+  .posture-panel.is-switching {
+    opacity: 0.35;
+  }
+
+  .posture-explanation {
+    margin: 0 0 0.85rem;
+    font-family: var(--sans);
+    font-size: 0.88rem;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .posture-views {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .posture-view {
+    min-width: 0;
+    margin: 0;
+  }
+
+  .posture-view-label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .posture-view img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    background: #111;
+    border: 1px solid var(--button-border);
+    border-radius: 5px;
+  }
+
+  .posture-message {
+    max-width: 760px;
+    margin: 0.85rem auto 0;
+    font-family: var(--sans);
+    font-size: 0.8rem;
+    line-height: 1.55;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .direction-comparison {
+    margin-top: 2.1rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--rule);
+    text-align: center;
+  }
+
+  .direction-comparison h3 {
+    margin: 0 0 0.85rem;
+    font-family: var(--serif);
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .direction-toggle {
+    display: inline-flex;
+    gap: 0.4rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .direction-toggle-btn {
+    padding: 0.38rem 0.85rem;
+    font-size: 0.75rem;
+  }
+
+  .direction-diagram {
+    display: block;
+    width: min(100%, 500px);
+    height: auto;
+    margin: 0 auto 0.65rem;
+    color: var(--text);
+  }
+
+  .direction-diagram .diagram-object {
+    fill: var(--button-hover);
+    stroke: var(--button-border);
+  }
+
+  .direction-diagram .diagram-object-label,
+  .direction-diagram .diagram-label {
+    fill: var(--text);
+    font-family: var(--sans);
+    font-size: 12px;
+  }
+
+  .direction-diagram .diagram-object-label {
+    font-weight: 600;
+    text-anchor: middle;
+  }
+
+  .direction-diagram .motion-line,
+  .direction-diagram .load-line {
+    fill: none;
+    stroke-width: 3;
+    stroke-linecap: round;
+  }
+
+  .direction-diagram .motion-line { stroke: var(--link-blue); }
+  .direction-diagram .load-line { stroke: var(--accent); }
+  .direction-diagram .motion-tip { fill: var(--link-blue); }
+  .direction-diagram .load-tip { fill: var(--accent); }
+
+  .direction-diagram[data-mode="aligned"] .non-aligned-arrows,
+  .direction-diagram[data-mode="non-aligned"] .aligned-arrows {
+    display: none;
+  }
+
+  .direction-description,
+  .direction-takeaway {
+    max-width: 720px;
+    margin: 0 auto;
+    font-family: var(--sans);
+    font-size: 0.84rem;
+    line-height: 1.55;
+  }
+
+  .direction-description { color: var(--muted); }
+
+  .direction-takeaway {
+    margin-top: 0.45rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
   .abstract {
     position: relative;
     margin: 2.75rem auto 0;
@@ -638,6 +876,11 @@ window.__isDarkTheme = function () {
     .page { padding: 0.5rem 0 2rem; }
     .content { padding: 1.85rem 1.25rem 2.5rem; }
     .resources { gap: 0.5rem; }
+    .central-question-section { padding: 2rem 0 2.15rem; }
+    .central-question-support { text-align: left; }
+    .posture-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .posture-tab { white-space: normal; }
+    .posture-views { grid-template-columns: 1fr; gap: 0.85rem; }
     .abstract p { text-align: left; }
     .lab-logo-link img { height: 42px; }
   }
@@ -646,6 +889,9 @@ window.__isDarkTheme = function () {
     .authors a,
     .resource-btn,
     .copy-btn,
+    .posture-tab,
+    .direction-toggle-btn,
+    .posture-panel,
     .lab-logo-link,
     .reveal { transition: none; }
     .reveal { opacity: 1; transform: none; }
@@ -683,6 +929,8 @@ window.__isDarkTheme = function () {
     <span class="status-line" id="status-line"></span>
 
     <div class="resources" id="resources"></div>
+
+    <section class="central-question-section main-content-section reveal" id="central-question-section" aria-labelledby="central-question-title"></section>
 
     <section class="abstract main-content-section reveal">
       <h2>Abstract</h2>
@@ -796,6 +1044,172 @@ window.__isDarkTheme = function () {
         '</span>';
     }).join('');
     resourcesEl.innerHTML = html;
+  }
+
+  // --- Central question and interactive comparisons ---
+  var centralQuestionEl = document.getElementById('central-question-section');
+  var centralQuestionCfg = cfg.centralQuestion;
+  if (centralQuestionEl && centralQuestionCfg && Array.isArray(centralQuestionCfg.postures) && centralQuestionCfg.postures.length) {
+    var initialPosture = centralQuestionCfg.postures[0];
+    var directionCfg = centralQuestionCfg.directionComparison;
+    var initialDirection = directionCfg && Array.isArray(directionCfg.modes) ? directionCfg.modes[0] : null;
+    var postureTabsHtml = centralQuestionCfg.postures.map(function (posture, index) {
+      return '<button type="button" class="posture-tab" role="tab" ' +
+        'id="posture-tab-' + posture.id + '" aria-controls="posture-panel" ' +
+        'aria-selected="' + (index === 0 ? 'true' : 'false') + '" tabindex="' + (index === 0 ? '0' : '-1') + '">' +
+        posture.label + '</button>';
+    }).join('');
+    var directionButtonsHtml = initialDirection
+      ? directionCfg.modes.map(function (mode, index) {
+          return '<button type="button" class="direction-toggle-btn" data-direction-mode="' + mode.id + '" ' +
+            'aria-pressed="' + (index === 0 ? 'true' : 'false') + '">' + mode.label + '</button>';
+        }).join('')
+      : '';
+
+    centralQuestionEl.innerHTML =
+      '<p class="central-question-eyebrow">Central Question</p>' +
+      '<h2 class="central-question-title" id="central-question-title">' + centralQuestionCfg.heading + '</h2>' +
+      '<p class="central-question-support">' + centralQuestionCfg.supportingText + '</p>' +
+      '<p class="central-question-takeaway">' + centralQuestionCfg.takeaway + '</p>' +
+      '<div class="posture-comparison">' +
+        '<div class="posture-tabs" role="tablist" aria-label="Redundancy objective">' + postureTabsHtml + '</div>' +
+        '<div class="posture-panel" id="posture-panel" role="tabpanel" tabindex="0" aria-labelledby="posture-tab-' + initialPosture.id + '">' +
+          '<p class="posture-explanation" id="posture-explanation" aria-live="polite">' + initialPosture.explanation + '</p>' +
+          '<div class="posture-views">' +
+            '<figure class="posture-view">' +
+              '<figcaption class="posture-view-label">Top view</figcaption>' +
+              '<img id="posture-top-image" src="' + initialPosture.topImage + '" width="1280" height="720" loading="lazy" decoding="async" alt="Top view of the ' + initialPosture.label + ' dual-arm configuration while maintaining the prescribed object pose.">' +
+            '</figure>' +
+            '<figure class="posture-view">' +
+              '<figcaption class="posture-view-label">Front view</figcaption>' +
+              '<img id="posture-front-image" src="' + initialPosture.frontImage + '" width="1280" height="720" loading="lazy" decoding="async" alt="Front view of the ' + initialPosture.label + ' dual-arm configuration while maintaining the prescribed object pose.">' +
+            '</figure>' +
+          '</div>' +
+          '<p class="posture-message">' + centralQuestionCfg.postureMessage + '</p>' +
+        '</div>' +
+      '</div>' +
+      (initialDirection
+        ? '<div class="direction-comparison">' +
+            '<h3>' + directionCfg.heading + '</h3>' +
+            '<div class="direction-toggle" role="group" aria-label="Motion and load direction relationship">' + directionButtonsHtml + '</div>' +
+            '<svg class="direction-diagram" id="direction-diagram" data-mode="' + initialDirection.id + '" viewBox="0 0 480 145" aria-hidden="true">' +
+              '<defs>' +
+                '<marker id="motion-arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path class="motion-tip" d="M0,0 L8,4 L0,8 Z"></path></marker>' +
+                '<marker id="load-arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path class="load-tip" d="M0,0 L8,4 L0,8 Z"></path></marker>' +
+              '</defs>' +
+              '<rect class="diagram-object" x="195" y="53" width="90" height="40" rx="5"></rect>' +
+              '<text class="diagram-object-label" x="240" y="78">Object</text>' +
+              '<g class="aligned-arrows">' +
+                '<line class="motion-line" x1="292" y1="59" x2="410" y2="59" marker-end="url(#motion-arrowhead)"></line>' +
+                '<text class="diagram-label" x="300" y="43">Commanded motion</text>' +
+                '<line class="load-line" x1="292" y1="91" x2="410" y2="91" marker-end="url(#load-arrowhead)"></line>' +
+                '<text class="diagram-label" x="300" y="116">External load</text>' +
+              '</g>' +
+              '<g class="non-aligned-arrows">' +
+                '<line class="motion-line" x1="292" y1="73" x2="410" y2="73" marker-end="url(#motion-arrowhead)"></line>' +
+                '<text class="diagram-label" x="300" y="56">Commanded motion</text>' +
+                '<line class="load-line" x1="240" y1="46" x2="240" y2="13" marker-end="url(#load-arrowhead)"></line>' +
+                '<text class="diagram-label" x="254" y="22">External load</text>' +
+              '</g>' +
+            '</svg>' +
+            '<p class="direction-description" id="direction-description" aria-live="polite">' + initialDirection.description + '</p>' +
+            '<p class="direction-takeaway" id="direction-takeaway"' + (initialDirection.takeaway ? '' : ' hidden') + '>' + (initialDirection.takeaway || '') + '</p>' +
+          '</div>'
+        : '');
+
+    var postureTabs = centralQuestionEl.querySelectorAll('.posture-tab');
+    var posturePanel = document.getElementById('posture-panel');
+    var postureExplanation = document.getElementById('posture-explanation');
+    var postureTopImage = document.getElementById('posture-top-image');
+    var postureFrontImage = document.getElementById('posture-front-image');
+    var currentPostureIndex = 0;
+    var postureSwitchToken = 0;
+
+    function setPosture(index, focusTab) {
+      if (index < 0 || index >= centralQuestionCfg.postures.length) return;
+      var posture = centralQuestionCfg.postures[index];
+
+      Array.prototype.forEach.call(postureTabs, function (tab, tabIndex) {
+        var isSelected = tabIndex === index;
+        tab.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+        tab.setAttribute('tabindex', isSelected ? '0' : '-1');
+      });
+      posturePanel.setAttribute('aria-labelledby', 'posture-tab-' + posture.id);
+      if (focusTab) postureTabs[index].focus();
+      if (index === currentPostureIndex) return;
+
+      currentPostureIndex = index;
+      var switchToken = ++postureSwitchToken;
+      var remainingImages = 2;
+      var applied = false;
+      posturePanel.classList.add('is-switching');
+
+      function applyPosture() {
+        if (applied || switchToken !== postureSwitchToken) return;
+        applied = true;
+        postureExplanation.textContent = posture.explanation;
+        postureTopImage.src = posture.topImage;
+        postureTopImage.alt = 'Top view of the ' + posture.label + ' dual-arm configuration while maintaining the prescribed object pose.';
+        postureFrontImage.src = posture.frontImage;
+        postureFrontImage.alt = 'Front view of the ' + posture.label + ' dual-arm configuration while maintaining the prescribed object pose.';
+        requestAnimationFrame(function () {
+          posturePanel.classList.remove('is-switching');
+        });
+      }
+
+      function imageReady() {
+        remainingImages -= 1;
+        if (remainingImages === 0) applyPosture();
+      }
+
+      [posture.topImage, posture.frontImage].forEach(function (src) {
+        var loader = new Image();
+        loader.onload = imageReady;
+        loader.onerror = imageReady;
+        loader.src = src;
+      });
+      setTimeout(applyPosture, 900);
+    }
+
+    Array.prototype.forEach.call(postureTabs, function (tab, index) {
+      tab.addEventListener('click', function () { setPosture(index, false); });
+      tab.addEventListener('keydown', function (event) {
+        var nextIndex = null;
+        if (event.key === 'ArrowRight') nextIndex = (index + 1) % postureTabs.length;
+        if (event.key === 'ArrowLeft') nextIndex = (index - 1 + postureTabs.length) % postureTabs.length;
+        if (event.key === 'Home') nextIndex = 0;
+        if (event.key === 'End') nextIndex = postureTabs.length - 1;
+        if (nextIndex !== null) {
+          event.preventDefault();
+          setPosture(nextIndex, true);
+        }
+      });
+    });
+
+    if (initialDirection) {
+      var directionButtons = centralQuestionEl.querySelectorAll('.direction-toggle-btn');
+      var directionDiagram = document.getElementById('direction-diagram');
+      var directionDescription = document.getElementById('direction-description');
+      var directionTakeaway = document.getElementById('direction-takeaway');
+
+      function setDirectionMode(index) {
+        var mode = directionCfg.modes[index];
+        if (!mode) return;
+        Array.prototype.forEach.call(directionButtons, function (button, buttonIndex) {
+          button.setAttribute('aria-pressed', buttonIndex === index ? 'true' : 'false');
+        });
+        directionDiagram.setAttribute('data-mode', mode.id);
+        directionDescription.textContent = mode.description;
+        directionTakeaway.textContent = mode.takeaway || '';
+        directionTakeaway.hidden = !mode.takeaway;
+      }
+
+      Array.prototype.forEach.call(directionButtons, function (button, index) {
+        button.addEventListener('click', function () { setDirectionMode(index); });
+      });
+    }
+  } else if (centralQuestionEl) {
+    centralQuestionEl.hidden = true;
   }
 
   // --- Video embed ---

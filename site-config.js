@@ -22,6 +22,59 @@ window.SITE_CONFIG = {
     }
   },
 
+  centralQuestion: {
+    heading: "One task. Many robot postures. Which one should we choose?",
+    supportingText: "When redundant robots cooperatively manipulate an object, many joint configurations can realize the same object motion. Should that redundancy be used to move more dexterously, generate more force overall, or generate force in the direction the task actually needs?",
+    takeaway: "The right redundancy objective depends on the task’s motion and load directions.",
+    postureMessage: "The object pose remains the same while the internal dual-arm configuration changes according to the selected objective.",
+    postures: [
+      {
+        id: "baseline",
+        label: "Baseline",
+        explanation: "Tracks the object task without secondary posture optimization.",
+        topImage: "assets/figures/Fig12a_t.png",
+        frontImage: "assets/figures/Fig12a_f.png"
+      },
+      {
+        id: "velocity",
+        label: "Velocity",
+        explanation: "Uses redundancy to favor greater motion dexterity.",
+        topImage: "assets/figures/Fig12b_t.png",
+        frontImage: "assets/figures/Fig12b_f.png"
+      },
+      {
+        id: "force",
+        label: "Force",
+        explanation: "Uses redundancy to favor greater overall force capability.",
+        topImage: "assets/figures/Fig12c_t.png",
+        frontImage: "assets/figures/Fig12c_f.png"
+      },
+      {
+        id: "directional-force",
+        label: "Directional Force",
+        explanation: "Uses redundancy to favor capability along the task-relevant load direction.",
+        topImage: "assets/figures/Fig12d_t.png",
+        frontImage: "assets/figures/Fig12d_f.png"
+      }
+    ],
+    directionComparison: {
+      heading: "What if motion and load directions differ?",
+      modes: [
+        {
+          id: "aligned",
+          label: "Aligned",
+          description: "Motion and dominant load are along the same task direction."
+        },
+        {
+          id: "non-aligned",
+          label: "Non-aligned",
+          description: "Motion and load act along different directions.",
+          takeaway: "Directional-force optimization explicitly shapes the redundant posture toward the force direction the task actually requires."
+        }
+      ]
+    }
+  },
+
   citation: {
     bibtex: `@article{das2026taskspecific,
   title   = {Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation},
