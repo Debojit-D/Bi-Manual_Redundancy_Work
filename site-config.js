@@ -90,9 +90,14 @@ window.SITE_CONFIG = {
     funding: "Supported by SERB (CRG/2022/005196), GUJCOST (GUJCOST/STI/2023-24/338), and Addverb Technologies Pvt. Ltd. (RES/ATL/ME/P0079/2425/0045). Barat S. acknowledges support from the Prime Minister’s Research Fellowship (PMRF).",
     contributors: [
       {
+        name: "Shail Jadav",
+        url: "https://github.com/shailjadav",
+        contribution: "assistance with preliminary exploration of this work"
+      },
+      {
         name: "Saniya Patwardhan",
         url: "https://github.com/saniya2912",
-        contribution: "assistance with preliminary exploration"
+        contribution: "assistance with preliminary exploration of this work"
       },
       {
         name: "Samay Jain",
