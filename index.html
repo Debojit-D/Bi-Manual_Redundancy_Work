@@ -273,7 +273,8 @@ window.__isDarkTheme = function () {
   .copy-btn:focus-visible,
   .posture-tab:focus-visible,
   .direction-toggle-btn:focus-visible,
-  .posture-panel:focus-visible {
+  .posture-panel:focus-visible,
+  .posture-compare-all:focus-visible {
     outline: 2px solid var(--text);
     outline-offset: 2px;
     border-radius: 2px;
@@ -562,6 +563,11 @@ window.__isDarkTheme = function () {
     opacity: 0.35;
   }
 
+  .posture-panel[hidden],
+  .posture-compare-all[hidden] {
+    display: none;
+  }
+
   .posture-explanation {
     margin: 0 0 0.85rem;
     font-family: var(--sans);
@@ -610,6 +616,51 @@ window.__isDarkTheme = function () {
     line-height: 1.55;
     text-align: center;
     color: var(--muted);
+  }
+
+  .posture-compare-all {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .posture-compare-card {
+    min-width: 0;
+    padding: 0.9rem;
+    border: 1px solid var(--button-border);
+    border-radius: 6px;
+  }
+
+  .posture-compare-card h4 {
+    margin: 0;
+    font-family: var(--sans);
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+
+  .posture-compare-explanation {
+    min-height: 2.5em;
+    margin: 0.25rem 0 0.7rem;
+    font-family: var(--sans);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--muted);
+  }
+
+  .posture-compare-views {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+
+  .posture-compare-card .posture-view-label {
+    margin-bottom: 0.3rem;
+    font-size: 0.62rem;
+  }
+
+  .posture-compare-all > .posture-message {
+    grid-column: 1 / -1;
+    margin-top: 0;
   }
 
   .direction-comparison {
@@ -880,7 +931,10 @@ window.__isDarkTheme = function () {
     .central-question-support { text-align: left; }
     .posture-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .posture-tab { white-space: normal; }
+    .posture-tab.is-compare-all { grid-column: 1 / -1; }
     .posture-views { grid-template-columns: 1fr; gap: 0.85rem; }
+    .posture-compare-all { grid-template-columns: 1fr; }
+    .posture-compare-explanation { min-height: 0; }
     .abstract p { text-align: left; }
     .lab-logo-link img { height: 42px; }
   }
@@ -1059,6 +1113,26 @@ window.__isDarkTheme = function () {
         'aria-selected="' + (index === 0 ? 'true' : 'false') + '" tabindex="' + (index === 0 ? '0' : '-1') + '">' +
         posture.label + '</button>';
     }).join('');
+    var compareAllLabel = centralQuestionCfg.compareAllLabel || 'Compare All';
+    postureTabsHtml += '<button type="button" class="posture-tab is-compare-all" role="tab" ' +
+      'id="posture-tab-compare-all" aria-controls="posture-compare-all" aria-selected="false" tabindex="-1">' +
+      compareAllLabel + '</button>';
+    var compareCardsHtml = centralQuestionCfg.postures.map(function (posture) {
+      return '<article class="posture-compare-card">' +
+        '<h4>' + posture.label + '</h4>' +
+        '<p class="posture-compare-explanation">' + posture.explanation + '</p>' +
+        '<div class="posture-compare-views">' +
+          '<figure class="posture-view">' +
+            '<figcaption class="posture-view-label">Top view</figcaption>' +
+            '<img src="' + posture.topImage + '" width="1280" height="720" loading="lazy" decoding="async" alt="Top view of the ' + posture.label + ' dual-arm configuration while maintaining the prescribed object pose.">' +
+          '</figure>' +
+          '<figure class="posture-view">' +
+            '<figcaption class="posture-view-label">Front view</figcaption>' +
+            '<img src="' + posture.frontImage + '" width="1280" height="720" loading="lazy" decoding="async" alt="Front view of the ' + posture.label + ' dual-arm configuration while maintaining the prescribed object pose.">' +
+          '</figure>' +
+        '</div>' +
+      '</article>';
+    }).join('');
     var directionButtonsHtml = initialDirection
       ? directionCfg.modes.map(function (mode, index) {
           return '<button type="button" class="direction-toggle-btn" data-direction-mode="' + mode.id + '" ' +
@@ -1085,6 +1159,10 @@ window.__isDarkTheme = function () {
               '<img id="posture-front-image" src="' + initialPosture.frontImage + '" width="1280" height="720" loading="lazy" decoding="async" alt="Front view of the ' + initialPosture.label + ' dual-arm configuration while maintaining the prescribed object pose.">' +
             '</figure>' +
           '</div>' +
+          '<p class="posture-message">' + centralQuestionCfg.postureMessage + '</p>' +
+        '</div>' +
+        '<div class="posture-compare-all" id="posture-compare-all" role="tabpanel" tabindex="0" aria-labelledby="posture-tab-compare-all" hidden>' +
+          compareCardsHtml +
           '<p class="posture-message">' + centralQuestionCfg.postureMessage + '</p>' +
         '</div>' +
       '</div>' +
@@ -1119,26 +1197,39 @@ window.__isDarkTheme = function () {
 
     var postureTabs = centralQuestionEl.querySelectorAll('.posture-tab');
     var posturePanel = document.getElementById('posture-panel');
+    var postureCompareAll = document.getElementById('posture-compare-all');
     var postureExplanation = document.getElementById('posture-explanation');
     var postureTopImage = document.getElementById('posture-top-image');
     var postureFrontImage = document.getElementById('posture-front-image');
     var currentPostureIndex = 0;
     var postureSwitchToken = 0;
+    var compareAllIndex = centralQuestionCfg.postures.length;
 
     function setPosture(index, focusTab) {
-      if (index < 0 || index >= centralQuestionCfg.postures.length) return;
-      var posture = centralQuestionCfg.postures[index];
+      if (index < 0 || index > compareAllIndex) return;
+      var posture = index < compareAllIndex ? centralQuestionCfg.postures[index] : null;
 
       Array.prototype.forEach.call(postureTabs, function (tab, tabIndex) {
         var isSelected = tabIndex === index;
         tab.setAttribute('aria-selected', isSelected ? 'true' : 'false');
         tab.setAttribute('tabindex', isSelected ? '0' : '-1');
       });
-      posturePanel.setAttribute('aria-labelledby', 'posture-tab-' + posture.id);
       if (focusTab) postureTabs[index].focus();
       if (index === currentPostureIndex) return;
 
+      if (index === compareAllIndex) {
+        postureSwitchToken += 1;
+        currentPostureIndex = index;
+        posturePanel.classList.remove('is-switching');
+        posturePanel.hidden = true;
+        postureCompareAll.hidden = false;
+        return;
+      }
+
       currentPostureIndex = index;
+      postureCompareAll.hidden = true;
+      posturePanel.hidden = false;
+      posturePanel.setAttribute('aria-labelledby', 'posture-tab-' + posture.id);
       var switchToken = ++postureSwitchToken;
       var remainingImages = 2;
       var applied = false;
