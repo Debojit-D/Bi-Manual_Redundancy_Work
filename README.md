@@ -24,11 +24,11 @@ and are not part of the active Python environment.
 
 ## Video
 
-<a href="https://youtu.be/mEqmoEVfY48">
-  <img src="https://img.youtube.com/vi/mEqmoEVfY48/maxresdefault.jpg" alt="Watch the bimanual redundancy optimization experiments" width="100%">
+<a href="https://youtu.be/CubFLF5DAzE">
+  <img src="https://img.youtube.com/vi/CubFLF5DAzE/maxresdefault.jpg" alt="Watch the bimanual redundancy optimization experiments" width="100%">
 </a>
 
-[Watch the hardware experiments and dual-Franka simulations](https://youtu.be/mEqmoEVfY48)
+[Watch the hardware experiments and dual-Franka simulations](https://youtu.be/CubFLF5DAzE)
 
 ## Implemented objectives
 
