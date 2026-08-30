@@ -90,21 +90,25 @@ itself is not vendored in this repository or in the submodule.
 - **Action taken**: none. The embedded `LICENSE` file is preserved
   byte-for-byte, unchanged.
 
-### `models/robots/heal/`
+### `models/robots/heal/` (removed)
 
 - **Upstream**: unknown. No `LICENSE`, `README`, or any embedded
-  copyright/source comment exists anywhere in `dual_heal.xml`,
-  `dual_heal_reconfigured_home.xml`, or the `meshes_new/*.STL` mesh files.
-  Git history for this path goes back only to this repository's earliest
+  copyright/source comment existed anywhere in the removed `dual_heal.xml`,
+  `dual_heal_reconfigured_home.xml`, or `meshes_new/*.STL` mesh files.
+  Git history for this path went back only to this repository's earliest
   recorded commits, with no upstream reference in any commit message.
-- **License**: **Requires manual licensing review.** This directory name
-  and the mesh set are consistent with a commercial cooperative-robot
-  manufacturer's CAD-derived model, but nothing in the repository confirms
-  the manufacturer, license, or redistribution terms, and none should be
-  assumed.
-- **Relationship**: unknown (possibly copied/exported CAD asset).
-- **Action taken**: none. Not covered by this repository's Apache-2.0
-  license.
+- **License**: unresolved. This directory name and the mesh set were
+  consistent with a commercial cooperative-robot manufacturer's
+  CAD-derived model, but nothing in the repository confirmed the
+  manufacturer, license, or redistribution terms.
+- **Action taken**: **removed from the public repository.** These assets
+  were deleted (`git rm -r models/robots/heal/`) because redistribution
+  rights for them were never established and could not be confirmed. They
+  were never wired into the active paper/reproduction pipeline (no config,
+  CLI, or test in this repository referenced `models/robots/heal/`), so
+  removal does not affect the dual-Franka reproduction workflow. These
+  files remain recoverable from older commits in this repository's git
+  history but are no longer present in the current tree.
 
 ### `models/objects/furniture/ventionTable/` and `ventionTable.xml`
 
@@ -161,7 +165,7 @@ license headers).
 | `mujoco_curobo_bridge` | submodule | Apache-2.0 | Resolved; under active development (own repo, own copyright) |
 | `models/robots/franka_emika_panda/` | copied asset (modified) | Apache-2.0 | Resolved, embedded LICENSE preserved |
 | `models/robots/franka_fr3/` | copied asset | Apache-2.0 | Resolved, embedded LICENSE preserved |
-| `models/robots/heal/` | unknown | unknown | **Requires manual licensing review** |
+| `models/robots/heal/` | unknown | unknown | **Removed from public repository** (redistribution rights not established) |
 | `models/objects/furniture/ventionTable*` | copied asset | Apache-2.0 | Resolved, embedded attribution preserved |
 | `legacy/gazebo/.../panda_multiple_arms_moveit_config` | generated derivative | BSD (self-declared) | Resolved |
 | `legacy/gazebo/.../panda_multiple_arms`, `.../gazebo_assets` | project-original, unlicensed placeholder | none declared (`TODO`) | Not third-party; left as-is (unmaintained legacy code) |
