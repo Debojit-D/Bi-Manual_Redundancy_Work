@@ -23,7 +23,7 @@ window.SITE_CONFIG = {
   },
 
   centralQuestion: {
-    heading: "One task. Many robot postures. Which one should we choose?",
+    heading: "One task. Many robot postures. Which one should our controller choose?",
     supportingText: "When redundant robots cooperatively manipulate an object, many joint configurations can realize the same object motion. Should that redundancy be used to move more dexterously, generate more force overall, or generate force in the direction the task actually needs?",
     takeaway: "The right redundancy objective depends on the task’s motion and load directions.",
     postureMessage: "The object pose remains the same while the internal dual-arm configuration changes according to the selected objective.",
