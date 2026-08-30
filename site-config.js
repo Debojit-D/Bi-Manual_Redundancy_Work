@@ -3,7 +3,7 @@ window.SITE_CONFIG = {
     title: "Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation",
     status: "Provisionally accepted",
     venue: "Industrial Robot: The International Journal of Robotics Research and Application",
-    venueUrl: "https://www.emerald.com/ir"
+    venueUrl: "https://www.emeraldgrouppublishing.com/journal/ir"
   },
 
   resources: {
@@ -46,7 +46,14 @@ window.SITE_CONFIG = {
         contribution: "assistance with collision handling in the spatial simulations"
       }
     ],
-    license: "Code is released under the Apache License 2.0. Third-party assets remain subject to their respective licenses."
+    license: {
+      codePrefix: "Code is released under the",
+      codeLabel: "Apache License 2.0",
+      codeUrl: "https://github.com/Debojit-D/Bimanual-Redundancy-Optimization/blob/main/LICENSE",
+      assetsPrefix: "Third-party assets remain subject to their respective",
+      assetsLabel: "third-party licenses",
+      assetsUrl: "https://github.com/Debojit-D/Bimanual-Redundancy-Optimization/blob/main/THIRD_PARTY_NOTICES.md"
+    }
   },
 
   lab: {
