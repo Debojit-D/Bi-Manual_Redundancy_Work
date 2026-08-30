@@ -176,9 +176,10 @@ gradient implementations, and benchmarking/reproduction tooling. See
 
 ## Acknowledgements
 
-We thank Shail Jadav and Saniya Patwardhan for assistance with preliminary
-exploration of this work and Samay Jain for assistance with collision handling
-in the spatial simulations.
+We thank [Shail Jadav](https://github.com/shailjadav) and
+[Saniya Patwardhan](https://github.com/saniya2912) for assistance with
+preliminary exploration of this work, and [Samay Jain](https://github.com/Samay-J)
+for assistance with collision handling in the spatial simulations.
 
 ## Citation
 
