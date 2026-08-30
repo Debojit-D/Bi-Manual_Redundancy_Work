@@ -1348,13 +1348,16 @@ window.__isDarkTheme = function () {
   var acknowledgementsEl = document.getElementById('acknowledgements-section');
   var acknowledgementsCfg = cfg.acknowledgements;
   if (acknowledgementsEl && acknowledgementsCfg) {
-    var contributors = Array.isArray(acknowledgementsCfg.contributors)
-      ? acknowledgementsCfg.contributors.map(function (contributor) {
-          return '<a ' + externalAttrs(contributor.url) + '>' + contributor.name + '</a> for ' + contributor.contribution;
+    var contributorGroups = Array.isArray(acknowledgementsCfg.contributorGroups)
+      ? acknowledgementsCfg.contributorGroups.map(function (group) {
+          var names = group.contributors.map(function (contributor) {
+            return '<a ' + externalAttrs(contributor.url) + '>' + contributor.name + '</a>';
+          });
+          return names.join(' and ') + ' for ' + group.contribution;
         })
       : [];
-    var contributorsHtml = contributors.length
-      ? 'We thank ' + contributors.join(' and ') + '.'
+    var contributorsHtml = contributorGroups.length
+      ? 'We thank ' + contributorGroups.join(', and ') + '.'
       : '';
     var licenseCfg = acknowledgementsCfg.license;
     var licenseHtml = licenseCfg

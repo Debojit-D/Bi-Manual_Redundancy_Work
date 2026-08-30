@@ -88,20 +88,27 @@ window.SITE_CONFIG = {
 
   acknowledgements: {
     funding: "Supported by SERB (CRG/2022/005196), GUJCOST (GUJCOST/STI/2023-24/338), and Addverb Technologies Pvt. Ltd. (RES/ATL/ME/P0079/2425/0045). Barat S. acknowledges support from the Prime Minister’s Research Fellowship (PMRF).",
-    contributors: [
+    contributorGroups: [
       {
-        name: "Shail Jadav",
-        url: "https://github.com/shailjadav",
+        contributors: [
+          {
+            name: "Shail Jadav",
+            url: "https://github.com/shailjadav"
+          },
+          {
+            name: "Saniya Patwardhan",
+            url: "https://github.com/saniya2912"
+          }
+        ],
         contribution: "assistance with preliminary exploration of this work"
       },
       {
-        name: "Saniya Patwardhan",
-        url: "https://github.com/saniya2912",
-        contribution: "assistance with preliminary exploration of this work"
-      },
-      {
-        name: "Samay Jain",
-        url: "https://github.com/Samay-J",
+        contributors: [
+          {
+            name: "Samay Jain",
+            url: "https://github.com/Samay-J"
+          }
+        ],
         contribution: "assistance with collision handling in the spatial simulations"
       }
     ],
