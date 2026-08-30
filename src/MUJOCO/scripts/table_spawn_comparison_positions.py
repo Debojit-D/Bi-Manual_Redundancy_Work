@@ -1,4 +1,4 @@
-"""Deprecated shim — import from ``bimanual_redundancy.experiments.table_spawn_comparison_positions`` instead."""
+"""Deprecated shim: import from ``bimanual_redundancy.experiments.table_spawn_comparison_positions`` instead."""
 
 import warnings
 

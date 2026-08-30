@@ -1,4 +1,4 @@
-"""Deprecated shim — import from ``bimanual_redundancy.experiments.extract_static_end_snapshots`` instead."""
+"""Deprecated shim: import from ``bimanual_redundancy.experiments.extract_static_end_snapshots`` instead."""
 
 import warnings
 

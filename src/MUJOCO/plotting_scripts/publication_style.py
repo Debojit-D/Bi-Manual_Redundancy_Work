@@ -1,4 +1,4 @@
-"""Deprecated shim — import from ``bimanual_redundancy.plotting.publication_style`` instead."""
+"""Deprecated shim: import from ``bimanual_redundancy.plotting.publication_style`` instead."""
 
 import warnings
 

@@ -1,105 +1,82 @@
 # Contributing
 
-Thanks for your interest in contributing. This project accompanies a
-peer-reviewed manuscript, so the priority is keeping the paper's reported
-results reproducible while allowing the framework to grow beyond the paper's
-original scope.
+This project accompanies a peer-reviewed manuscript. The priority is keeping
+the paper's reported results reproducible while the framework grows beyond
+the paper's original scope.
 
-## Environment setup
+## Setup
 
-Follow the [Quick start](README.md#quick-start) in the README:
-`git clone --recurse-submodules`, then `uv venv --python 3.12 .venv`,
-activate it, and `uv pip install -e .`. See
-[`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) if anything doesn't work
-as documented.
-
-## Tests
-
-Install the test dependencies and run the full suite from the repository
-root:
+Follow [Quick start](README.md#quick-start) in the README, then install the
+test extra:
 
 ```bash
 uv pip install -e ".[dev]"
 pytest
 ```
 
-New code should ship with tests. Tests that exercise the manuscript's
-equations should reference the equation number they cover (see
-`tests/test_paper_equations.py` for the existing convention) and should not
-be looser than the tolerance the paper implies.
+See [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) if setup doesn't
+work as documented.
+
+## Tests
+
+New code ships with tests. Tests exercising a manuscript equation reference
+the equation number (see `tests/test_paper_equations.py`) and use a
+tolerance no looser than the paper implies.
 
 ## Branch naming
 
-This repository uses `refactor/NN-short-description` for structural/
-documentation passes (matching the existing history) and
-`feature/short-description` / `fix/short-description` for new functionality
+`refactor/NN-short-description` for structural/documentation passes,
+`feature/short-description` or `fix/short-description` for functionality
 and bug fixes.
 
 ## Adding a robot
 
-The framework is designed to support cooperative robot embodiments beyond
-the reference dual-Franka-Panda setup through `CooperativeSystemSpec`. See
-[`docs/ADDING_A_ROBOT.md`](docs/ADDING_A_ROBOT.md) for the extension
-interface, the assumption-classification table (math vs. robot-specific vs.
-backend-specific vs. experiment-specific vs. collision), and the validation
-checklist (`bimanual-redopt validate-robot --robot <name>`).
+Cooperative robot embodiments are added through `CooperativeSystemSpec`. See
+[`docs/ADDING_A_ROBOT.md`](docs/ADDING_A_ROBOT.md) for the interface, the
+assumption-classification table, and the validation command
+(`bimanual-redopt validate-robot --robot <name>`).
 
 ## Adding an objective
 
 New manipulability/task objectives belong in `core/objectives.py`, following
 the existing pattern of a raw cost, a scaled cost, and a null-space gradient.
-Any new mathematics must:
+New mathematics needs:
 
-- ship with unit tests exercising the objective directly, not just through
-  an end-to-end experiment run;
-- cite the paper equation, appendix, or external reference it implements, in
-  a docstring or code comment; and
-- be added to [`docs/PAPER_CODE_MAP.md`](docs/PAPER_CODE_MAP.md)'s
-  equation-to-code index if it corresponds to a manuscript equation.
+- unit tests exercising the objective directly, not only through an
+  end-to-end experiment run;
+- a citation to the paper equation, appendix, or external reference it
+  implements, in a docstring or comment;
+- an entry in [`docs/PAPER_CODE_MAP.md`](docs/PAPER_CODE_MAP.md) if it
+  corresponds to a manuscript equation.
 
 ## Preserving paper configs
 
 The TOML files under `configs/paper/` define what "reproduces the paper"
 means for this repository (see
-[`docs/REPRODUCING_THE_PAPER.md`](docs/REPRODUCING_THE_PAPER.md)). Do not
-change their objectives, durations, gains, or robot bases as a side effect
-of unrelated work. If a paper config genuinely needs to change, say so
-explicitly in the PR description and explain why the manuscript's reported
-results are unaffected.
+[`docs/REPRODUCING_THE_PAPER.md`](docs/REPRODUCING_THE_PAPER.md)). Don't
+change their objectives, durations, gains, or robot bases as a side effect of
+unrelated work. If a config genuinely needs to change, explain in the PR why
+the manuscript's reported results are unaffected.
 
 ## Keeping the mathematical core generic
 
-`core/` implements the manuscript's mathematics and should stay free of
-robot-specific, backend-specific (MuJoCo), or experiment-specific assumptions
-— those layers live in `simulation/` and `experiments/` respectively. See
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the intended dependency
-direction. This separation is what makes `CooperativeSystemSpec`-based robot
-extension possible; changes that couple `core/` to one robot or one backend
-will generally be asked to move.
+`core/` implements the manuscript's mathematics and stays free of
+robot-specific, backend-specific (MuJoCo), or experiment-specific
+assumptions; those live in `simulation/` and `experiments/` (see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)). Mink is used as an external
+IK dependency, not a required interface for the core math, and is not
+vendored or forked here. Changes that couple `core/` to one robot, one
+backend, or one IK library will generally be asked to move.
 
-## Third-party attribution
+## Licensing and attribution
 
-If you contribute code or assets derived from another project (a robot
-model, a numerical routine, a config format), identify the upstream source
-and its license in the PR description, and preserve any existing
-copyright/license header rather than replacing it. Only contribute material
-you have the right to submit.
-
-## Licensing
-
-Original code in this repository is released under the Apache License 2.0
-(see [`LICENSE`](LICENSE)); third-party components are catalogued in
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). By contributing, you
-agree to:
-
-- only contribute code or assets you have the right to submit;
-- preserve third-party attribution and license headers rather than
-  overwriting them;
-- clearly identify any imported external material (robot models, numerical
-  routines, config formats) and its upstream license in your PR description,
-  and add it to `THIRD_PARTY_NOTICES.md`; and
-- avoid introducing dependencies with licenses incompatible with Apache-2.0
-  (for example, strong-copyleft licenses) without first discussing it in an
-  issue or PR.
-
-This project does not require a contributor license agreement (CLA).
+Original code is Apache-2.0 (see [`LICENSE`](LICENSE)); third-party
+components are catalogued in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). Contributors must only
+submit code or assets they have the right to submit, preserve existing
+third-party attribution and license headers, identify any imported external
+material and its license in the PR description (adding it to
+`THIRD_PARTY_NOTICES.md`), and avoid introducing dependencies with licenses
+incompatible with Apache-2.0 (for example strong-copyleft licenses) without
+first discussing it in an issue or PR. No contributor license agreement is
+required.

@@ -10,18 +10,23 @@ Journal of Robotics Research and Application*
 
 ## Overview
 
-This repository is the reference implementation for task-specific
-redundancy optimization in cooperative dual-arm manipulation. It implements
-the closed-loop Equation (8) controller from the manuscript for two 7-DoF
-Franka Panda arms cooperatively manipulating a shared object in MuJoCo, and
-compares a trajectory-tracking baseline against null-space optimization
-under several manipulability objectives. Everything needed to reproduce the
-manuscript's spatial simulation campaigns is config-driven and runs through
-a single CLI.
+Reference implementation for task-specific redundancy optimization in
+cooperative dual-arm manipulation: null-space redundancy optimization that
+preserves commanded object motion while shaping velocity, force, and
+directional-force manipulability. The manuscript evaluates this on both
+planar dual-arm hardware and a spatial dual-Franka MuJoCo simulation; this
+repository implements the spatial simulation study, config-driven end to end
+through a single CLI.
 
 The older ROS 1, Gazebo, and MoveIt experiments that predate the MuJoCo
-implementation are retained under `legacy/` for historical reference only;
-they are not part of the active Python environment.
+implementation are retained under `legacy/` for historical reference only
+and are not part of the active Python environment.
+
+## Video
+
+[![Watch the bimanual redundancy optimization experiments](https://img.youtube.com/vi/Ot8UyxMVvxU/hqdefault.jpg)](https://youtu.be/Ot8UyxMVvxU)
+
+[Watch the hardware experiments and dual-Franka simulations](https://youtu.be/Ot8UyxMVvxU)
 
 ## Implemented objectives
 
@@ -49,8 +54,7 @@ this spatial study. The indirect formulation
 (`--objective directional_force_indirect`) compares in velocity-capability
 space and is additionally evaluated in the static and six-dimensional
 comparisons; it corresponds to the formulation used by the manuscript's
-separate planar hardware experiments, which this repository does not
-implement (see [Hardware implementation](#hardware-implementation) below).
+planar hardware experiments (see [Hardware implementation](#hardware-implementation)).
 Full equation-by-function detail is in
 [`docs/PAPER_CODE_MAP.md`](docs/PAPER_CODE_MAP.md).
 
@@ -80,19 +84,19 @@ Validate that the reference robot embodiment loads correctly:
 bimanual-redopt validate-robot --robot dual_franka_panda
 ```
 
-This prints the controlled joint count and the resolved `qpos`/DoF indices —
-a quick sanity check that the MuJoCo model, submodule, and environment are
-all wired up correctly.
+This prints the controlled joint count and the resolved `qpos`/DoF indices:
+a sanity check that the MuJoCo model, submodule, and environment are wired
+up correctly.
 
-Then run a very short, headless smoke pass of one paper campaign end to end
+Then run a short, headless smoke pass of one paper campaign end to end
 (scene construction, controller, and CSV recording, at a tiny simulated
-duration — this checks plumbing, not publication statistics):
+duration, checking plumbing rather than publication statistics):
 
 ```bash
 bimanual-redopt run --config configs/paper/static.toml --smoke
 ```
 
-The command prints the output directory it wrote to under
+The command prints the output directory it wrote under
 `outputs/paper_reproduction/`.
 
 ## Reproduce the paper
@@ -108,19 +112,17 @@ through the same CLI:
 | `directional_direct_vs_indirect.toml` | `bimanual-redopt run --config configs/paper/directional_direct_vs_indirect.toml` | Direct vs. indirect directional-force comparison (Figure 16) |
 
 Run every campaign in one call with `bimanual-redopt reproduce-paper`, or
-`bimanual-redopt reproduce-paper --smoke` for the short plumbing check used
-above.
+`bimanual-redopt reproduce-paper --smoke` for the short plumbing check above.
 
-For the full manuscript-figure-level breakdown, output provenance, and exact
-reproduction caveats, see
+For the full manuscript-figure-level breakdown and output provenance, see
 [`docs/REPRODUCING_THE_PAPER.md`](docs/REPRODUCING_THE_PAPER.md). For
-per-script interactive/ad hoc experiment usage (outside the config-driven
-pipeline), see [`docs/RUNNING_EXPERIMENTS.md`](docs/RUNNING_EXPERIMENTS.md).
+per-script interactive/ad hoc experiment usage outside the config-driven
+pipeline, see [`docs/RUNNING_EXPERIMENTS.md`](docs/RUNNING_EXPERIMENTS.md).
 
-## Paper ↔ Code
+## Paper <-> Code
 
 [`docs/PAPER_CODE_MAP.md`](docs/PAPER_CODE_MAP.md) is the authoritative
-equation index — every manuscript equation number maps to its implementing
+equation index: every manuscript equation number maps to its implementing
 function, file, and test, for example:
 
 | Eq. | What | Function | File |
@@ -147,9 +149,9 @@ breakdown and dependency direction.
 
 ## Hardware implementation
 
-The manuscript also reports planar dual-arm hardware experiments. **That
-hardware implementation is not distributed in this public repository**, and
-the hardware results are not reproducible from this codebase — only the
+The manuscript also reports planar dual-arm hardware experiments. That
+hardware implementation is not distributed in this public repository, and
+the hardware results are not reproducible from this codebase; only the
 spatial MuJoCo simulation study is.
 
 For research inquiries regarding access to the planar hardware
@@ -158,24 +160,17 @@ https://www.linkedin.com/in/baratsuresh2811/
 
 ## Adding another robot
 
-The redundancy-optimization framework is designed to support additional
-cooperative robot embodiments through `CooperativeSystemSpec`, a minimal
-specification interface that separates the generic manipulability
-mathematics from any one robot's kinematics, actuation, or MuJoCo model. See
+The framework supports additional cooperative robot embodiments through
+`CooperativeSystemSpec`, a minimal specification interface that separates
+the generic manipulability mathematics from any one robot's kinematics,
+actuation, or MuJoCo model. See
 [`docs/ADDING_A_ROBOT.md`](docs/ADDING_A_ROBOT.md) for the extension
 interface and checklist.
 
-Contributions are welcome for:
-
-- additional robot embodiments;
-- cooperative grasp configurations;
-- new task-specific objectives;
-- analytical/autodiff gradient implementations; and
-- benchmarking/reproduction tooling.
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines, and
-[`docs/UPSTREAMING.md`](docs/UPSTREAMING.md) for which parts of the codebase
-are generic enough to eventually be proposed to other projects.
+Contributions are welcome for additional robot embodiments, cooperative
+grasp configurations, new task-specific objectives, analytical/autodiff
+gradient implementations, and benchmarking/reproduction tooling. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Citation
 
@@ -194,28 +189,21 @@ metadata is also available in [`CITATION.cff`](CITATION.cff).
 
 ## Development
 
-After the [Quick start](#quick-start) setup, install the test dependencies
-and run the suite from the repository root:
+After [Quick start](#quick-start), install the test dependencies and run the
+suite from the repository root:
 
 ```bash
 uv pip install -e ".[dev]"
 pytest
 ```
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for environment setup details,
-branch naming, and guidelines for adding robots, objectives, or new
-mathematics.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, branch naming, and
+guidelines for adding robots, objectives, or new mathematics.
 
 ## Limitations
 
 - The grasp is generated by physical fingertip contact; there is no weld,
   teleport, or hidden object attachment.
-- The mathematical model assumes fixed full contacts, while the simulation
-  uses frictional contacts. This distinction should be reported when
-  comparing results with the manuscript.
-- The current spatial dual-Franka study is most mature for velocity
-  manipulability. Force and directional-force objectives are implemented for
-  comparison, but their spatial experimental interpretation remains ongoing.
 - The manuscript's planar hardware experiments are not distributed or
   reproducible from this repository (see
   [Hardware implementation](#hardware-implementation)).

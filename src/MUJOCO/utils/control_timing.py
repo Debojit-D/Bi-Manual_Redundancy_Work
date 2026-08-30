@@ -1,4 +1,4 @@
-"""Deprecated shim — import from ``bimanual_redundancy.simulation.control_timing`` instead."""
+"""Deprecated shim: import from ``bimanual_redundancy.simulation.control_timing`` instead."""
 
 import warnings
 

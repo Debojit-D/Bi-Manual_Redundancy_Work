@@ -1,4 +1,4 @@
-"""Deprecated shim — import from ``bimanual_redundancy.experiments.summarize_tracking_latency`` instead."""
+"""Deprecated shim: import from ``bimanual_redundancy.experiments.summarize_tracking_latency`` instead."""
 
 import warnings
 

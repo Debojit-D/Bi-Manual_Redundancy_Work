@@ -1,4 +1,4 @@
-"""Deprecated shim — import from ``bimanual_redundancy.experiments.load_dual_franka_robots_only`` instead."""
+"""Deprecated shim: import from ``bimanual_redundancy.experiments.load_dual_franka_robots_only`` instead."""
 
 import warnings
 

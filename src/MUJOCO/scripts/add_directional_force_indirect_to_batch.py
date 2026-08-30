@@ -1,4 +1,4 @@
-"""Deprecated shim — import from ``bimanual_redundancy.experiments.add_directional_force_indirect_to_batch`` instead."""
+"""Deprecated shim: import from ``bimanual_redundancy.experiments.add_directional_force_indirect_to_batch`` instead."""
 
 import warnings
 

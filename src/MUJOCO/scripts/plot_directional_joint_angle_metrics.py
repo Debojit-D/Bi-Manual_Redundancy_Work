@@ -1,4 +1,4 @@
-"""Deprecated shim — import from ``bimanual_redundancy.plotting.plot_directional_joint_angle_metrics`` instead."""
+"""Deprecated shim: import from ``bimanual_redundancy.plotting.plot_directional_joint_angle_metrics`` instead."""
 
 import warnings
 

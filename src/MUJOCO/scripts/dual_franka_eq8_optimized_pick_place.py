@@ -1,4 +1,4 @@
-"""Deprecated shim — import from ``bimanual_redundancy.experiments.dual_franka_eq8_optimized_pick_place`` instead."""
+"""Deprecated shim: import from ``bimanual_redundancy.experiments.dual_franka_eq8_optimized_pick_place`` instead."""
 
 import warnings
 

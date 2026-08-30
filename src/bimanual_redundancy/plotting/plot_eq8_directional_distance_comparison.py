@@ -157,7 +157,7 @@ def plot_raw_distance(run):
     axis.set(
         xlabel="Time (s)",
         ylabel=r"Normalized Frobenius distance $D(q)$",
-        title=f"{CASE_TITLES[case]} — {direction}",
+        title=f"{CASE_TITLES[case]} ({direction})",
     )
     axis.text(
         0.99,

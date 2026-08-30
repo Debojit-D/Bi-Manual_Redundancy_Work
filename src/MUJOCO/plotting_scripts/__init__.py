@@ -1,2 +1,2 @@
-"""Deprecated compatibility namespace — see ``bimanual_redundancy.plotting``.
+"""Deprecated compatibility namespace: see ``bimanual_redundancy.plotting``.
 """

@@ -1,4 +1,4 @@
-"""Deprecated shim — import from ``bimanual_redundancy.plotting.plot_directional_force_cross_evaluation`` instead."""
+"""Deprecated shim: import from ``bimanual_redundancy.plotting.plot_directional_force_cross_evaluation`` instead."""
 
 import warnings
 

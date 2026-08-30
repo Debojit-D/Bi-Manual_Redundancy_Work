@@ -10,7 +10,7 @@ INCOMPLETE_SWEEP_MARKER = "COMPARISON_SWEEP_INCOMPLETE:"
 def print_run_failure(run_label, error):
     """Print one machine-detectable red warning for a failed run."""
     print(
-        f"{ANSI_BRIGHT_RED}{RUN_FAILURE_MARKER} {run_label} — "
+        f"{ANSI_BRIGHT_RED}{RUN_FAILURE_MARKER} {run_label}: "
         f"{type(error).__name__}: {error}. "
         "Please re-record this run; continuing with the remaining runs."
         f"{ANSI_RESET}",

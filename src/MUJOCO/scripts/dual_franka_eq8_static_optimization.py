@@ -1,4 +1,4 @@
-"""Deprecated shim — import from ``bimanual_redundancy.experiments.dual_franka_eq8_static_optimization`` instead."""
+"""Deprecated shim: import from ``bimanual_redundancy.experiments.dual_franka_eq8_static_optimization`` instead."""
 
 import warnings
 

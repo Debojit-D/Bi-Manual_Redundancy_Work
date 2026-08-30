@@ -2,12 +2,11 @@
 
 ## Installation
 
-### `python3.12` is not installed
+### `python3.12` not found
 
-The project is tested with Python 3.12. Ubuntu 20.04 and some other older
-distributions do not provide it in their standard repositories. Install a
-user-local Python with [uv](https://docs.astral.sh/uv/) instead — this does
-not replace the operating system's Python:
+Older distributions (Ubuntu 20.04 and earlier) don't ship Python 3.12.
+Install a user-local one with [uv](https://docs.astral.sh/uv/), which does
+not replace the system Python:
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -15,26 +14,17 @@ source "$HOME/.local/bin/env"
 uv python install 3.12
 uv venv --python 3.12 .venv
 source .venv/bin/activate
-python --version  # Must report Python 3.12.x
 uv pip install -e .
 ```
 
-`uv venv` creates a minimal environment without the `pip` Python module by
-default, so `python -m pip` will report `No module named pip` in this setup.
-Use `uv pip` as shown above. Alternatively, `uv venv --seed --python 3.12
-.venv` creates an environment containing `pip`.
+`uv venv` creates an environment without the `pip` module by default, so
+`python -m pip` reports `No module named pip`; use `uv pip` as above, or
+`uv venv --seed --python 3.12 .venv` to include `pip`.
 
-If creating `.venv` fails, stop there: activation and installation cannot work
-until the environment exists. Outside an activated environment, `python` may
-refer to Python 2 on older Linux installations.
-
-Do not substitute an older system `python3` when creating the environment.
-The pinned dependencies are tested with Python 3.12; on older interpreters,
-pip may misleadingly report that it cannot find `mink==1.1.1` — the release
-is being hidden because it is not compatible with that interpreter.
-
-Avoid launching experiment scripts with `/usr/bin/python3`, because that
-bypasses the activated virtual environment.
+Don't substitute an older system `python3`: pinned dependencies are tested
+with 3.12, and on older interpreters pip may report it cannot find
+`mink==1.1.1` (the release is hidden as incompatible with that interpreter,
+not actually missing).
 
 ### Verifying the installation
 
@@ -44,22 +34,16 @@ python -c "import importlib.metadata as m, mujoco; from qpsolvers import availab
 
 `daqp` must appear in the solver list.
 
-### `ffmpeg` is missing
+### `ffmpeg` missing
 
-Headless MP4 recording requires the `ffmpeg` executable:
-
-```bash
-ffmpeg -version
-```
-
-On Ubuntu, install it with `sudo apt install ffmpeg` if it is missing.
+Headless MP4 recording needs the `ffmpeg` executable (`ffmpeg -version` to
+check; `sudo apt install ffmpeg` on Ubuntu).
 
 ## Runtime
 
 ### `SolverNotFound: osqp`
 
-The active scripts use DAQP. Confirm the local environment is active and DAQP
-is available:
+The active scripts use DAQP, not osqp. Confirm it's available:
 
 ```bash
 python -c "from qpsolvers import available_solvers; print(available_solvers)"
@@ -67,7 +51,7 @@ python -c "from qpsolvers import available_solvers; print(available_solvers)"
 
 ### `ModuleNotFoundError: bimanual_redundancy`
 
-Install the repository editable from its root:
+The package isn't installed in the active environment:
 
 ```bash
 source .venv/bin/activate
@@ -76,17 +60,14 @@ python -m pip install -e .
 
 ### Viewer does not open
 
-The interactive viewer requires a working desktop/OpenGL display. The
-`--record-video` path opens no visible simulation window, but its invisible
-GLFW rendering context still requires a working OpenGL/display environment on
-the current machine. Confirm `ffmpeg -version` succeeds before recording.
+The interactive viewer needs a working desktop/OpenGL display.
+`--record-video` opens no visible window but still needs a working
+OpenGL/display environment for its invisible GLFW context. For fully
+headless environments (including CI), set `MUJOCO_GL=osmesa` (or `egl` with
+a GPU/EGL driver) before running any command that constructs a MuJoCo scene.
 
-For fully headless environments (including CI), set `MUJOCO_GL=osmesa` (or
-`egl` if a GPU/EGL driver is available) before running any command that
-constructs a MuJoCo scene.
+### Publication figures use DejaVu Serif instead of Times New Roman
 
-### Publication figures use a fallback font instead of Times New Roman
-
-Times New Roman must be supplied locally (project-relative
-`outputs/.fonts/times-new-roman/`, or installed system-wide) for strict
-publication typography — it is never bundled or downloaded by this project.
+Times New Roman is never bundled or downloaded by this project; it must be
+supplied locally (`outputs/.fonts/times-new-roman/`, or installed
+system-wide) for strict publication typography.

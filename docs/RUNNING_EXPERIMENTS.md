@@ -1,17 +1,17 @@
 # Running the experiment scripts
 
-This is a reference for the individual, ad hoc `bimanual_redundancy.experiments`
-and `bimanual_redundancy.plotting` scripts — interactive viewers, per-script
-CLI flags, output paths, and the in-file constants each runner exposes.
+Reference for the individual, ad hoc `bimanual_redundancy.experiments` and
+`bimanual_redundancy.plotting` scripts: interactive viewers, per-script CLI
+flags, output paths, and the in-file constants each runner exposes.
 
-This is **not** the paper-reproduction pipeline. For the config-driven
-commands that reproduce the manuscript's campaigns
-(`bimanual-redopt run` / `bimanual-redopt reproduce-paper`), see
-[`REPRODUCING_THE_PAPER.md`](REPRODUCING_THE_PAPER.md) instead. The scripts
-documented here are the underlying runners that both the interactive
-workflow below and the config-driven pipeline call into.
+This is **not** the paper-reproduction pipeline; see
+[`REPRODUCING_THE_PAPER.md`](REPRODUCING_THE_PAPER.md) for the config-driven
+commands (`bimanual-redopt run` / `reproduce-paper`) that reproduce the
+manuscript's campaigns. Those commands call into the same runners documented
+here.
 
-Run commands from the repository root after activating `.venv`.
+Run commands from the repository root after activating `.venv` (see
+[Quick start](../README.md#quick-start)).
 
 ## Scene preview
 
@@ -113,14 +113,12 @@ Sequence:
 3. maintain zero desired object velocity; and
 4. continuously apply `(I - J_H^dagger J_H) phi_dot_opt`.
 
-The standalone runner remains independently usable. Select an objective with
-`--objective velocity`, `--objective force`, `--objective
-directional_force` (Eq. 16, direct), or `--objective
+Select an objective with `--objective velocity`, `--objective force`,
+`--objective directional_force` (Eq. 16, direct), or `--objective
 directional_force_indirect` (Eq. 17, indirect); use `--baseline` to
-suppress the null-space term while monitoring the selected metric. It
-starts immediately after the
-grasp is established and can either run until the viewer closes or for a fixed
-`--duration`.
+suppress the null-space term while monitoring the selected metric. It starts
+immediately after the grasp is established and runs until the viewer closes
+or for a fixed `--duration`.
 
 ## Static comparison (baseline plus four objectives)
 
@@ -133,10 +131,10 @@ python -m bimanual_redundancy.experiments.dual_franka_eq8_static_comparison
 
 The order is baseline, velocity manipulability, force manipulability,
 direct directional-force manipulability (Eq. 16), and indirect
-directional-force manipulability (Eq. 17) -- the manuscript's matched
-static comparison of both directional-force formulations. Each mode starts
-immediately after the
-grasp is established. It advances automatically once the maximum applied
+directional-force manipulability (Eq. 17): the manuscript's matched static
+comparison of both directional-force formulations. Each mode starts
+immediately after the grasp is established. It advances automatically once
+the maximum applied
 null-space joint speed remains at or below `0.005 rad/s` for `0.5 s` (after a
 minimum run time of `1 s`). Closing a viewer early also advances to the next
 mode. Customize the convergence rule or record the sequence with:
@@ -352,3 +350,6 @@ unchanged. Its footprint is configured once in
 The direct directional-force cost (Eq. 16) is minimized automatically; the
 velocity, force, and indirect directional-force (Eq. 17) objectives are
 maximized.
+
+See [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) for viewer, rendering, and
+solver failures.

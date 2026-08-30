@@ -1,31 +1,30 @@
 # MuJoCo project profiles
 
-These profiles belong to this robot project rather than to the reusable
-`mujoco_curobo_bridge` submodule.
+Sphere-fitting profiles for this project, distinct from the reusable
+`mujoco_curobo_bridge` submodule itself.
 
-Generate fitted spheres for both complete Panda robots from the repository
-root:
+Generate fitted spheres for both Panda robots from the repository root:
 
 ```bash
 python -m mujoco_curobo_bridge.robot_spheres \
   --config configs/robots/dual_panda_full_arm.json
 ```
 
-When running the bridge as an editable package instead, the equivalent entry
-point is:
+Or, with the bridge installed as an editable package:
 
 ```bash
-mujoco-fit-spheres --config MUJOCO/configs/dual_panda_full_arm.json
+mujoco-fit-spheres --config configs/robots/dual_panda_full_arm.json
 ```
 
-The profile deliberately uses the robot-only MJCF. Environment geometry such
-as tables should remain analytic obstacles and should not be sphere-fitted.
+The profile uses the robot-only MJCF; environment geometry such as tables
+stays as analytic obstacles and is not sphere-fitted.
 
-The runtime reference embodiment is registered as `dual_franka_panda` in
+The runtime reference embodiment is `dual_franka_panda`, registered in
 `bimanual_redundancy.systems`. Validate it with:
 
 ```bash
 bimanual-redopt validate-robot --robot dual_franka_panda
 ```
 
-See `docs/ADDING_A_ROBOT.md` for the minimal specification interface.
+See [`docs/ADDING_A_ROBOT.md`](../../docs/ADDING_A_ROBOT.md) for the
+specification interface.

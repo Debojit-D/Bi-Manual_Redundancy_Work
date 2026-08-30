@@ -1,4 +1,4 @@
-"""Deprecated shim — import from ``bimanual_redundancy.plotting.plot_eq8_pick_place_comparison`` instead."""
+"""Deprecated shim: import from ``bimanual_redundancy.plotting.plot_eq8_pick_place_comparison`` instead."""
 
 import warnings
 

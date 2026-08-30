@@ -43,7 +43,7 @@ controller behavior, and paper objective values are regression tested.
 
 ## Assumption classification
 
-| Assumption | Classification | Location after this refactor |
+| Assumption | Classification | Location |
 |---|---|---|
 | Eq. (8), (13), (14), (16), and (17), grasp matrix algebra, null-space projection | mathematical | `core/`; no embodiment names |
 | Joint/actuator names, hand and object sites, qpos/DoF mapping, limits, base/gripper names | robot-specific | `CooperativeSystemSpec` and its registered embodiment |

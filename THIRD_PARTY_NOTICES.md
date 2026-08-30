@@ -5,8 +5,8 @@ Original code in this repository is released under the Apache License 2.0
 dependency, submodule, and vendored asset identified in this repository, its
 license, and its relationship to this project. It was produced by directly
 inspecting this repository's files, embedded license/README text, installed
-package metadata, and — where a component's own files did not state a
-license — the corresponding upstream repository's declared license.
+package metadata, and (where a component's own files did not state a
+license) the corresponding upstream repository's declared license.
 
 Nothing below was guessed. Where a license could not be established with
 confidence, it is explicitly marked **"Requires manual licensing review"**
@@ -41,10 +41,10 @@ terms attach to `qpsolvers` itself, not to this repository's Apache-2.0 code.
 
 | Name | Upstream | License | Location | Relationship |
 |---|---|---|---|---|
-| `mujoco_curobo_bridge` | https://github.com/Debojit-D/mujoco_curobo_bridge | **Requires manual licensing review** — no `LICENSE` file and no `license` field in its `pyproject.toml` | `mujoco_curobo_bridge/` (git submodule) | Submodule (same author, separate repository) |
+| `mujoco_curobo_bridge` | https://github.com/Debojit-D/mujoco_curobo_bridge | **Requires manual licensing review**: no `LICENSE` file and no `license` field in its `pyproject.toml` | `mujoco_curobo_bridge/` (git submodule) | Submodule (same author, separate repository) |
 
 `mujoco_curobo_bridge` is the same author's own separate GitHub repository,
-pinned here via `.gitmodules` as a git submodule — it is not vendored source
+pinned here via `.gitmodules` as a git submodule. It is not vendored source
 in this repository, and this repository's Apache-2.0 license does not cover
 it (submodules are independent repositories with independent licensing).
 It currently has no license file of its own, so by default no reuse
@@ -58,7 +58,7 @@ runtime dependency the user installs separately (`git clone
 https://github.com/NVlabs/curobo.git`, outside this repository); cuRobo
 itself is not vendored in this repository or in the submodule.
 
-## Robot models (MJCF, vendored — not submodules)
+## Robot models (MJCF, vendored, not submodules)
 
 ### `models/robots/franka_emika_panda/`
 
@@ -71,11 +71,11 @@ itself is not vendored in this repository or in the submodule.
   `models/robots/franka_emika_panda/LICENSE` file in this repository (2)
   Menagerie's own repository LICENSE file has a `franka_emika_panda/`
   section that is the identical Apache-2.0 text.
-- **Relationship**: copied asset (with local modifications — this
+- **Relationship**: copied asset, with local modifications (this
   repository adds `dual_panda_*.xml` scene compositions, MJX variants, and
   the sphere-fit collision scene layered on top of the vendored geometry and
   MJCF).
-- **Action taken**: none — the embedded `LICENSE` file is preserved
+- **Action taken**: none. The embedded `LICENSE` file is preserved
   byte-for-byte, unchanged.
 
 ### `models/robots/franka_fr3/`
@@ -87,7 +87,7 @@ itself is not vendored in this repository or in the submodule.
   (embedded `LICENSE` file + Menagerie's own aggregate LICENSE file has a
   matching `franka_fr3/` Apache-2.0 section).
 - **Relationship**: copied asset.
-- **Action taken**: none — the embedded `LICENSE` file is preserved
+- **Action taken**: none. The embedded `LICENSE` file is preserved
   byte-for-byte, unchanged.
 
 ### `models/robots/heal/`
@@ -109,7 +109,7 @@ itself is not vendored in this repository or in the submodule.
 ### `models/objects/furniture/ventionTable/` and `ventionTable.xml`
 
 - **Upstream**: `vikashplus/furniture_sim`
-  (https://github.com/vikashplus/furniture_sim) — stated explicitly in an
+  (https://github.com/vikashplus/furniture_sim), stated explicitly in an
   embedded comment header in both `ventionTable_asset.xml` and
   `ventionTable_body.xml`: `Model :: Vention table (MuJoCoV2.0)` /
   `Details :: https://github.com/vikashplus/furniture_sim`.
@@ -132,7 +132,7 @@ Menagerie-derived files. See those two entries.
 `configs/robots/dual_panda_full_arm.json` is a project-original
 configuration file (paths, sphere-fitting parameters) consumed by the
 `mujoco_curobo_bridge` submodule's sphere-generation tooling. It contains no
-copied cuRobo source or NVIDIA-authored content — it is this project's own
+copied cuRobo source or NVIDIA-authored content; it is this project's own
 input to that tool. cuRobo itself is never vendored in this repository (see
 the submodule entry above): it is installed separately by anyone who wants
 to run the sphere-fitting workflow.

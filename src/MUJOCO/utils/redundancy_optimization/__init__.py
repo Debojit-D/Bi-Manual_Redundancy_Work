@@ -1,4 +1,4 @@
-"""Deprecated shim — import from ``bimanual_redundancy.core`` and
+"""Deprecated shim: import from ``bimanual_redundancy.core`` and
 ``bimanual_redundancy.simulation`` instead.
 """
 
