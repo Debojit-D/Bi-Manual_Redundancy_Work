@@ -17,7 +17,7 @@ window.SITE_CONFIG = {
       label: "Code"
     },
     video: {
-      url: "https://www.youtube.com/watch?v=Ot8UyxMVvxU",
+      url: "https://youtu.be/mEqmoEVfY48",
       label: "Video"
     }
   },
