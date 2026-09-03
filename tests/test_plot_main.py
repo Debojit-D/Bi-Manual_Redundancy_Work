@@ -243,6 +243,7 @@ class PlotMainTests(unittest.TestCase):
         arguments = plot_main.parse_arguments([])
 
         self.assertEqual(arguments.stage, "all")
+        self.assertFalse(arguments.strict_fonts)
 
 
 if __name__ == "__main__":

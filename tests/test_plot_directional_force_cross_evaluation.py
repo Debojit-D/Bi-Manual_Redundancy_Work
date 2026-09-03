@@ -12,6 +12,11 @@ from bimanual_redundancy.plotting import plot_directional_force_cross_evaluation
 
 
 class DirectionalForceCrossEvaluationTests(unittest.TestCase):
+    def test_strict_fonts_flag_is_opt_in(self):
+        arguments = cross_plot.parse_arguments([])
+
+        self.assertFalse(arguments.strict_fonts)
+
     def test_metrics_are_recomputed_from_velocity_map(self):
         velocity_map = np.zeros((6, 14))
         velocity_map[:, :6] = np.diag([2.0, 1.5, 1.0, 0.8, 0.7, 0.6])
