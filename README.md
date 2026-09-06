@@ -3,8 +3,9 @@
 **Paper:** *Task-Specific Manipulability Metrics for Redundancy Optimization
 in Cooperative Manipulation*
 **Authors:** Debojit Das, Barat S., Harish J. Palanthandalam-Madapusi
-**Status:** Provisionally accepted, *Industrial Robot: The International
-Journal of Robotics Research and Application*
+**Status:** Accepted for publication (accepted 2026-09-05), *Industrial Robot:
+The International Journal of Robotics Research and Application*
+**DOI:** [10.1108/IR-05-2026-0221](https://doi.org/10.1108/IR-05-2026-0221)
 **Project website:** https://debojit-d.github.io/Bimanual-Redundancy-Optimization/
 **Repository:** https://github.com/Debojit-D/Bimanual-Redundancy-Optimization
 
@@ -192,7 +193,8 @@ metadata is also available in [`CITATION.cff`](CITATION.cff).
   author  = {Das, Debojit and S., Barat and Palanthandalam-Madapusi, Harish J.},
   journal = {Industrial Robot: The International Journal of Robotics Research and Application},
   year    = {2026},
-  note    = {Provisionally accepted}
+  doi     = {10.1108/IR-05-2026-0221},
+  note    = {Accepted for publication on 2026-09-05}
 }
 ```
 
