@@ -1,7 +1,7 @@
 window.SITE_CONFIG = {
   project: {
     title: "Task-Specific Manipulability Metrics for Redundancy Optimization in Cooperative Manipulation",
-    status: "Provisionally accepted",
+    status: "Accepted for publication · 05 Sep 2026",
     venue: "Industrial Robot: The International Journal of Robotics Research and Application",
     venueUrl: "https://www.emeraldgrouppublishing.com/journal/ir"
   },
@@ -15,6 +15,10 @@ window.SITE_CONFIG = {
     code: {
       url: "https://github.com/Debojit-D/Bimanual-Redundancy-Optimization",
       label: "Code"
+    },
+    doi: {
+      url: "https://doi.org/10.1108/IR-05-2026-0221",
+      label: "DOI"
     },
     video: {
       url: "https://youtu.be/CubFLF5DAzE",
@@ -82,7 +86,8 @@ window.SITE_CONFIG = {
   author  = {Das, Debojit and S., Barat and Palanthandalam-Madapusi, Harish J.},
   journal = {Industrial Robot: The International Journal of Robotics Research and Application},
   year    = {2026},
-  note    = {Provisionally accepted}
+  doi     = {10.1108/IR-05-2026-0221},
+  note    = {Accepted for publication}
 }`
   },
 
